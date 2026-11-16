@@ -6,7 +6,7 @@ App Android (tablet de parede) para acompanhar um aquário marinho: medições, 
 
 - [x] Bloco A (essencial): login com sessão persistente, Room, sincronização offline, Registrar, Histórico, Meu Aquário, Produtos e Rotinas, Painel com alertas, lembretes locais com som, vitrine com bolhas, modo noite
 - [x] Bloco B (acompanhamento): gráficos com projeção, Saúde (casos e entradas com foto), Equipamentos, nota de saúde explicada
-- [ ] Bloco C (nuvem e IA): Edge Functions, ntfy, IA, e-mail semanal
+- [x] Bloco C (nuvem e IA): código pronto (Edge Functions `assistant` e `notifier`, cron, telas). **Falta publicar**: depende dos secrets abaixo. Ainda não foi executado contra o projeto real.
 
 ## Testes
 
@@ -62,6 +62,21 @@ Secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Gu
 - URL e publishable key ficam em `gradle.properties` (são públicas por natureza). Nenhum segredo vai no APK ou no repositório.
 - Migrações em `supabase/migrations`, na ordem do nome. Enquanto o deploy automático não existe: painel do Supabase > SQL Editor > New query, colar o conteúdo de cada arquivo e Run, na ordem: `..._schema.sql`, `..._seed.sql`, `..._sync_cursor.sql`, `..._avisos_e_ia.sql`. Todas podem ser rodadas de novo sem duplicar nada.
 - O seed grava os dados no primeiro usuário de `auth.users`.
+
+## Bloco C: publicar o backend (uma vez)
+
+1. No GitHub: Settings > Secrets and variables > Actions > New repository secret. Criar:
+   - `SUPABASE_ACCESS_TOKEN`: gerar em https://supabase.com/dashboard/account/tokens
+   - `ANTHROPIC_API_KEY`: gerar no Console da Anthropic (conta com crédito)
+   - `RESEND_API_KEY`: gerar no Resend. A conta do Resend precisa usar o mesmo e-mail do login do app, porque sem domínio próprio o Resend só entrega para o dono da conta.
+   - `NTFY_TOPIC`: um nome longo e aleatório, por exemplo `luluco-` seguido de 32 letras e números. Quem souber o nome consegue ler os avisos, então não divulgue.
+2. Actions > "Backend Supabase" > Run workflow. Ele aplica as migrações, publica as funções, grava os secrets delas e agenda o cron (a cada 5 min e domingo 10h).
+3. No iPhone: instalar o app **ntfy**, tocar em "+" e assinar o mesmo nome usado em `NTFY_TOPIC`.
+4. No app: Ajustes > Avisos no iPhone > "Enviar teste" (push e e-mail).
+
+Limites da IA: no máximo 60 chamadas por dia por usuário e saída limitada a 2000 tokens. Modelo em `ANTHROPIC_MODEL` (padrão `claude-haiku-5-5`).
+
+As regras do servidor (`supabase/functions/_shared/rules.ts`) espelham as do app e têm testes com os mesmos casos (`deno test supabase/functions/_shared/`).
 
 ## Instalar no Fire
 
