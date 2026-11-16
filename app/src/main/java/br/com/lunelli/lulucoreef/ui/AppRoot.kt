@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -70,10 +71,13 @@ sealed interface Screen {
 class Nav {
     val stack = mutableStateListOf<Screen>(Screen.Painel)
     val current: Screen get() = stack.last()
-    fun go(s: Screen) { stack.add(s) }
-    fun back() { if (stack.size > 1) stack.removeAt(stack.lastIndex) }
-    fun replace(s: Screen) { stack[stack.lastIndex] = s }
-    fun top(s: Screen) { stack.clear(); stack.add(s) }
+
+    /** Chamado antes de trocar de tela: solta o foco para o teclado fechar. */
+    var onLeave: () -> Unit = {}
+    fun go(s: Screen) { onLeave(); stack.add(s) }
+    fun back() { if (stack.size > 1) { onLeave(); stack.removeAt(stack.lastIndex) } }
+    fun replace(s: Screen) { onLeave(); stack[stack.lastIndex] = s }
+    fun top(s: Screen) { onLeave(); stack.clear(); stack.add(s) }
 }
 
 private val tabs = listOf(
@@ -137,6 +141,11 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
 @Composable
 private fun MainScaffold(vm: MainViewModel, nav: Nav) {
     BackHandler(enabled = nav.stack.size > 1) { nav.back() }
+    val focus = LocalFocusManager.current
+    DisposableEffect(nav, focus) {
+        nav.onLeave = { focus.clearFocus(force = true) }
+        onDispose { nav.onLeave = {} }
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth > maxHeight
         if (wide) {
