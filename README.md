@@ -4,10 +4,14 @@ App Android (tablet de parede) para acompanhar um aquário marinho: medições, 
 
 ## Estado
 
-- [x] Bloco A.1: projeto Android, tema, ícone, CI gerando APK
-- [x] Bloco A.2: prova de conexão com o Supabase (TLS com raízes embutidas, login, consulta)
-- [x] Bloco A.3: migrações SQL com RLS e seeds (`supabase/migrations`)
-- [ ] Bloco A.4 em diante
+- [x] Bloco A (essencial): login com sessão persistente, Room, sincronização offline, Registrar, Histórico, Meu Aquário, Produtos e Rotinas, Painel com alertas, lembretes locais com som, vitrine com bolhas, modo noite
+- [x] Bloco B (acompanhamento): gráficos com projeção, Saúde (casos e entradas com foto), Equipamentos, nota de saúde explicada
+- [ ] Bloco C (nuvem e IA): Edge Functions, ntfy, IA, e-mail semanal
+
+## Testes
+
+- Unitários (`app/src/test`): regras de faixa, projeção, alertas, rotinas, doses, nota de saúde, JSON do Supabase.
+- Fumaça em emulador **Android 5.1 (API 22)** no CI (`app/src/androidTest`): handshake TLS real com o Supabase usando as raízes embutidas e o fluxo principal das telas, offline.
 
 ## Dispositivo alvo e versões fixadas
 
@@ -23,10 +27,14 @@ O AndroidX passou a exigir minSdk 23 nas versões novas. Ficam fixadas as últim
 | activity-compose | 1.10.1 | 1.11+ exige API 23 |
 | core-ktx | 1.16.0 | 1.17+ exige API 23 |
 | lifecycle | 2.9.1 | 2.10+ exige API 23 |
+| Room | 2.7.2 | 2.8+ exige API 23 |
+| WorkManager | 2.10.3 | 2.11+ exige API 23 |
+| KSP | 2.1.20-1.0.32 | par do Kotlin 2.1.20 |
+| kotlinx-serialization-json | 1.8.1 | |
 | OkHttp | 4.12.0 | suporta Android 5.0+ |
 | desugar_jdk_libs | 2.1.5 | java.time no Android 5.1 |
 
-Decisão de UI: **Jetpack Compose (Material 3)**. Compila e empacota com minSdk 22 nas versões acima. Decisão fechada.
+Decisão de UI: **Jetpack Compose (Material 3)**. Compila e empacota com minSdk 22 nas versões acima. Decisão fechada. Navegação própria (pilha simples), sem a biblioteca Navigation, para ficar leve no Fire.
 
 Rede: OkHttp chamando REST e Auth do Supabase direto (sem supabase-kt).
 
@@ -52,7 +60,7 @@ Secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Gu
 ## Supabase
 
 - URL e publishable key ficam em `gradle.properties` (são públicas por natureza). Nenhum segredo vai no APK ou no repositório.
-- Migrações em `supabase/migrations`, na ordem do nome. Enquanto o deploy automático não existe: painel do Supabase > SQL Editor > New query, colar o conteúdo de cada arquivo e Run, primeiro `..._schema.sql`, depois `..._seed.sql`. As duas podem ser rodadas de novo sem duplicar nada.
+- Migrações em `supabase/migrations`, na ordem do nome. Enquanto o deploy automático não existe: painel do Supabase > SQL Editor > New query, colar o conteúdo de cada arquivo e Run, na ordem: `..._schema.sql`, `..._seed.sql`, `..._sync_cursor.sql`. Todas podem ser rodadas de novo sem duplicar nada.
 - O seed grava os dados no primeiro usuário de `auth.users`.
 
 ## Instalar no Fire
