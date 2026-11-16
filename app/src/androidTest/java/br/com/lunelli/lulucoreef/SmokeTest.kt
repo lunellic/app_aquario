@@ -139,6 +139,9 @@ class SmokeTest {
             compose.onNodeWithText("Salvar").performScrollTo().performClick()
             compose.onNodeWithText("Nova entrada").assertIsDisplayed()
             compose.onNodeWithText("Voltar").performClick()
+            compose.waitForIdle()
+            val n = compose.onNodeWithText("Casos abertos (1)").fetchSemanticsNode()
+            android.util.Log.e("LULUCO", "no=${n.boundsInWindow} root=${n.root?.boundsInWindow} placed=${n.layoutInfo.isPlaced} raiz=${compose.onAllNodes(androidx.compose.ui.test.isRoot()).fetchSemanticsNodes().map { it.boundsInWindow }}")
             compose.onNodeWithText("Casos abertos (1)").assertIsDisplayed()
 
             // Rotinas, Equipamentos e Ajustes abrem sem quebrar
