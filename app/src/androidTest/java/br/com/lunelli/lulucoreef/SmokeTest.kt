@@ -138,17 +138,7 @@ class SmokeTest {
             compose.onNodeWithText("Título (ex.: Duncan fechado)").performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar").performScrollTo().performClick()
             compose.onNodeWithText("Nova entrada").assertIsDisplayed()
-            compose.onNodeWithText("Voltar").performClick()
-            compose.waitForIdle()
-            if (compose.onAllNodesWithText("Casos abertos (1)").fetchSemanticsNodes().isEmpty()) {
-                compose.onAllNodes(androidx.compose.ui.test.isRoot()).fetchSemanticsNodes().forEach { root ->
-                    fun dump(n: androidx.compose.ui.semantics.SemanticsNode, d: Int) {
-                        android.util.Log.e("LULUCO", " ".repeat(d) + n.config.joinToString { "${it.key.name}=${it.value}" }.take(160))
-                        n.children.forEach { dump(it, d + 1) }
-                    }
-                    dump(root, 0)
-                }
-            }
+            compose.onNodeWithText("Voltar").performScrollTo().performClick()
             compose.onNodeWithText("Casos abertos (1)").assertIsDisplayed()
 
             // Rotinas, Equipamentos e Ajustes abrem sem quebrar
