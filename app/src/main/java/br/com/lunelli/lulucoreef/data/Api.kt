@@ -18,7 +18,8 @@ class SessionExpiredException : IOException("Sessão expirada")
 
 /** REST, Auth e Storage do Supabase via OkHttp. Chamadas bloqueantes: usar em Dispatchers.IO. */
 class Api(context: Context, private val session: SessionStore) {
-    private val http by lazy { TrustedHttp.client(context) }
+    private val real by lazy { TrustedHttp.client(context) }
+    private val http get() = if (offlineForTests) throw IOException("offline (teste)") else real
     private val base = BuildConfig.SUPABASE_URL
     private val key = BuildConfig.SUPABASE_KEY
     private val jsonType = "application/json; charset=utf-8".toMediaType()
@@ -108,6 +109,9 @@ class Api(context: Context, private val session: SessionStore) {
         }
 
     companion object {
+        /** So para testes instrumentados: simula aparelho sem rede. */
+        @Volatile var offlineForTests = false
+
         fun errorMessage(body: String): String = try {
             val o = JSONObject(body)
             listOf("msg", "error_description", "message", "error").map { o.optString(it) }.firstOrNull { it.isNotEmpty() } ?: body.take(300)
