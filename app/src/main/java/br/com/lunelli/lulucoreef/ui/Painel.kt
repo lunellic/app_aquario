@@ -26,6 +26,7 @@ import br.com.lunelli.lulucoreef.data.ParamRange
 import br.com.lunelli.lulucoreef.data.Product
 import br.com.lunelli.lulucoreef.data.Routine
 import br.com.lunelli.lulucoreef.domain.Alert
+import br.com.lunelli.lulucoreef.domain.allAlerts
 import br.com.lunelli.lulucoreef.domain.DAY_MS
 import br.com.lunelli.lulucoreef.domain.HealthScore
 import br.com.lunelli.lulucoreef.domain.OccState
@@ -73,10 +74,8 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     val productById = remember(products) { products.associateBy { it.id } }
 
     val today = remember(routines, logs, now) { occurrencesOn(routines, logs, now.toLocalDate(zone), zone) }
-    val alerts = remember(tests, ranges, changes, today, now) {
-        (paramAlerts(tests, ranges, now) + listOfNotNull(tpaAlert(changes, now)) + lateRoutineAlerts(today, now))
-            .sortedBy { if (it.severity == Status.CRITICO) 0 else 1 }
-    }
+    val entries by vm.entries.collectAsStateWithLifecycle()
+    val alerts = remember(tests, ranges, changes, today, cases, entries, now) { allAlerts(tests, ranges, changes, today, cases, entries, now) }
     val health = remember(tests, ranges, changes, routines, logs, cases, now) { healthScore(tests, ranges, changes, routines, logs, cases, now, zone) }
     var showScore by remember { mutableStateOf(false) }
     val needAnchor = routines.filter { it.ativa && it.isInterval() && it.proximaEm == null }

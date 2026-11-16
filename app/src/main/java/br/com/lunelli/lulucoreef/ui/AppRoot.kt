@@ -47,6 +47,10 @@ sealed interface Screen {
     data object Aquario : Screen { override val topLevel = true }
     data object Rotinas : Screen { override val topLevel = true }
     data object Config : Screen { override val topLevel = true }
+    data object Graficos : Screen { override val topLevel = true }
+    data object Saude : Screen { override val topLevel = true }
+    data object Equipamentos : Screen { override val topLevel = true }
+    data object Mais : Screen { override val topLevel = true }
 
     data class TestForm(val edit: WaterTest? = null) : Screen
     data class TpaForm(val edit: WaterChange? = null, val occurrence: Occurrence? = null) : Screen
@@ -56,7 +60,10 @@ sealed interface Screen {
     data class LivestockForm(val id: String? = null, val tipo: String = "coral") : Screen
     data class CoralProtocol(val id: String) : Screen
     data class ProductForm(val id: String? = null) : Screen
-    data class RoutineForm(val id: String? = null) : Screen
+    data class RoutineForm(val id: String? = null, val equipmentId: String? = null) : Screen
+    data class CaseForm(val id: String? = null) : Screen
+    data class CaseDetail(val id: String) : Screen
+    data class EquipmentForm(val id: String? = null) : Screen
     data class RoutineHistory(val id: String) : Screen
 }
 
@@ -74,9 +81,15 @@ private val tabs = listOf(
     Screen.Registrar to "Registrar",
     Screen.Historico to "Histórico",
     Screen.Aquario to "Meu Aquário",
+    Screen.Graficos to "Gráficos",
+    Screen.Saude to "Saúde",
     Screen.Rotinas to "Rotinas",
+    Screen.Equipamentos to "Equipamentos",
     Screen.Config to "Ajustes",
 )
+
+/** No retrato (celular) a barra de baixo mostra so as 4 primeiras + "Mais". */
+private val phoneTabs = tabs.take(4) + (Screen.Mais to "Mais")
 
 @Composable
 fun AppRoot(vm: MainViewModel = viewModel()) {
@@ -132,8 +145,7 @@ private fun MainScaffold(vm: MainViewModel, nav: Nav) {
                     Modifier.width(132.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface).padding(8.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(84.dp).clip(RoundedCornerShape(14.dp)))
-                    Spacer(Modifier.height(4.dp))
+                    Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)))
                     tabs.forEach { (screen, label) -> TabItem(label, nav.stack.first() == screen, Modifier.fillMaxWidth()) { nav.top(screen) } }
                     SyncDot(vm)
                 }
@@ -143,7 +155,11 @@ private fun MainScaffold(vm: MainViewModel, nav: Nav) {
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp)) { ScreenContent(vm, nav) }
                 Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    tabs.forEach { (screen, label) -> TabItem(label.substringAfter("Meu "), nav.stack.first() == screen, Modifier.weight(1f), small = true) { nav.top(screen) } }
+                    val root = nav.stack.first()
+                    phoneTabs.forEach { (screen, label) ->
+                        val selected = root == screen || (screen == Screen.Mais && phoneTabs.none { it.first == root })
+                        TabItem(label.substringAfter("Meu "), selected, Modifier.weight(1f), small = true) { nav.top(screen) }
+                    }
                 }
             }
         }
@@ -154,10 +170,10 @@ private fun MainScaffold(vm: MainViewModel, nav: Nav) {
 private fun TabItem(label: String, selected: Boolean, modifier: Modifier, small: Boolean = false, onClick: () -> Unit) {
     val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
     Box(
-        modifier.clip(RoundedCornerShape(12.dp)).background(bg).clickable(onClick = onClick).padding(vertical = if (small) 12.dp else 16.dp, horizontal = 2.dp),
+        modifier.clip(RoundedCornerShape(12.dp)).background(bg).clickable(onClick = onClick).padding(vertical = if (small) 12.dp else 11.dp, horizontal = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontSize = if (small) 11.sp else 15.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, maxLines = 1,
+        Text(label, fontSize = if (small) 12.sp else 14.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, maxLines = 1,
             color = if (selected) Luluco.Cream else MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -183,6 +199,10 @@ private fun ScreenContent(vm: MainViewModel, nav: Nav) {
         Screen.Aquario -> AquarioScreen(vm, nav)
         Screen.Rotinas -> RotinasScreen(vm, nav)
         Screen.Config -> ConfigScreen(vm)
+        Screen.Graficos -> GraficosScreen(vm)
+        Screen.Saude -> SaudeScreen(vm, nav)
+        Screen.Equipamentos -> EquipamentosScreen(vm, nav)
+        Screen.Mais -> MaisScreen(nav)
         is Screen.TestForm -> TestForm(vm, nav, s.edit)
         is Screen.TpaForm -> TpaForm(vm, nav, s.edit, s.occurrence)
         is Screen.DoseForm -> DoseForm(vm, nav, s.edit)
@@ -191,8 +211,19 @@ private fun ScreenContent(vm: MainViewModel, nav: Nav) {
         is Screen.LivestockForm -> LivestockForm(vm, nav, s.id, s.tipo)
         is Screen.CoralProtocol -> CoralProtocol(vm, nav, s.id)
         is Screen.ProductForm -> ProductForm(vm, nav, s.id)
-        is Screen.RoutineForm -> RoutineForm(vm, nav, s.id)
+        is Screen.RoutineForm -> RoutineForm(vm, nav, s.id, s.equipmentId)
+        is Screen.CaseForm -> CaseForm(vm, nav, s.id)
+        is Screen.CaseDetail -> CaseDetail(vm, nav, s.id)
+        is Screen.EquipmentForm -> EquipmentForm(vm, nav, s.id)
         is Screen.RoutineHistory -> RoutineHistory(vm, nav, s.id)
+    }
+}
+
+@Composable
+private fun MaisScreen(nav: Nav) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ScreenHeader("Mais")
+        tabs.drop(4).forEach { (screen, label) -> BigButton(label, Modifier.fillMaxWidth(), color = Luluco.Royal) { nav.top(screen) } }
     }
 }
 

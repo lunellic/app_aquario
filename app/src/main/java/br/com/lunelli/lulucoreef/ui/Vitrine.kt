@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import br.com.lunelli.lulucoreef.domain.Params
 import br.com.lunelli.lulucoreef.domain.Status
+import br.com.lunelli.lulucoreef.domain.allAlerts
 import br.com.lunelli.lulucoreef.domain.healthScore
 import br.com.lunelli.lulucoreef.domain.latestOf
 import br.com.lunelli.lulucoreef.domain.lateRoutineAlerts
@@ -99,9 +100,9 @@ fun VitrineScreen(vm: MainViewModel) {
 
     val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone)
     val nextGroup = today.filter { it.open }.groupBy { it.effectiveDueAt / 60_000 }.minByOrNull { it.key }?.value
-    val alerts = (paramAlerts(tests, ranges, now) + listOfNotNull(tpaAlert(changes, now)) + lateRoutineAlerts(today, now))
-    val worst = alerts.firstOrNull { it.severity == Status.CRITICO } ?: alerts.firstOrNull()
     val cases by vm.cases.collectAsStateWithLifecycle()
+    val entries by vm.entries.collectAsStateWithLifecycle()
+    val worst = allAlerts(tests, ranges, changes, today, cases, entries, now).firstOrNull()
     val score = healthScore(tests, ranges, changes, routines, logs, cases, now, zone).score
 
     Box(Modifier.fillMaxSize().background(Luluco.Abyss)) {

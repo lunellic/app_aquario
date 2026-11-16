@@ -1,5 +1,7 @@
 package br.com.lunelli.lulucoreef.domain
 
+import br.com.lunelli.lulucoreef.data.HealthCase
+import br.com.lunelli.lulucoreef.data.HealthEntry
 import br.com.lunelli.lulucoreef.data.ParamRange
 import br.com.lunelli.lulucoreef.data.WaterChange
 import br.com.lunelli.lulucoreef.data.WaterTest
@@ -80,3 +82,18 @@ fun lateRoutineAlerts(today: List<Occurrence>, now: Long): List<Alert> =
     today.filter { it.isLate(now, 2 * HOUR_MS) }.map {
         Alert(Status.ATENCAO, "routine_${it.routine.id}", "Rotina \"${it.routine.titulo}\" atrasada há ${(now - it.effectiveDueAt) / HOUR_MS} h.", "Marque como feita, adie ou pule no Painel.")
     }
+
+/** Caso de saude aberto ha mais de 7 dias sem nova entrada. */
+fun staleCaseAlerts(cases: List<HealthCase>, entries: List<HealthEntry>, now: Long): List<Alert> =
+    cases.filter { it.fechadoEm == null && it.deletedAt == null }.mapNotNull { c ->
+        val last = entries.filter { it.caseId == c.id && it.deletedAt == null }.maxOfOrNull { it.registradoEm } ?: c.abertoEm
+        val days = (now - last) / DAY_MS
+        if (days > 7) Alert(Status.ATENCAO, "case_${c.id}", "Caso \"${c.titulo}\" aberto há $days dias sem nova entrada.", "Registre como está hoje ou feche o caso com o desfecho.") else null
+    }
+
+/** Todos os alertas ativos, criticos primeiro. */
+fun allAlerts(
+    tests: List<WaterTest>, ranges: Map<String, ParamRange>, changes: List<WaterChange>, today: List<Occurrence>,
+    cases: List<HealthCase>, entries: List<HealthEntry>, now: Long,
+): List<Alert> = (paramAlerts(tests, ranges, now) + listOfNotNull(tpaAlert(changes, now)) + lateRoutineAlerts(today, now) + staleCaseAlerts(cases, entries, now))
+    .sortedBy { if (it.severity == Status.CRITICO) 0 else 1 }

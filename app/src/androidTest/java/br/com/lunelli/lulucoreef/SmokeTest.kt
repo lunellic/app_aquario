@@ -99,7 +99,7 @@ class SmokeTest {
 
             // Feito gera a dose no historico
             compose.onNodeWithText("Feito").performScrollTo().performClick()
-            compose.waitForIdle()
+            compose.waitUntil(10_000) { runBlocking { app.graph.db.dosings().all().first().size == 1 } }
             runBlocking {
                 val doses = app.graph.db.dosings().all().first()
                 assertEquals(1, doses.size)
@@ -111,7 +111,7 @@ class SmokeTest {
             compose.onNodeWithText("Nova medição").performScrollTo().performClick()
             compose.onNodeWithText("KH").performTextInput("8,2")
             compose.onNodeWithText("Salvar").performScrollTo().performClick()
-            compose.waitForIdle()
+            compose.waitUntil(10_000) { runBlocking { app.graph.db.waterTests().all().first().size == 1 } }
 
             // Historico unificado
             compose.onNodeWithText("Histórico").performClick()
@@ -127,10 +127,26 @@ class SmokeTest {
             compose.onNodeWithText("Editar").assertIsDisplayed()
             compose.onNodeWithText("Voltar").performClick()
 
-            // Rotinas e Ajustes abrem sem quebrar
-            compose.onNodeWithText("Rotinas").performClick()
+            // Graficos
+            compose.onNodeWithText("Gráficos").performScrollTo().performClick()
+            compose.onNodeWithText("Parâmetros").assertIsDisplayed()
+            compose.onNodeWithText("KH (dKH)").assertIsDisplayed()
+
+            // Saude: abre caso e cai na ficha do caso
+            compose.onNodeWithText("Saúde").performScrollTo().performClick()
+            compose.onNodeWithText("Novo caso").performClick()
+            compose.onNodeWithText("Título (ex.: Duncan fechado)").performTextInput("Duncan fechado")
+            compose.onNodeWithText("Salvar").performScrollTo().performClick()
+            compose.onNodeWithText("Nova entrada").assertIsDisplayed()
+            compose.onNodeWithText("Voltar").performClick()
+            compose.onNodeWithText("Casos abertos (1)").assertIsDisplayed()
+
+            // Rotinas, Equipamentos e Ajustes abrem sem quebrar
+            compose.onNodeWithText("Rotinas").performScrollTo().performClick()
             compose.onNodeWithText("Produtos e Rotinas").assertIsDisplayed()
-            compose.onNodeWithText("Ajustes").performClick()
+            compose.onNodeWithText("Equipamentos").performScrollTo().performClick()
+            compose.onNodeWithText("Nenhum equipamento cadastrado.").assertIsDisplayed()
+            compose.onNodeWithText("Ajustes").performScrollTo().performClick()
             compose.onNodeWithText("Configurações").assertIsDisplayed()
             compose.onNodeWithText("teste@example.com").performScrollTo().assertIsDisplayed()
 

@@ -127,17 +127,17 @@ fun ProductForm(vm: MainViewModel, nav: Nav, id: String?) {
 }
 
 @Composable
-fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?) {
+fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: String? = null) {
     val routines by vm.routines.collectAsStateWithLifecycle()
     val products by vm.products.collectAsStateWithLifecycle()
     val equipment by vm.equipment.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val edit = remember(id) { routines.firstOrNull { it.id == id } }
     var titulo by remember { mutableStateOf(edit?.titulo.orEmpty()) }
-    var tipo by remember { mutableStateOf(edit?.tipo ?: "dosagem") }
+    var tipo by remember { mutableStateOf(edit?.tipo ?: if (equipmentIdInicial != null) "manutencao" else "dosagem") }
     var productId by remember { mutableStateOf(edit?.productId) }
-    var equipmentId by remember { mutableStateOf(edit?.equipmentId) }
-    var rec by remember { mutableStateOf(edit?.recorrencia ?: "diaria") }
+    var equipmentId by remember { mutableStateOf(edit?.equipmentId ?: equipmentIdInicial) }
+    var rec by remember { mutableStateOf(edit?.recorrencia ?: if (equipmentIdInicial != null) "a_cada_n_semanas" else "diaria") }
     val dias = remember { mutableStateListOf<Int>().apply { addAll(edit?.diasSemana.orEmpty()) } }
     var n by remember { mutableStateOf((edit?.intervaloN ?: 1).toString()) }
     var horario by remember { mutableStateOf(edit?.horario?.take(5) ?: "20:00") }
@@ -162,7 +162,7 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?) {
             if (product != null && product.doseQuantidade == null) Text("Este produto está sem dose. Preencha a dose no produto antes de ativar a rotina.", color = Luluco.Coral)
         }
         if (tipo == "manutencao" && equipment.isNotEmpty()) {
-            PickerField("Equipamento (opcional)", equipment.map { it.id to listOfNotNull(it.marca, it.modelo).joinToString(" ").ifBlank { it.tipo } }, equipmentId) { equipmentId = it }
+            PickerField("Equipamento (opcional)", equipment.map { it.id to equipmentName(it) }, equipmentId) { equipmentId = it }
         }
         ChipRow(RECURRENCES, rec) { rec = it }
         if (rec == "dias_da_semana") {
