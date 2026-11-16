@@ -1,0 +1,8 @@
+<resources>
+    <color name="ocean_bg">#061426</color>
+    <style name="Theme.LulucoReef" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ocean_bg</item>
+        <item name="android:statusBarColor">@color/ocean_bg</item>
+        <item name="android:navigationBarColor">@color/ocean_bg</item>
+    </style>
+</resources>
