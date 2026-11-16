@@ -6,7 +6,8 @@ plugins {
 
 // Versao: tag v1.2.3 no CI vira versionName 1.2.3; fora de tag usa 0.0.<run>.
 val ciRun = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
-val ciTag = System.getenv("GITHUB_REF_NAME")?.takeIf { it.startsWith("v") }?.removePrefix("v")
+val ciTag = (System.getenv("RELEASE_TAG")?.takeIf { it.isNotBlank() } ?: System.getenv("GITHUB_REF_NAME"))
+    ?.takeIf { it.startsWith("v") }?.removePrefix("v")
 
 // Keystore fixa vinda de GitHub Secrets (KEYSTORE_BASE64 decodificada pelo workflow).
 val keystorePath: String? = System.getenv("KEYSTORE_FILE")?.takeIf { it.isNotBlank() && file(it).exists() }
