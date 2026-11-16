@@ -182,7 +182,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- fotos ----
 
     fun importPhoto(uri: Uri, onPath: (String?) -> Unit) = viewModelScope.launch {
-        val path = withContext(Dispatchers.IO) { g.photos.import(uri) }
+        val path = withContext(Dispatchers.IO) { g.photos.importImage(uri) }
         onPath(path)
         if (path != null) afterWrite()
     }

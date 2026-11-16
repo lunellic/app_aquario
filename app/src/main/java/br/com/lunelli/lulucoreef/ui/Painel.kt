@@ -166,7 +166,7 @@ private fun Header(nome: String, foto: String?, now: Long, health: HealthScore, 
     val greeting = when (zdt.hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
     val date = zdt.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr))
     Box(Modifier.fillMaxWidth().height(132.dp).clip(RoundedCornerShape(20.dp)).background(Luluco.Royal)) {
-        Photo(foto, Modifier.fillMaxSize(), maxPx = 1024)
+        if (foto != null) Photo(foto, Modifier.fillMaxSize(), maxPx = 1024)
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (foto != null) 0.55f else 0.25f)))
         Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

@@ -28,7 +28,7 @@ fun HistoricoScreen(vm: MainViewModel, nav: Nav) {
     val products by vm.products.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf("todos") }
 
-    val items = remember(tests, changes, dosings, events, products, filter) {
+    val rows = remember(tests, changes, dosings, events, products, filter) {
         val names = products.associate { it.id to it.nome }
         val out = ArrayList<HistItem>()
         if (filter == "todos" || filter == "teste") tests.forEach {
@@ -49,9 +49,9 @@ fun HistoricoScreen(vm: MainViewModel, nav: Nav) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader("Histórico")
         ChipRow(listOf("todos" to "Todos", "teste" to "Testes", "tpa" to "TPAs", "dose" to "Doses", "evento" to "Notas"), filter, Modifier.padding(bottom = 10.dp)) { filter = it }
-        if (items.isEmpty()) Muted("Nada registrado ainda.")
+        if (rows.isEmpty()) Muted("Nada registrado ainda.")
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            items(items, key = { it.key }) { item ->
+            items(rows, key = { it.key }) { item ->
                 Panel(Modifier.fillMaxWidth().clickable { nav.go(item.screen) }, padding = 12.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.width(118.dp)) {

@@ -2,7 +2,7 @@ name: App Android
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'bloco-*']
     tags: ['v*']
     paths-ignore: ['supabase/**', '**.md']
   workflow_dispatch:

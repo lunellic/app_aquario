@@ -105,7 +105,7 @@ fun VitrineScreen(vm: MainViewModel) {
     val score = healthScore(tests, ranges, changes, routines, logs, cases, now, zone).score
 
     Box(Modifier.fillMaxSize().background(Luluco.Abyss)) {
-        Photo(tank?.fotoVitrinePath, Modifier.fillMaxSize(), maxPx = 1280)
+        tank?.fotoVitrinePath?.let { Photo(it, Modifier.fillMaxSize(), maxPx = 1280) }
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)))
         Bubbles(Modifier.fillMaxSize(), count = 14, alpha = 0.22f)
         Column(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(36.dp), verticalArrangement = Arrangement.SpaceBetween) {

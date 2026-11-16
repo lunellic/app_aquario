@@ -18,7 +18,7 @@ class Photos(private val context: Context, private val api: Api, private val ses
     private fun localFile(path: String) = File(dir, path.substringAfterLast('/'))
 
     /** Importa a imagem escolhida e devolve o path remoto (ou null se nao deu para ler). */
-    fun import(uri: Uri): String? {
+    fun importImage(uri: Uri): String? {
         val uid = session.userId ?: return null
         val bytes = try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
