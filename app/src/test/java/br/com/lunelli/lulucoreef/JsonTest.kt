@@ -30,4 +30,13 @@ class JsonTest {
         assertFalse(json, json.contains("pending"))
         assertFalse(json, json.contains("user_id"))
     }
+
+    @Test fun fichaDeEspecieJsonb() {
+        val row = """{"id":"a","livestock_id":"l","conteudo_json":{"nome_cientifico":"Duncanopsammia axifuga","conflitos":[]},
+            "gerada_em":"2026-11-16T06:00:00+00:00","confirmada_pelo_usuario":false,"created_at":"2026-11-16T06:00:00+00:00","updated_at":"2026-11-16T06:00:00+00:00","deleted_at":null}"""
+        val s = ApiJson.decodeFromString(br.com.lunelli.lulucoreef.data.SpeciesInfo.serializer(), row)
+        assertTrue(s.conteudoJson, s.conteudoJson.contains("\"nome_cientifico\":\"Duncanopsammia axifuga\""))
+        val back = ApiJson.encodeToString(br.com.lunelli.lulucoreef.data.SpeciesInfo.serializer(), s)
+        assertTrue(back, back.contains("\"conteudo_json\":{\"nome_cientifico\""))
+    }
 }

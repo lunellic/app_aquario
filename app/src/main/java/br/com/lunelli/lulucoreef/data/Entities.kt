@@ -28,6 +28,10 @@ data class TankConfig(
     val montadoEm: String? = null,
     val fotoVitrinePath: String? = null,
     val observacoes: String? = null,
+    val ntfyAtivo: Boolean = true,
+    val emailSemanalAtivo: Boolean = true,
+    val noiteInicio: Int = 0,
+    val noiteFim: Int = 7,
     @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
@@ -231,6 +235,35 @@ data class Event(
     val texto: String,
     @PrimaryKey override val id: String = newId(),
     val tipo: String = "observacao",
+    @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
+    @Transient override val pending: Boolean = false,
+) : Syncable
+
+@Serializable
+@Entity(tableName = "species_info")
+data class SpeciesInfo(
+    val livestockId: String,
+    @PrimaryKey override val id: String = newId(),
+    /** Ficha gerada pela IA (jsonb no servidor, texto JSON aqui). */
+    @Serializable(with = JsonTextSerializer::class) val conteudoJson: String = "{}",
+    @Serializable(with = TsSerializer::class) val geradaEm: Long = System.currentTimeMillis(),
+    val confirmadaPeloUsuario: Boolean = false,
+    @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
+    @Transient override val pending: Boolean = false,
+) : Syncable
+
+@Serializable
+@Entity(tableName = "ai_analyses")
+data class AiAnalysis(
+    val texto: String,
+    @PrimaryKey override val id: String = newId(),
+    @Serializable(with = TsSerializer::class) val geradaEm: Long = System.currentTimeMillis(),
+    val gatilho: String = "manual",
+    val pergunta: String? = null,
     @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,

@@ -131,3 +131,21 @@ interface EventDao : SyncDao<Event> {
     @Query("UPDATE events SET pending = 0 WHERE id = :id AND updatedAt = :updatedAt") override suspend fun markSynced(id: String, updatedAt: Long)
     @Query("SELECT COUNT(*) FROM events WHERE pending = 1") override suspend fun pendingCount(): Int
 }
+
+@Dao
+interface SpeciesInfoDao : SyncDao<SpeciesInfo> {
+    @Query("SELECT * FROM species_info WHERE deletedAt IS NULL ORDER BY geradaEm DESC") fun all(): Flow<List<SpeciesInfo>>
+    @Query("SELECT * FROM species_info WHERE pending = 1") override suspend fun pending(): List<SpeciesInfo>
+    @Query("SELECT * FROM species_info WHERE id = :id") override suspend fun get(id: String): SpeciesInfo?
+    @Query("UPDATE species_info SET pending = 0 WHERE id = :id AND updatedAt = :updatedAt") override suspend fun markSynced(id: String, updatedAt: Long)
+    @Query("SELECT COUNT(*) FROM species_info WHERE pending = 1") override suspend fun pendingCount(): Int
+}
+
+@Dao
+interface AiAnalysisDao : SyncDao<AiAnalysis> {
+    @Query("SELECT * FROM ai_analyses WHERE deletedAt IS NULL ORDER BY geradaEm DESC") fun all(): Flow<List<AiAnalysis>>
+    @Query("SELECT * FROM ai_analyses WHERE pending = 1") override suspend fun pending(): List<AiAnalysis>
+    @Query("SELECT * FROM ai_analyses WHERE id = :id") override suspend fun get(id: String): AiAnalysis?
+    @Query("UPDATE ai_analyses SET pending = 0 WHERE id = :id AND updatedAt = :updatedAt") override suspend fun markSynced(id: String, updatedAt: Long)
+    @Query("SELECT COUNT(*) FROM ai_analyses WHERE pending = 1") override suspend fun pendingCount(): Int
+}

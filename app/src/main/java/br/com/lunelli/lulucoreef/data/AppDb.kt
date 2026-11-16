@@ -15,7 +15,7 @@ class Converters {
 }
 
 @Database(
-    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class],
+    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class],
     version = 1,
     exportSchema = false,
 )
@@ -34,6 +34,8 @@ abstract class AppDb : RoomDatabase() {
     abstract fun healthCases(): HealthCaseDao
     abstract fun healthEntries(): HealthEntryDao
     abstract fun events(): EventDao
+    abstract fun speciesInfo(): SpeciesInfoDao
+    abstract fun aiAnalyses(): AiAnalysisDao
 
     /** Tabelas na ordem de envio (respeita chaves estrangeiras). */
     fun syncTables(): List<SyncTable<*>> = listOf(
@@ -50,6 +52,8 @@ abstract class AppDb : RoomDatabase() {
         SyncTable("health_cases", healthCases(), HealthCase.serializer()),
         SyncTable("health_entries", healthEntries(), HealthEntry.serializer()),
         SyncTable("events", events(), Event.serializer()),
+        SyncTable("species_info", speciesInfo(), SpeciesInfo.serializer()),
+        SyncTable("ai_analyses", aiAnalyses(), AiAnalysis.serializer()),
     )
 
     companion object {
