@@ -93,6 +93,14 @@ class Api(context: Context, private val session: SessionStore) {
         }
     }
 
+    /** Chama uma Edge Function com o JWT do usuario. Erros vem como {"error": "..."}. */
+    fun callFunction(name: String, body: JSONObject): JSONObject =
+        authed({ Request.Builder().url("$base/functions/v1/$name").post(body.toString().toRequestBody(jsonType)) }) { r ->
+            val text = r.body?.string().orEmpty()
+            if (!r.isSuccessful) throw ApiException(r.code, errorMessage(text).ifBlank { "Erro ${r.code}" })
+            try { JSONObject(text) } catch (_: Exception) { JSONObject() }
+        }
+
     fun uploadPhoto(path: String, bytes: ByteArray) {
         authed({
             Request.Builder().url("$base/storage/v1/object/fotos/$path")

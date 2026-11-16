@@ -51,6 +51,7 @@ sealed interface Screen {
     data object Graficos : Screen { override val topLevel = true }
     data object Saude : Screen { override val topLevel = true }
     data object Equipamentos : Screen { override val topLevel = true }
+    data object Assistente : Screen { override val topLevel = true }
     data object Mais : Screen { override val topLevel = true }
 
     data class TestForm(val edit: WaterTest? = null) : Screen
@@ -89,6 +90,7 @@ private val tabs = listOf(
     Screen.Saude to "Saúde",
     Screen.Rotinas to "Rotinas",
     Screen.Equipamentos to "Equipamentos",
+    Screen.Assistente to "Assistente",
     Screen.Config to "Ajustes",
 )
 
@@ -154,7 +156,7 @@ private fun MainScaffold(vm: MainViewModel, nav: Nav) {
                     Modifier.width(132.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface).padding(8.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(64.dp).clip(RoundedCornerShape(12.dp)))
+                    Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)))
                     tabs.forEach { (screen, label) -> TabItem(label, nav.stack.first() == screen, Modifier.fillMaxWidth()) { nav.top(screen) } }
                     SyncDot(vm)
                 }
@@ -179,7 +181,7 @@ private fun MainScaffold(vm: MainViewModel, nav: Nav) {
 private fun TabItem(label: String, selected: Boolean, modifier: Modifier, small: Boolean = false, onClick: () -> Unit) {
     val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
     Box(
-        modifier.clip(RoundedCornerShape(12.dp)).background(bg).clickable(onClick = onClick).padding(vertical = if (small) 12.dp else 11.dp, horizontal = 2.dp),
+        modifier.clip(RoundedCornerShape(12.dp)).background(bg).clickable(onClick = onClick).padding(vertical = if (small) 12.dp else 9.dp, horizontal = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(label, fontSize = if (small) 12.sp else 14.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, maxLines = 1,
@@ -211,6 +213,7 @@ private fun ScreenContent(vm: MainViewModel, nav: Nav) {
         Screen.Graficos -> GraficosScreen(vm)
         Screen.Saude -> SaudeScreen(vm, nav)
         Screen.Equipamentos -> EquipamentosScreen(vm, nav)
+        Screen.Assistente -> AssistenteScreen(vm)
         Screen.Mais -> MaisScreen(nav)
         is Screen.TestForm -> TestForm(vm, nav, s.edit)
         is Screen.TpaForm -> TpaForm(vm, nav, s.edit, s.occurrence)

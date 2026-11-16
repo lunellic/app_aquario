@@ -92,8 +92,9 @@ fun ConfigScreen(vm: MainViewModel) {
         SectionTitle("Vitrine e modo noite")
         Panel(Modifier.fillMaxWidth()) {
             Stepper("Vitrine após (min sem toque; 0 desliga)", settings.vitrineMinutes, 0, 60) { v -> vm.updateSettings { it.copy(vitrineMinutes = v) } }
-            Stepper("Modo noite começa às (h)", settings.nightStartHour, 0, 23) { v -> vm.updateSettings { it.copy(nightStartHour = v) } }
-            Stepper("Modo noite termina às (h)", settings.nightEndHour, 0, 23) { v -> vm.updateSettings { it.copy(nightEndHour = v) } }
+            // o horario do modo noite tambem vai para o servidor (tank_config), que o respeita no push
+            Stepper("Modo noite começa às (h)", settings.nightStartHour, 0, 23) { v -> vm.updateSettings { it.copy(nightStartHour = v) }; vm.save(t.copy(noiteInicio = v)) }
+            Stepper("Modo noite termina às (h)", settings.nightEndHour, 0, 23) { v -> vm.updateSettings { it.copy(nightEndHour = v) }; vm.save(t.copy(noiteFim = v)) }
             Muted("No modo noite a tela fica quase preta e os lembretes não tocam. Início igual ao fim desliga.")
         }
 
@@ -108,7 +109,22 @@ fun ConfigScreen(vm: MainViewModel) {
         }
 
         SectionTitle("Avisos no iPhone")
-        Panel(Modifier.fillMaxWidth()) { Muted("Push pelo ntfy e e-mail semanal chegam na versão 0.3 (Bloco C), com botões de teste aqui.") }
+        Panel(Modifier.fillMaxWidth()) {
+            val busy by vm.aiBusy.collectAsStateWithLifecycle()
+            var feedback by remember { mutableStateOf<String?>(null) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Switch(t.ntfyAtivo, { on -> vm.save(t.copy(ntfyAtivo = on)) })
+                Text("Push pelo ntfy (rotina atrasada e alerta crítico)", Modifier.weight(1f))
+                OutlinedButton(enabled = "test_ntfy" !in busy, onClick = { vm.sendTest("test_ntfy") { feedback = it } }) { Text("Enviar teste") }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Switch(t.emailSemanalAtivo, { on -> vm.save(t.copy(emailSemanalAtivo = on)) })
+                Text("E-mail semanal (domingo, 10h)", Modifier.weight(1f))
+                OutlinedButton(enabled = "test_email" !in busy, onClick = { vm.sendTest("test_email") { feedback = it } }) { Text("Enviar teste") }
+            }
+            feedback?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+            Muted("O push não é enviado no horário do modo noite, exceto alerta crítico.")
+        }
 
         SectionTitle("Conta e sincronização")
         Panel(Modifier.fillMaxWidth()) {

@@ -66,6 +66,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val equipment = db.equipment().all().state()
     val cases = db.healthCases().all().state()
     val entries = db.healthEntries().all().state()
+    val speciesInfo = db.speciesInfo().all().state()
+    val analyses = db.aiAnalyses().all().state()
+
+    /** Chamadas de IA em andamento, por chave (ex.: "analise", "especie:<id>"). */
+    val aiBusy = MutableStateFlow<Set<String>>(emptySet())
 
     /** Relogio da UI (status, atrasos, modo noite). */
     val now = MutableStateFlow(System.currentTimeMillis())
@@ -178,6 +183,51 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun snooze(o: Occurrence) = log(o, "adiado", null)
     fun skip(o: Occurrence) = log(o, "pulado", null)
+
+    // ---- nuvem: IA e avisos (Edge Functions) ----
+
+    /**
+     * Sincroniza (a funcao le os dados do servidor), chama a Edge Function e puxa o que ela gravou.
+     * onResult recebe (resposta, erro).
+     */
+    private fun callCloud(function: String, key: String, body: org.json.JSONObject, onResult: (org.json.JSONObject?, String?) -> Unit) = viewModelScope.launch {
+        if (key in aiBusy.value) return@launch
+        aiBusy.value = aiBusy.value + key
+        var response: org.json.JSONObject? = null
+        val error = try {
+            g.sync.sync()
+            response = withContext(Dispatchers.IO) { g.api.callFunction(function, body) }
+            g.sync.sync()
+            null
+        } catch (e: ApiException) {
+            when (e.code) {
+                404 -> "A função ainda não foi publicada no Supabase (Bloco C: configure os secrets e rode o workflow de backend)."
+                else -> e.message ?: "Erro ${e.code}"
+            }
+        } catch (e: IOException) {
+            "Sem conexão: ${e.message}"
+        } finally {
+            aiBusy.value = aiBusy.value - key
+        }
+        onResult(response, error)
+    }
+
+    fun analyze(onResult: (String?, String?) -> Unit) =
+        callCloud("assistant", "analise", org.json.JSONObject().put("action", "analise")) { r, e -> onResult(r?.optString("texto"), e) }
+
+    fun ask(question: String, onResult: (String?, String?) -> Unit) =
+        callCloud("assistant", "pergunta", org.json.JSONObject().put("action", "pergunta").put("pergunta", question)) { r, e -> onResult(r?.optString("texto"), e) }
+
+    fun healthGuidance(caseId: String, onResult: (String?, String?) -> Unit) =
+        callCloud("assistant", "saude:$caseId", org.json.JSONObject().put("action", "saude").put("case_id", caseId)) { r, e -> onResult(r?.optString("texto"), e) }
+
+    fun generateSpecies(livestockId: String, onResult: (String?) -> Unit = {}) =
+        callCloud("assistant", "especie:$livestockId", org.json.JSONObject().put("action", "especie").put("livestock_id", livestockId)) { _, e -> onResult(e) }
+
+    fun sendTest(mode: String, onResult: (String) -> Unit) =
+        callCloud("notifier", mode, org.json.JSONObject().put("mode", mode)) { r, e -> onResult(e ?: r?.optString("message").orEmpty().ifBlank { "Enviado." }) }
+
+    fun save(x: br.com.lunelli.lulucoreef.data.SpeciesInfo) = persist(db.speciesInfo(), x.copy(updatedAt = ts(), pending = true))
 
     // ---- fotos ----
 

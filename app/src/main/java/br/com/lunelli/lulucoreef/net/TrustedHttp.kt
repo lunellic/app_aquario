@@ -70,7 +70,7 @@ object TrustedHttp {
         return OkHttpClient.Builder()
             .sslSocketFactory(ssl.socketFactory, trustManager)
             .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }

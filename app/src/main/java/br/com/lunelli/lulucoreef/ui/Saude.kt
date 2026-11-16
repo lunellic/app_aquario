@@ -192,8 +192,35 @@ fun CaseDetail(vm: MainViewModel, nav: Nav, id: String) {
     }
 }
 
-/** Orientacao preliminar por IA: entra no Bloco C (Edge Function assistant). */
+/** Orientacao preliminar por IA dentro do caso (spec 11.3). O texto pode ser guardado como entrada do caso. */
 @Composable
 fun AiGuidanceButton(vm: MainViewModel, c: HealthCase) {
-    OutlinedButton(onClick = {}, enabled = false) { Text("Orientação preliminar (IA) - na v0.3") }
+    val busy by vm.aiBusy.collectAsStateWithLifecycle()
+    var text by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val running = "saude:${c.id}" in busy
+    OutlinedButton(enabled = !running, onClick = { vm.healthGuidance(c.id) { t, e -> text = t; error = e } }) {
+        Text(if (running) "Consultando a IA..." else "Orientação preliminar (IA)")
+    }
+    error?.let { e -> ConfirmDialog("Não deu para consultar a IA", e, "Ok", onConfirm = { error = null }, onDismiss = { error = null }) }
+    text?.let { t ->
+        AlertDialog(
+            onDismissRequest = { text = null },
+            title = { Text("Orientação preliminar (IA)") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(t)
+                    Spacer(Modifier.height(8.dp))
+                    Muted("Gerado por IA a partir dos seus registros. É orientação preliminar: confira antes de agir.")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.save(HealthEntry(caseId = c.id, registradoEm = System.currentTimeMillis(), texto = "Orientação preliminar (IA): $t"))
+                    text = null
+                }) { Text("Guardar no caso") }
+            },
+            dismissButton = { TextButton(onClick = { text = null }) { Text("Fechar") } },
+        )
+    }
 }

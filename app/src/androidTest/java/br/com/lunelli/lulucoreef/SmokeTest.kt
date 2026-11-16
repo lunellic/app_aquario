@@ -125,7 +125,8 @@ class SmokeTest {
             compose.onAllNodesWithText("confirmar").onFirst().assertIsDisplayed()
             compose.onNodeWithText("Duncan").performClick()
             compose.onNodeWithText("Editar").assertIsDisplayed()
-            compose.onNodeWithText("Voltar").performClick()
+            compose.onNodeWithText("Gerar ficha (IA)").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Voltar").performScrollTo().performClick()
 
             // Graficos
             compose.onNodeWithText("Gráficos").performScrollTo().performClick()
@@ -146,6 +147,8 @@ class SmokeTest {
             compose.onNodeWithText("Produtos e Rotinas").assertIsDisplayed()
             compose.onNodeWithText("Equipamentos").performScrollTo().performClick()
             compose.onNodeWithText("Nenhum equipamento cadastrado.").assertIsDisplayed()
+            compose.onNodeWithText("Assistente").performScrollTo().performClick()
+            compose.onNodeWithText("Analisar meu aquário").assertIsDisplayed()
             compose.onNodeWithText("Ajustes").performScrollTo().performClick()
             compose.onNodeWithText("Configurações").assertIsDisplayed()
             compose.onNodeWithText("teste@example.com").performScrollTo().assertIsDisplayed()

@@ -1,0 +1,9 @@
+# Projeto Supabase do Luluco Reef (deploy pelo workflow .github/workflows/backend.yml).
+project_id = "gzfkcryebczjmuzckxuv"
+
+[functions.assistant]
+verify_jwt = true
+
+# O notifier valida por conta propria: segredo do cron (x-cron-secret) ou JWT do usuario nos botoes de teste.
+[functions.notifier]
+verify_jwt = false

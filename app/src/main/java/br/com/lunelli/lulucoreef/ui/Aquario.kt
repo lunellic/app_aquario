@@ -124,6 +124,7 @@ fun LivestockDetail(vm: MainViewModel, nav: Nav, id: String) {
                 Field("Observação", l.observacao)
             }
         }
+        SpeciesCard(vm, l)
         val mine = cases.filter { it.livestockId == l.id }
         if (mine.isNotEmpty()) {
             SectionTitle("Casos de saúde")
@@ -148,10 +149,15 @@ fun LivestockDetail(vm: MainViewModel, nav: Nav, id: String) {
 @Composable
 private fun Field(label: String, value: String?) {
     if (value.isNullOrBlank()) return
-    Row(Modifier.padding(vertical = 2.dp)) {
-        Text("$label: ", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value)
-    }
+    Text(
+        androidx.compose.ui.text.buildAnnotatedString {
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant))
+            append("$label: ")
+            pop()
+            append(value)
+        },
+        modifier = Modifier.padding(vertical = 2.dp),
+    )
 }
 
 @Composable
@@ -202,6 +208,8 @@ fun LivestockForm(vm: MainViewModel, nav: Nav, id: String?, tipoInicial: String)
                     fotoPath = foto, revisar = false, // editar pelo Lucas confirma o item
                 )
                 vm.save(saved)
+                // habitante novo: pede a ficha da especie em segundo plano (falha em silencio se offline ou sem Bloco C)
+                if (edit == null) vm.generateSpecies(saved.id)
                 // coral novo: abre o protocolo de entrada
                 if (edit == null && tipo == "coral") nav.replace(Screen.CoralProtocol(saved.id)) else nav.back()
             }
@@ -255,5 +263,56 @@ fun CoralProtocol(vm: MainViewModel, nav: Nav, id: String) {
             }
         }
         BigButton("Concluir", Modifier.fillMaxWidth()) { nav.back() }
+    }
+}
+
+/** Ficha da especie gerada pela IA, com compatibilidade com o inventario (spec 11.2). */
+@Composable
+fun SpeciesCard(vm: MainViewModel, l: Livestock) {
+    val infos by vm.speciesInfo.collectAsStateWithLifecycle()
+    val busy by vm.aiBusy.collectAsStateWithLifecycle()
+    val info = infos.firstOrNull { it.livestockId == l.id }
+    val running = "especie:${l.id}" in busy
+    var error by remember { mutableStateOf<String?>(null) }
+    SectionTitle("Ficha da espécie")
+    Panel(Modifier.fillMaxWidth()) {
+        val o = remember(info?.conteudoJson) { try { info?.let { org.json.JSONObject(it.conteudoJson) } } catch (_: Exception) { null } }
+        if (o == null) {
+            Muted(if (running) "Gerando a ficha..." else "Ainda sem ficha para este habitante.")
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Badge(if (info!!.confirmadaPeloUsuario) "conferida por você" else "gerado por IA, confira", if (info.confirmadaPeloUsuario) Luluco.Ok else Luluco.Coral)
+                Muted("gerada em ${fmtDay(info.geradaEm)}")
+            }
+            Spacer(Modifier.height(6.dp))
+            Field("Nome científico provável", o.optString("nome_cientifico"))
+            Field("Tipo", o.optString("tipo"))
+            Field("Dificuldade", o.optString("dificuldade"))
+            Field("Agressividade", o.optString("agressividade"))
+            Field("Alcance de tentáculos/pólipos", o.optString("alcance_tentaculos"))
+            Field("Distância recomendada", o.optString("distancia_recomendada"))
+            if (!o.isNull("volume_minimo_l")) Field("Volume mínimo", "${o.optDouble("volume_minimo_l").toInt()} L")
+            Field("Parâmetros", o.optString("parametros"))
+            Field("Iluminação", o.optString("iluminacao"))
+            Field("Fluxo", o.optString("fluxo"))
+            Field("Compatibilidade", o.optString("compatibilidade"))
+            val conflicts = o.optJSONArray("conflitos")
+            if (conflicts != null && conflicts.length() > 0) {
+                Text("Conflitos com o inventário:", fontWeight = FontWeight.Bold, color = Luluco.Coral)
+                for (i in 0 until conflicts.length()) {
+                    val c = conflicts.optJSONObject(i) ?: continue
+                    Text("- ${c.optString("com")}: ${c.optString("motivo")}")
+                }
+            }
+            Field("Observações", o.optString("observacoes"))
+        }
+        error?.let { Text(it, color = Luluco.Coral, style = MaterialTheme.typography.bodySmall) }
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(enabled = !running, onClick = { error = null; vm.generateSpecies(l.id) { error = it } }) {
+                Text(if (running) "Gerando..." else if (info == null) "Gerar ficha (IA)" else "Gerar de novo")
+            }
+            if (info != null && !info.confirmadaPeloUsuario) OutlinedButton(onClick = { vm.save(info.copy(confirmadaPeloUsuario = true)) }) { Text("Conferi, está certa") }
+        }
     }
 }
