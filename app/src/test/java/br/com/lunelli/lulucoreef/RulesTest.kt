@@ -251,3 +251,60 @@ class HealthScoreTest {
 
     @Test fun tpaMuitoAtrasada() = assertEquals(80, score(bons, tpaDaysAgo = 17).score)
 }
+
+class ReportAndUpcomingTest {
+    private val zone = ZoneId.of("America/Sao_Paulo")
+    private fun ms(date: String, time: String = "12:00") = java.time.LocalDateTime.parse("${date}T$time").atZone(zone).toInstant().toEpochMilli()
+    private val now = ms("2026-11-16", "22:00") // segunda
+
+    @Test fun proximosPassosSemDosagens() {
+        val goni = Routine("Goni Supreme", tipo = "dosagem", recorrencia = "diaria", horario = "20:00")
+        val tpa = Routine("TPA", tipo = "tpa", recorrencia = "dias_da_semana", diasSemana = listOf(3), horario = "19:00")
+        val vidro = Routine("Limpeza do vidro", tipo = "manutencao", recorrencia = "dias_da_semana", diasSemana = listOf(3), horario = "19:00")
+        val carvao = Routine("Troca do carvão ativado", tipo = "manutencao", recorrencia = "a_cada_n_semanas", intervaloN = 4, horario = "19:00", proximaEm = ms("2026-12-11", "19:00"))
+        val semData = Routine("Outra", tipo = "manutencao", recorrencia = "a_cada_n_dias", intervaloN = 10, horario = "19:00")
+        val items = br.com.lunelli.lulucoreef.domain.upcoming(listOf(goni, tpa, vidro, carvao, semData), emptyList(), now, zone)
+        assertEquals(listOf("Limpeza do vidro", "TPA", "Limpeza do vidro", "TPA", "Troca do carvão ativado"), items.map { it.routine.titulo })
+        val w = { t: Long -> br.com.lunelli.lulucoreef.domain.whenText(t, now, zone) }
+        assertEquals("Quarta, 19h", w(items[0].dueAt))
+        assertEquals("11/12 (em 25 dias)", w(items[4].dueAt))
+        assertEquals("Amanhã, 18h30", w(ms("2026-11-17", "18:30")))
+        assertEquals("Hoje, 23h", w(ms("2026-11-16", "23:00")))
+        assertEquals("Hoje, 19h (atrasada)", w(ms("2026-11-16", "19:00")))
+        assertEquals("Atrasada desde 10/11", w(ms("2026-11-10", "19:00")))
+    }
+
+    @Test fun relatorioDoPeriodo() {
+        val amino = Product("Amino Coral", doseUnidade = "gotas")
+        val carvao = Routine("Troca do carvão ativado", tipo = "manutencao", recorrencia = "a_cada_n_semanas", intervaloN = 4, horario = "19:00")
+        val data = br.com.lunelli.lulucoreef.domain.ReportData(
+            tank = br.com.lunelli.lulucoreef.data.TankConfig(volumeDosagemL = 125.0, salAtual = "Blue Treasure Reef Salt"),
+            tests = listOf(
+                WaterTest(ms("2026-11-07", "11:53"), "kh", 7.7, "dKH", observacao = "1ª virada"),
+                WaterTest(ms("2026-11-06", "22:37"), "kh", 8.2, "dKH", baixaConfianca = true),
+                WaterTest(ms("2026-11-11", "22:34"), "kh", 7.85, "dKH"),
+                WaterTest(ms("2026-10-01"), "kh", 9.9, "dKH"), // fora do periodo
+            ),
+            changes = listOf(WaterChange(ms("2026-11-03", "22:30"), 14.5, sal = "Blue Treasure Reef Salt")),
+            dosings = listOf(br.com.lunelli.lulucoreef.data.Dosing(ms("2026-11-10", "20:00"), amino.id, quantidade = 2.5, unidade = "gotas"), br.com.lunelli.lulucoreef.data.Dosing(ms("2026-11-12", "20:00"), amino.id, quantidade = 2.5, unidade = "gotas")),
+            products = listOf(amino), routines = listOf(carvao),
+            logs = listOf(RoutineLog(carvao.id, ms("2026-11-08", "19:00"), "feito", feitoEm = ms("2026-11-08", "19:20"))),
+            events = listOf(br.com.lunelli.lulucoreef.data.Event(ms("2026-11-07", "11:00"), texto = "Método do KH mudou")), cases = emptyList(),
+        )
+        val r = br.com.lunelli.lulucoreef.domain.buildReport(data, ms("2026-11-01", "00:00"), now, now, zone)
+        fun has(s: String) = assertTrue("faltou: $s\n$r", r.contains(s))
+        has("Período: 01/11/2026 a 16/11/2026")
+        has("Última TPA: 03/11 22:30, 14,5 L (há 12 dias)")
+        has("KH (dKH): 3 medições, mín. 7,7, máx. 7,85, média 7,7")
+        has("06/11 22:37  8,2  (baixa confiança)")
+        has("07/11 11:53  7,7  - 1ª virada")
+        has("KH: de 7,7 para 7,85 em 4,4 dias (+0,034 por dia, +0,24 por semana)")
+        has("Amino Coral: 2 vezes, total 5 gotas, última em 12/11 20:00")
+        has("08/11 19:20  Troca do carvão ativado")
+        has("07/11 11:00  Método do KH mudou")
+        assertFalse(r.contains("9,9"))
+        // so as secoes pedidas
+        val so = br.com.lunelli.lulucoreef.domain.buildReport(data, ms("2026-11-01", "00:00"), now, now, zone, setOf(br.com.lunelli.lulucoreef.domain.ReportSection.TPAS))
+        assertTrue(so.contains("TPAS") && !so.contains("PRODUTOS USADOS") && !so.contains("RESUMO"))
+    }
+}

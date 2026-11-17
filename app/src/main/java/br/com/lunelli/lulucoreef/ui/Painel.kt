@@ -99,13 +99,18 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
             val metricas: @Composable (Modifier) -> Unit = { m ->
                 Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("Métricas principais")
-                    Params.MAIN.chunked(2).forEach { pair ->
+                    val shown = Params.ALL.filter { it in settings.shownParams }
+                    if (shown.isEmpty()) Panel(Modifier.fillMaxWidth()) { Muted("Nenhum parâmetro escolhido. Ajuste em Ajustes > O que aparece nas telas.") }
+                    shown.chunked(2).forEach { pair ->
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             pair.forEach { p ->
-                                val last = reliableTests.latestOf(p)
-                                val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
-                                MetricCard(Modifier.weight(1f), p, last?.valor, last?.medidoEm, ranges[p], exit, now)
+                                key(p) {
+                                    val last = reliableTests.latestOf(p)
+                                    val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
+                                    MetricCard(Modifier.weight(1f), p, last?.valor, last?.medidoEm, ranges[p], exit, now)
+                                }
                             }
+                            if (pair.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
@@ -207,7 +212,7 @@ private fun ScoreDialog(h: HealthScore, onDismiss: () -> Unit) {
                     if (h.items.isEmpty()) Text("Nenhum desconto. Tudo em dia.")
                 }
                 h.items.forEach { Text("${numShort(it.points)}  ${it.label}") }
-                Muted("Regra fixa, sem IA. Temperatura entra quando houver sensor.")
+                Muted("Regra fixa, sem IA.")
             }
         },
     )

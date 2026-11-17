@@ -227,6 +227,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun sendTest(mode: String, onResult: (String) -> Unit) =
         callCloud("notifier", mode, org.json.JSONObject().put("mode", mode)) { r, e -> onResult(e ?: r?.optString("message").orEmpty().ifBlank { "Enviado." }) }
 
+    /** Manda o relatorio (texto) para o e-mail da conta, pela Edge Function notifier (Resend). */
+    fun emailReport(subject: String, text: String, onResult: (String) -> Unit) =
+        callCloud("notifier", "report", org.json.JSONObject().put("mode", "report").put("subject", subject).put("text", text)) { r, e ->
+            onResult(e ?: r?.optString("message").orEmpty().ifBlank { "Enviado." })
+        }
+
     fun save(x: br.com.lunelli.lulucoreef.data.SpeciesInfo) = persist(db.speciesInfo(), x.copy(updatedAt = ts(), pending = true))
 
     // ---- fotos ----

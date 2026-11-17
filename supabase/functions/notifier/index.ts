@@ -164,6 +164,24 @@ Deno.serve(async (req) => {
       await ntfy("Luluco Reef: teste", "Push de teste. Se chegou no iPhone, está tudo certo.", 3, ["tropical_fish"]);
       return json({ ok: true, message: "Push de teste enviado." });
     }
+    if (mode === "report") {
+      // relatorio em texto montado no app, enviado para o e-mail da propria conta
+      const key = Deno.env.get("RESEND_API_KEY");
+      if (!key) throw new Error("RESEND_API_KEY não configurada nas Edge Functions.");
+      const email = u?.user?.email;
+      if (!email) throw new Error("Usuário sem e-mail.");
+      const text = String(body.text ?? "").slice(0, 120_000);
+      if (!text.trim()) return json({ error: "Relatório vazio." }, 400);
+      const subject = String(body.subject ?? "Luluco Reef - relatório").slice(0, 150);
+      const html = `<pre style="font-family:Menlo,Consolas,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;color:#12213a">${esc(text)}</pre>`;
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+        body: JSON.stringify({ from: "Luluco Reef <onboarding@resend.dev>", to: [email], subject, text, html }),
+      });
+      if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+      return json({ ok: true, message: `Relatório enviado para ${email}.` });
+    }
     if (mode === "test_email") {
       const email = await weeklyEmail(service, userId, now, false);
       return json({ ok: true, message: `E-mail de teste enviado para ${email}.` });

@@ -13,6 +13,8 @@ data class LocalSettings(
     val soundVolume: Int = 70, // 0..100
     val inventoryNoticeSeen: Boolean = false,
     val waterFx: Boolean = true,
+    /** Parametros que aparecem no Painel e no standby (NO3 e PO4 sao opcionais). */
+    val shownParams: Set<String> = setOf("kh", "ca", "mg", "salinidade"),
 )
 
 class Settings(context: Context) {
@@ -28,6 +30,7 @@ class Settings(context: Context) {
         soundVolume = prefs.getInt("sound_vol", 70),
         inventoryNoticeSeen = prefs.getBoolean("inv_notice", false),
         waterFx = prefs.getBoolean("water_fx", true),
+        shownParams = prefs.getStringSet("shown_params", null)?.toSet() ?: setOf("kh", "ca", "mg", "salinidade"),
     )
 
     fun update(change: (LocalSettings) -> LocalSettings) {
@@ -40,6 +43,7 @@ class Settings(context: Context) {
             .putInt("sound_vol", s.soundVolume)
             .putBoolean("inv_notice", s.inventoryNoticeSeen)
             .putBoolean("water_fx", s.waterFx)
+            .putStringSet("shown_params", s.shownParams)
             .apply()
         _state.value = s
     }

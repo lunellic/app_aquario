@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Face
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Home
@@ -82,6 +83,7 @@ sealed interface Screen {
     data object Saude : Screen { override val topLevel = true }
     data object Equipamentos : Screen { override val topLevel = true }
     data object Assistente : Screen { override val topLevel = true }
+    data object Relatorios : Screen { override val topLevel = true }
 
     data class TestForm(val edit: WaterTest? = null) : Screen
     data class TpaForm(val edit: WaterChange? = null, val occurrence: Occurrence? = null) : Screen
@@ -118,6 +120,7 @@ private val tabs = listOf(
     Tab(Screen.Historico, "Histórico", Icons.Rounded.List),
     Tab(Screen.Aquario, "Meu Aquário", Icons.Rounded.Star),
     Tab(Screen.Graficos, "Gráficos", Icons.Rounded.Info),
+    Tab(Screen.Relatorios, "Relatórios", Icons.Rounded.Email),
     Tab(Screen.Saude, "Saúde", Icons.Rounded.Favorite),
     Tab(Screen.Rotinas, "Rotinas", Icons.Rounded.DateRange),
     Tab(Screen.Equipamentos, "Equipamentos", Icons.Rounded.Build),
@@ -249,7 +252,7 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-                Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)))
+                Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)))
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text("Luluco Reef", style = MaterialTheme.typography.titleLarge)
@@ -260,7 +263,7 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
                 val selected = current == t.screen
                 Row(
                     Modifier.fillMaxWidth().testTag("menu_${t.label}").clip(RoundedCornerShape(18.dp))
-                        .background(if (selected) Luluco.Royal else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 10.dp),
+                        .background(if (selected) Luluco.Royal else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(t.icon, contentDescription = null, tint = if (selected) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.size(24.dp))
@@ -307,6 +310,7 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         Screen.Saude -> SaudeScreen(vm, nav)
         Screen.Equipamentos -> EquipamentosScreen(vm, nav)
         Screen.Assistente -> AssistenteScreen(vm)
+        Screen.Relatorios -> RelatoriosScreen(vm)
         is Screen.TestForm -> TestForm(vm, nav, s.edit)
         is Screen.TpaForm -> TpaForm(vm, nav, s.edit, s.occurrence)
         is Screen.DoseForm -> DoseForm(vm, nav, s.edit)

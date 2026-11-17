@@ -228,6 +228,9 @@ class SmokeTest {
             db.products().upsert(goni); db.products().upsert(amino)
             db.routines().upsert(Routine("Goni Supreme", tipo = "dosagem", productId = goni.id, recorrencia = "diaria", horario = "00:01:00"))
             db.routines().upsert(Routine("Amino Coral", tipo = "dosagem", productId = amino.id, recorrencia = "diaria", horario = "23:58:00"))
+            db.routines().upsert(Routine("TPA", tipo = "tpa", recorrencia = "dias_da_semana", diasSemana = listOf(3), horario = "19:00", instrucao = "10 a 12 L"))
+            db.routines().upsert(Routine("Testes KH, Ca, Mg e salinidade", tipo = "teste", recorrencia = "dias_da_semana", diasSemana = listOf(3), horario = "18:00"))
+            db.routines().upsert(Routine("Troca do carvão ativado", tipo = "manutencao", recorrencia = "a_cada_n_semanas", intervaloN = 4, horario = "19:00", proximaEm = now + 9 * day))
             fun t(p: String, v: Double, d: Double, low: Boolean = false) = br.com.lunelli.lulucoreef.data.WaterTest((now - d * day).toLong(), p, v, "x", baixaConfianca = low)
             listOf(t("kh", 7.8, 21.0), t("kh", 7.9, 17.0), t("kh", 8.4, 12.0, true), t("kh", 8.2, 10.0, true), t("kh", 7.7, 9.0), t("kh", 7.7, 7.0), t("kh", 7.6, 6.0), t("kh", 7.85, 0.5),
                 t("ca", 550.0, 17.0), t("ca", 500.0, 12.0), t("ca", 440.0, 0.5), t("mg", 1140.0, 21.0), t("mg", 1200.0, 12.0), t("mg", 1290.0, 0.5),
@@ -262,6 +265,19 @@ class SmokeTest {
             Thread.sleep(63_000)
             compose.mainClock.advanceTimeBy(11_000)
             shot("vitrine")
+            // toque acorda o Painel; relatorios
+            compose.onNodeWithText("Próximos passos").performClick()
+            menu("Relatórios")
+            compose.onNodeWithText("Enviar para meu e-mail").assertIsDisplayed()
+            shot("relatorios")
+            // modo noite: liga para qualquer hora e espera 1 minuto sem toque
+            app.graph.settings.update { it.copy(nightStartHour = 0, nightEndHour = 0, vitrineMinutes = 0) }
+            menu("Painel")
+            val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            app.graph.settings.update { it.copy(nightStartHour = h, nightEndHour = (h + 2) % 24) }
+            Thread.sleep(63_000)
+            compose.mainClock.advanceTimeBy(11_000)
+            shot("noite")
         }
         app.graph.settings.update { it.copy(vitrineMinutes = 2, nightStartHour = 0, nightEndHour = 7) }
     }

@@ -66,19 +66,19 @@ fun ConfigScreen(vm: MainViewModel) {
             }
         }
 
-        SectionTitle("Foto da vitrine")
+        SectionTitle("Foto do aquário")
         Panel(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (t.fotoVitrinePath != null) Photo(t.fotoVitrinePath, Modifier.size(width = 160.dp, height = 100.dp).clip(RoundedCornerShape(12.dp)), maxPx = 320)
                 OutlinedButton(onClick = { picker.launch("image/*") }) { Text(if (t.fotoVitrinePath != null) "Trocar foto" else "Escolher foto") }
                 if (t.fotoVitrinePath != null) TextButton(onClick = { vm.save(t.copy(fotoVitrinePath = null)) }) { Text("Remover") }
             }
-            Muted("Aparece escurecida no Painel e no modo vitrine. É reduzida para 1280 px antes de subir.")
+            Muted("Aparece no Painel e de fundo na tela de standby. É reduzida para 1280 px antes de subir.")
         }
 
         SectionTitle("Faixas dos parâmetros")
         Panel(Modifier.fillMaxWidth()) {
-            (Params.MAIN + "temperatura" + Params.OPTIONAL).forEach { p ->
+            Params.ALL.forEach { p ->
                 val r = ranges[p] ?: return@forEach
                 Row(Modifier.fillMaxWidth().clickable { editRange = r }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(Params.label(p), Modifier.width(120.dp), fontWeight = FontWeight.Bold)
@@ -89,13 +89,24 @@ fun ConfigScreen(vm: MainViewModel) {
             if (ranges.isEmpty()) Muted("Faixas ainda não sincronizadas.")
         }
 
-        SectionTitle("Vitrine e modo noite")
+        SectionTitle("O que aparece nas telas")
         Panel(Modifier.fillMaxWidth()) {
-            Stepper("Vitrine após (min sem toque; 0 desliga)", settings.vitrineMinutes, 0, 60) { v -> vm.updateSettings { it.copy(vitrineMinutes = v) } }
+            Muted("Parâmetros mostrados no Painel e na tela de standby. NO3 e PO4 ficam desligados até você começar a testar.")
+            Spacer(Modifier.height(8.dp))
+            ChipRow(Params.ALL.map { it to Params.label(it) }, null) { p ->
+                vm.updateSettings { it.copy(shownParams = if (p in it.shownParams) it.shownParams - p else it.shownParams + p) }
+            }
+            Spacer(Modifier.height(6.dp))
+            Muted("Ligados: " + (Params.ALL.filter { it in settings.shownParams }.joinToString(", ") { Params.label(it) }.ifEmpty { "nenhum" }))
+        }
+
+        SectionTitle("Standby e modo noite")
+        Panel(Modifier.fillMaxWidth()) {
+            Stepper("Standby após (min sem toque; 0 desliga)", settings.vitrineMinutes, 0, 60) { v -> vm.updateSettings { it.copy(vitrineMinutes = v) } }
             // o horario do modo noite tambem vai para o servidor (tank_config), que o respeita no push
             Stepper("Modo noite começa às (h)", settings.nightStartHour, 0, 23) { v -> vm.updateSettings { it.copy(nightStartHour = v) }; vm.save(t.copy(noiteInicio = v)) }
             Stepper("Modo noite termina às (h)", settings.nightEndHour, 0, 23) { v -> vm.updateSettings { it.copy(nightEndHour = v) }; vm.save(t.copy(noiteFim = v)) }
-            Muted("No modo noite a tela fica quase preta e os lembretes não tocam. Início igual ao fim desliga.")
+            Muted("No modo noite a tela fica em azul escuro com ondas suaves, brilho baixo, e os lembretes não tocam. Início igual ao fim desliga.")
         }
 
         SectionTitle("Visual e modo quiosque")

@@ -57,7 +57,9 @@ class SyncEngine(context: Context, private val db: AppDb, private val api: Api, 
                 status.value = status.value.copy(running = false, lastError = "Sessão expirada")
                 false
             } catch (e: Exception) {
-                status.value = status.value.copy(running = false, lastError = e.message ?: e.javaClass.simpleName, pending = countPending())
+                val msg = e.message ?: e.javaClass.simpleName
+                val friendly = if (msg.contains("schema cache") || msg.contains("does not exist")) "O banco no Supabase está desatualizado: falta rodar o SQL mais recente ($msg)" else msg
+                status.value = status.value.copy(running = false, lastError = friendly, pending = countPending())
                 false
             }
         }
