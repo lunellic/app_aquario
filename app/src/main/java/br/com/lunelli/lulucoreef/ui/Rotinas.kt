@@ -159,7 +159,7 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: St
                 if (titulo.isBlank()) titulo = products.firstOrNull { it.id == pid }?.nome.orEmpty()
             }
             if (product != null) Muted("Dose para ${numShort(vm.volume)} L: ${formatDose(doseFor(product, vm.volume), product.doseUnidade)}. Ao marcar Feito, a dose entra no histórico.")
-            if (product != null && product.doseQuantidade == null) Text("Este produto está sem dose. Preencha a dose no produto antes de ativar a rotina.", color = Luluco.Coral)
+            if (product != null && product.doseQuantidade == null) Text("Este produto está sem dose. Preencha a dose no produto antes de ativar a rotina.", color = Luluco.CoralText)
         }
         if (tipo == "manutencao" && equipment.isNotEmpty()) {
             PickerField("Equipamento (opcional)", equipment.map { it.id to equipmentName(it) }, equipmentId) { equipmentId = it }

@@ -99,10 +99,20 @@ object Reminders {
                 val night = Settings.isNight(hour, s.nightStartHour, s.nightEndHour)
                 notify(context, text)
                 if (s.soundOn && !night) playSound(context, s.soundVolume)
+                // quiosque: fora do modo noite, traz o app para a frente (e liga a tela) na hora da rotina
+                if (!night) bringToFront(context)
                 prefs.edit().putStringSet("notified", due.map { "${it.routine.id}|${it.effectiveDueAt}" }.toSet()).apply()
             }
         } finally {
             scheduleNext(context, now + 60_000)
+        }
+    }
+
+    /** Abre o app na frente. No Android 10+ o sistema pode bloquear; no Fire (5.1) e no S8 (9) funciona. */
+    fun bringToFront(context: Context) {
+        try {
+            context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        } catch (_: Exception) {
         }
     }
 
@@ -158,9 +168,11 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 }
 
-/** Reagenda o alarme depois de reiniciar o tablet ou atualizar o app. */
+/** Depois de reiniciar o tablet ou atualizar o app: reagenda o alarme e abre o app. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Reminders.schedule(context)
+        // quiosque: ao ligar o tablet (ou atualizar o app), abre sozinho
+        Reminders.bringToFront(context.applicationContext)
     }
 }

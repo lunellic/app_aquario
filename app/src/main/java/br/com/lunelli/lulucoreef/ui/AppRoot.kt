@@ -1,6 +1,36 @@
 package br.com.lunelli.lulucoreef.ui
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddCircle
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Face
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.List
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,7 +82,6 @@ sealed interface Screen {
     data object Saude : Screen { override val topLevel = true }
     data object Equipamentos : Screen { override val topLevel = true }
     data object Assistente : Screen { override val topLevel = true }
-    data object Mais : Screen { override val topLevel = true }
 
     data class TestForm(val edit: WaterTest? = null) : Screen
     data class TpaForm(val edit: WaterChange? = null, val occurrence: Occurrence? = null) : Screen
@@ -81,29 +110,56 @@ class Nav {
     fun top(s: Screen) { onLeave(); stack.clear(); stack.add(s) }
 }
 
-private val tabs = listOf(
-    Screen.Painel to "Painel",
-    Screen.Registrar to "Registrar",
-    Screen.Historico to "Histórico",
-    Screen.Aquario to "Meu Aquário",
-    Screen.Graficos to "Gráficos",
-    Screen.Saude to "Saúde",
-    Screen.Rotinas to "Rotinas",
-    Screen.Equipamentos to "Equipamentos",
-    Screen.Assistente to "Assistente",
-    Screen.Config to "Ajustes",
-)
+private class Tab(val screen: Screen, val label: String, val icon: ImageVector)
 
-/** No retrato (celular) a barra de baixo mostra so as 4 primeiras + "Mais". */
-private val phoneTabs = tabs.take(4) + (Screen.Mais to "Mais")
+private val tabs = listOf(
+    Tab(Screen.Painel, "Painel", Icons.Rounded.Home),
+    Tab(Screen.Registrar, "Registrar", Icons.Rounded.AddCircle),
+    Tab(Screen.Historico, "Histórico", Icons.Rounded.List),
+    Tab(Screen.Aquario, "Meu Aquário", Icons.Rounded.Star),
+    Tab(Screen.Graficos, "Gráficos", Icons.Rounded.Info),
+    Tab(Screen.Saude, "Saúde", Icons.Rounded.Favorite),
+    Tab(Screen.Rotinas, "Rotinas", Icons.Rounded.DateRange),
+    Tab(Screen.Equipamentos, "Equipamentos", Icons.Rounded.Build),
+    Tab(Screen.Assistente, "Assistente", Icons.Rounded.Face),
+    Tab(Screen.Config, "Ajustes", Icons.Rounded.Settings),
+)
 
 @Composable
 fun AppRoot(vm: MainViewModel = viewModel()) {
     val logged by vm.loggedIn.collectAsStateWithLifecycle()
-    if (!logged) {
-        LoginScreen(vm)
-        return
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalWaterFx provides settings.waterFx) {
+        Box(Modifier.fillMaxSize()) {
+            if (logged) LoggedIn(vm) else {
+                WaterBackground(Modifier.fillMaxSize())
+                LoginScreen(vm)
+            }
+            Splash()
+        }
     }
+}
+
+/** Abertura: a logo entra com uma mola sobre o fundo de agua e some. Nao bloqueia toques. */
+@Composable
+private fun Splash() {
+    var visible by remember { mutableStateOf(true) }
+    val scale = remember { Animatable(0.6f) }
+    LaunchedEffect(Unit) {
+        scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+        delay(500)
+        visible = false
+    }
+    AnimatedVisibility(visible, enter = fadeIn(tween(0)), exit = fadeOut(tween(450))) {
+        Box(Modifier.fillMaxSize().background(Luluco.DeepTop), contentAlignment = Alignment.Center) {
+            Image(painterResource(R.drawable.logo_luluco), "Luluco Reef",
+                Modifier.size(260.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value }.clip(RoundedCornerShape(48.dp)))
+        }
+    }
+}
+
+@Composable
+private fun LoggedIn(vm: MainViewModel) {
     val nav = remember { Nav() }
     val settings by vm.settings.collectAsStateWithLifecycle()
     var lastTouch by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -121,71 +177,98 @@ fun AppRoot(vm: MainViewModel = viewModel()) {
     val night = topLevel && Settings.isNight(hour, settings.nightStartHour, settings.nightEndHour) && idle > 60_000
     val vitrine = topLevel && !night && settings.vitrineMinutes > 0 && idle > settings.vitrineMinutes * 60_000L
     val overlay by rememberUpdatedState(night || vitrine)
+    fun wake() {
+        if (overlay) nav.top(Screen.Painel)
+        lastTouch = System.currentTimeMillis()
+        tick = lastTouch
+    }
 
     Box(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).pointerInput(Unit) {
+        Modifier.fillMaxSize().pointerInput(Unit) {
             awaitEachGesture {
                 awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                if (overlay) nav.top(Screen.Painel)
-                lastTouch = System.currentTimeMillis()
-                tick = lastTouch
+                wake()
             }
         },
     ) {
         when {
             night -> NightScreen(vm)
             vitrine -> VitrineScreen(vm)
-            else -> MainScaffold(vm, nav)
+            else -> {
+                WaterBackground(Modifier.fillMaxSize())
+                MainScaffold(vm, nav)
+            }
         }
+        // na vitrine e no modo noite, o botao voltar so acorda o Painel
+        BackHandler(enabled = night || vitrine) { wake() }
     }
 }
 
 @Composable
 private fun MainScaffold(vm: MainViewModel, nav: Nav) {
-    BackHandler(enabled = nav.stack.size > 1) { nav.back() }
+    var menuOpen by remember { mutableStateOf(false) }
+    var lastBack by remember { mutableLongStateOf(0L) }
+    val ctx = LocalContext.current
     val focus = LocalFocusManager.current
     DisposableEffect(nav, focus) {
         nav.onLeave = { focus.clearFocus(force = true) }
         onDispose { nav.onLeave = {} }
     }
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth > maxHeight
-        if (wide) {
-            Row(Modifier.fillMaxSize()) {
-                Column(
-                    Modifier.width(132.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surface).padding(8.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)))
-                    tabs.forEach { (screen, label) -> TabItem(label, nav.stack.first() == screen, Modifier.fillMaxWidth()) { nav.top(screen) } }
-                    SyncDot(vm)
-                }
-                Box(Modifier.weight(1f).fillMaxHeight().padding(16.dp)) { ScreenContent(vm, nav) }
+    // Voltar: fecha o menu, volta a tela, vai ao Painel; no Painel so sai com dois toques em ate 2 s (modo quiosque).
+    BackHandler {
+        when {
+            menuOpen -> menuOpen = false
+            nav.stack.size > 1 -> nav.back()
+            nav.current != Screen.Painel -> nav.top(Screen.Painel)
+            System.currentTimeMillis() - lastBack < 2_000 -> (ctx as? android.app.Activity)?.finish()
+            else -> {
+                lastBack = System.currentTimeMillis()
+                Toast.makeText(ctx, "Toque em voltar de novo para sair", Toast.LENGTH_SHORT).show()
             }
-        } else {
-            Column(Modifier.fillMaxSize()) {
-                Box(Modifier.weight(1f).fillMaxWidth().padding(12.dp)) { ScreenContent(vm, nav) }
-                Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    val root = nav.stack.first()
-                    phoneTabs.forEach { (screen, label) ->
-                        val selected = root == screen || (screen == Screen.Mais && phoneTabs.none { it.first == root })
-                        TabItem(label.substringAfter("Meu "), selected, Modifier.weight(1f), small = true) { nav.top(screen) }
-                    }
-                }
-            }
+        }
+    }
+    CompositionLocalProvider(LocalOpenMenu provides { focus.clearFocus(force = true); menuOpen = true }) {
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)) { ScreenContent(vm, nav) }
+            Drawer(vm, menuOpen, nav.stack.first(), onPick = { menuOpen = false; nav.top(it) }, onClose = { menuOpen = false })
         }
     }
 }
 
+/** Menu lateral: fechado por padrao, abre pelo icone de menu e fecha ao escolher. */
 @Composable
-private fun TabItem(label: String, selected: Boolean, modifier: Modifier, small: Boolean = false, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-    Box(
-        modifier.clip(RoundedCornerShape(12.dp)).background(bg).clickable(onClick = onClick).padding(vertical = if (small) 12.dp else 9.dp, horizontal = 2.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(label, fontSize = if (small) 12.sp else 14.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, maxLines = 1,
-            color = if (selected) Luluco.Cream else MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (Screen) -> Unit, onClose: () -> Unit) {
+    AnimatedVisibility(open, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose))
+    }
+    AnimatedVisibility(open, enter = slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)) { -it }, exit = slideOutHorizontally(tween(200)) { -it }) {
+        Column(
+            Modifier.width(280.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)).background(Luluco.Solid)
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+                .padding(14.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)))
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("Luluco Reef", style = MaterialTheme.typography.titleLarge)
+                    SyncDot(vm)
+                }
+            }
+            tabs.forEach { t ->
+                val selected = current == t.screen
+                Row(
+                    Modifier.fillMaxWidth().testTag("menu_${t.label}").clip(RoundedCornerShape(18.dp))
+                        .background(if (selected) Luluco.Royal else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(t.icon, contentDescription = null, tint = if (selected) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(14.dp))
+                    Text(t.label, fontSize = 17.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, color = Luluco.Cream)
+                }
+            }
+        }
     }
 }
 
@@ -198,12 +281,22 @@ private fun SyncDot(vm: MainViewModel) {
         s.lastError != null -> "offline"
         else -> "sincronizado"
     }
-    Text(text, fontSize = 11.sp, color = if (s.pending > 0 || s.lastError != null) Luluco.Coral else MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    Text(text, fontSize = 12.sp, color = if (s.pending > 0 || s.lastError != null) Luluco.CoralText else Luluco.TextSoft)
 }
 
 @Composable
 private fun ScreenContent(vm: MainViewModel, nav: Nav) {
-    when (val s = nav.current) {
+    // transicao fluida entre telas: fade + leve deslize para cima
+    AnimatedContent(
+        targetState = nav.current,
+        transitionSpec = { (fadeIn(tween(240)) + slideInVertically(tween(300)) { it / 28 }) togetherWith fadeOut(tween(110)) },
+        label = "tela",
+    ) { s -> ScreenFor(vm, nav, s) }
+}
+
+@Composable
+private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
+    when (s) {
         Screen.Painel -> PainelScreen(vm, nav)
         Screen.Registrar -> RegistrarScreen(nav)
         Screen.Historico -> HistoricoScreen(vm, nav)
@@ -214,7 +307,6 @@ private fun ScreenContent(vm: MainViewModel, nav: Nav) {
         Screen.Saude -> SaudeScreen(vm, nav)
         Screen.Equipamentos -> EquipamentosScreen(vm, nav)
         Screen.Assistente -> AssistenteScreen(vm)
-        Screen.Mais -> MaisScreen(nav)
         is Screen.TestForm -> TestForm(vm, nav, s.edit)
         is Screen.TpaForm -> TpaForm(vm, nav, s.edit, s.occurrence)
         is Screen.DoseForm -> DoseForm(vm, nav, s.edit)
@@ -232,20 +324,12 @@ private fun ScreenContent(vm: MainViewModel, nav: Nav) {
 }
 
 @Composable
-private fun MaisScreen(nav: Nav) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        ScreenHeader("Mais")
-        tabs.drop(4).forEach { (screen, label) -> BigButton(label, Modifier.fillMaxWidth(), color = Luluco.Royal) { nav.top(screen) } }
-    }
-}
-
-@Composable
 fun LoginScreen(vm: MainViewModel) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(24.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Column(Modifier.widthIn(max = 420.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(150.dp).clip(RoundedCornerShape(24.dp)))
             OutlinedTextField(email, { email = it }, label = { Text("E-mail") }, singleLine = true,
@@ -253,7 +337,7 @@ fun LoginScreen(vm: MainViewModel) {
             OutlinedTextField(password, { password = it }, label = { Text("Senha") }, singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
-            error?.let { Text(it, color = Luluco.Coral) }
+            error?.let { Text(it, color = Luluco.CoralText) }
             BigButton(if (busy) "Entrando..." else "Entrar", Modifier.fillMaxWidth(), enabled = !busy && email.isNotBlank() && password.isNotEmpty()) {
                 busy = true
                 error = null

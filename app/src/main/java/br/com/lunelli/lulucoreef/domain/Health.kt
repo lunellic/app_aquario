@@ -6,6 +6,7 @@ import br.com.lunelli.lulucoreef.data.Routine
 import br.com.lunelli.lulucoreef.data.RoutineLog
 import br.com.lunelli.lulucoreef.data.WaterChange
 import br.com.lunelli.lulucoreef.data.WaterTest
+import br.com.lunelli.lulucoreef.data.reliable
 import java.time.ZoneId
 import kotlin.math.roundToInt
 
@@ -16,9 +17,10 @@ data class HealthScore(val score: Int?, val items: List<ScoreItem>, val missing:
 
 /** Nota de saude 0-100 (spec 10): comeca em 100 e desconta por regra fixa e explicavel. */
 fun healthScore(
-    tests: List<WaterTest>, ranges: Map<String, ParamRange>, changes: List<WaterChange>,
+    allTests: List<WaterTest>, ranges: Map<String, ParamRange>, changes: List<WaterChange>,
     routines: List<Routine>, logs: List<RoutineLog>, cases: List<HealthCase>, now: Long, zone: ZoneId,
 ): HealthScore {
+    val tests = allTests.reliable()
     val items = ArrayList<ScoreItem>()
     val missing = ArrayList<String>()
 

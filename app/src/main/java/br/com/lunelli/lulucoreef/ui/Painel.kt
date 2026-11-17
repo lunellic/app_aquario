@@ -22,9 +22,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.Brush
 import br.com.lunelli.lulucoreef.data.ParamRange
 import br.com.lunelli.lulucoreef.data.Product
 import br.com.lunelli.lulucoreef.data.Routine
+import br.com.lunelli.lulucoreef.data.reliable
 import br.com.lunelli.lulucoreef.domain.Alert
 import br.com.lunelli.lulucoreef.domain.allAlerts
 import br.com.lunelli.lulucoreef.domain.DAY_MS
@@ -81,107 +83,109 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     val needAnchor = routines.filter { it.ativa && it.isInterval() && it.proximaEm == null }
     val toReview = livestock.count { it.revisar && it.status == "ativo" }
 
-    Box(Modifier.fillMaxSize()) {
-        Bubbles(Modifier.fillMaxSize(), count = 8, alpha = 0.10f)
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val wide = maxWidth > 640.dp
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Header(tank?.nome ?: "Luluco Reef", tank?.fotoVitrinePath, now, health, volume, livestock.filter { it.status == "ativo" }.sumOf { it.quantidade }) { showScore = true }
+    val reliableTests = remember(tests) { tests.reliable() }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth > 640.dp
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Header(Modifier.cascade(0), tank?.nome ?: "Luluco Reef", tank?.fotoVitrinePath, now, health, volume, livestock.filter { it.status == "ativo" }.sumOf { it.quantidade }) { showScore = true }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    BigButton("Nova medição", Modifier.weight(1f)) { nav.go(Screen.TestForm()) }
-                    BigButton("Registrar TPA", Modifier.weight(1f)) { nav.go(Screen.TpaForm()) }
-                    BigButton("Adicionar habitante", Modifier.weight(1f), color = Luluco.Royal) { nav.go(Screen.LivestockForm()) }
-                    BigButton("Nova nota", Modifier.weight(1f), color = Luluco.Royal) { nav.go(Screen.EventForm()) }
+            val hoje: @Composable (Modifier) -> Unit = { m ->
+                Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle("Hoje")
+                    if (today.isEmpty()) Panel(Modifier.fillMaxWidth()) { Muted("Nenhuma rotina para hoje.") }
+                    today.forEach { o -> TodayItem(vm, nav, o, productById[o.routine.productId], volume, now) }
                 }
-
-                if (!settings.inventoryNoticeSeen && toReview > 0) {
-                    Panel(Modifier.fillMaxWidth(), borderColor = Luluco.Pool) {
-                        Text("Revise o inventário", fontWeight = FontWeight.Bold)
-                        Muted("$toReview itens foram pré-cadastrados e estão marcados com \"confirmar\". Abra Meu Aquário e ajuste nomes e quantidades.")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { vm.updateSettings { it.copy(inventoryNoticeSeen = true) }; nav.top(Screen.Aquario) }) { Text("Abrir Meu Aquário") }
-                            TextButton(onClick = { vm.updateSettings { it.copy(inventoryNoticeSeen = true) } }) { Text("Depois") }
-                        }
-                    }
-                }
-                needAnchor.forEach { r -> AnchorQuestion(vm, r) }
-
-                val hoje: @Composable (Modifier) -> Unit = { m ->
-                    Column(m, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionTitle("Hoje")
-                        if (today.isEmpty()) Panel(Modifier.fillMaxWidth()) { Muted("Nenhuma rotina para hoje.") }
-                        today.forEach { o -> TodayItem(vm, nav, o, productById[o.routine.productId], volume, now) }
-                    }
-                }
-                val metricas: @Composable (Modifier) -> Unit = { m ->
-                    Column(m, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionTitle("Métricas principais")
-                        Params.MAIN.chunked(2).forEach { pair ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                pair.forEach { p ->
-                                    val last = tests.latestOf(p)
-                                    val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
-                                    MetricCard(Modifier.weight(1f), p, last?.valor, last?.medidoEm, ranges[p], exit, now)
-                                }
+            }
+            val metricas: @Composable (Modifier) -> Unit = { m ->
+                Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionTitle("Métricas principais")
+                    Params.MAIN.chunked(2).forEach { pair ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            pair.forEach { p ->
+                                val last = reliableTests.latestOf(p)
+                                val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
+                                MetricCard(Modifier.weight(1f), p, last?.valor, last?.medidoEm, ranges[p], exit, now)
                             }
                         }
                     }
                 }
-                if (wide) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        hoje(Modifier.weight(1f))
-                        metricas(Modifier.weight(1f))
-                    }
-                } else {
-                    metricas(Modifier.fillMaxWidth())
-                    hoje(Modifier.fillMaxWidth())
+            }
+            if (wide) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    hoje(Modifier.weight(1f).cascade(1))
+                    metricas(Modifier.weight(1f).cascade(2))
                 }
+            } else {
+                hoje(Modifier.fillMaxWidth().cascade(1))
+                metricas(Modifier.fillMaxWidth().cascade(2))
+            }
 
-                if (alerts.isNotEmpty()) {
+            Row(Modifier.cascade(3), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                BigButton("Nova medição", Modifier.weight(1f)) { nav.go(Screen.TestForm()) }
+                BigButton("Registrar TPA", Modifier.weight(1f)) { nav.go(Screen.TpaForm()) }
+                BigButton("Adicionar habitante", Modifier.weight(1f), color = Luluco.Royal) { nav.go(Screen.LivestockForm()) }
+                BigButton("Nova nota", Modifier.weight(1f), color = Luluco.Royal) { nav.go(Screen.EventForm()) }
+            }
+
+            if (!settings.inventoryNoticeSeen && toReview > 0) {
+                Panel(Modifier.fillMaxWidth(), borderColor = Luluco.Pool) {
+                    Text("Revise o inventário", fontWeight = FontWeight.Bold)
+                    Muted("$toReview itens foram pré-cadastrados e estão marcados com \"confirmar\". Abra Meu Aquário e ajuste nomes e quantidades.")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { vm.updateSettings { it.copy(inventoryNoticeSeen = true) }; nav.top(Screen.Aquario) }) { Text("Abrir Meu Aquário") }
+                        TextButton(onClick = { vm.updateSettings { it.copy(inventoryNoticeSeen = true) } }) { Text("Depois") }
+                    }
+                }
+            }
+            needAnchor.forEach { r -> AnchorQuestion(vm, r) }
+
+            if (alerts.isNotEmpty()) {
+                Column(Modifier.cascade(4), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("Alertas ativos")
                     alerts.forEach { AlertCard(it) }
                 }
+            }
 
+            Column(Modifier.cascade(5), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SectionTitle("Resumo da semana")
                 val weekAgo = now - 7 * DAY_MS
                 val (doseDone, doseExpected) = remember(routines, logs, now) { compliance(routines.filter { it.tipo == "dosagem" }, logs, now, zone) }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Stat(Modifier.weight(1f), tests.count { it.medidoEm >= weekAgo }.toString(), "medições")
                     Stat(Modifier.weight(1f), changes.count { it.feitaEm >= weekAgo }.toString(), "TPAs")
                     Stat(Modifier.weight(1f), "$doseDone/$doseExpected", "doses feitas / previstas")
                     Stat(Modifier.weight(1f), dosings.count { it.dosadoEm >= weekAgo }.toString(), "doses registradas")
                 }
-                Spacer(Modifier.height(8.dp))
             }
+            Spacer(Modifier.height(8.dp))
         }
     }
     if (showScore) ScoreDialog(health) { showScore = false }
 }
 
+/** Topo do Painel: saudacao pelo horario e a nota de saude em anel, com ondas na base. */
 @Composable
-private fun Header(nome: String, foto: String?, now: Long, health: HealthScore, volume: Double, count: Int, onScore: () -> Unit) {
+private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, health: HealthScore, volume: Double, count: Int, onScore: () -> Unit) {
     val zdt = Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault())
     val greeting = when (zdt.hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
-    val date = zdt.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr))
-    Box(Modifier.fillMaxWidth().height(132.dp).clip(RoundedCornerShape(20.dp)).background(Luluco.Royal)) {
-        if (foto != null) Photo(foto, Modifier.fillMaxSize(), maxPx = 1024)
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (foto != null) 0.55f else 0.25f)))
-        Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+    val date = zdt.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr)).replaceFirstChar { it.uppercase() }
+    val shape = RoundedCornerShape(28.dp)
+    Box(modifier.fillMaxWidth().height(148.dp).clip(shape).background(Brush.horizontalGradient(listOf(Luluco.Royal, Luluco.Pool.copy(alpha = 0.75f))))) {
+        if (foto != null) {
+            Photo(foto, Modifier.fillMaxSize(), maxPx = 1024)
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Luluco.Navy.copy(alpha = 0.85f), Luluco.Royal.copy(alpha = 0.45f)))))
+        }
+        if (LocalWaterFx.current) Waves(Modifier.fillMaxWidth().height(46.dp).align(Alignment.BottomCenter), color = Luluco.Cream)
+        Row(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            MenuButton()
+            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("$greeting, Lucas", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Luluco.Cream)
-                Text(date, color = Luluco.Cream.copy(alpha = 0.85f))
-                Text("$nome  ·  ${numShort(volume)} L  ·  $count habitantes", color = Luluco.Cream.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$greeting, Lucas", fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 32.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(date, color = Luluco.Cream, maxLines = 1)
+                Text("$nome  ·  ${numShort(volume)} L  ·  $count habitantes", color = Luluco.Cream.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
-            Row(Modifier.clip(RoundedCornerShape(16.dp)).clickable(onClick = onScore).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Saúde", color = Luluco.Cream.copy(alpha = 0.85f))
-                    Text(health.score?.toString() ?: "-", fontSize = 44.sp, fontWeight = FontWeight.Bold, color = scoreColor(health.score))
-                }
-                Spacer(Modifier.width(10.dp))
-                Box(Modifier.size(34.dp).clip(CircleShape).background(Luluco.Cream.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
-                    Text("?", fontWeight = FontWeight.Bold, color = Luluco.Cream)
-                }
+            Box(Modifier.clip(CircleShape).clickable(onClick = onScore).padding(4.dp)) {
+                HealthRing(health.score, 112.dp)
             }
         }
     }
@@ -233,7 +237,7 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
     }
     Panel(Modifier.fillMaxWidth(), borderColor = if (due) Luluco.Coral else null, padding = 12.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(fmtTime(o.dueAt), fontWeight = FontWeight.Bold, color = if (due) Luluco.Coral else MaterialTheme.colorScheme.primary, modifier = Modifier.width(58.dp))
+            Text(fmtTime(o.dueAt), fontFamily = Fredoka, fontSize = 20.sp, color = if (due) Luluco.CoralText else Luluco.PoolText, modifier = Modifier.width(66.dp))
             Column(Modifier.weight(1f)) {
                 Text(o.routine.titulo, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (detail.isNotEmpty()) Muted(detail, maxLines = 2)
@@ -241,7 +245,7 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
             }
             when (o.state) {
                 OccState.FEITO -> Badge("feito", Luluco.Ok)
-                OccState.PULADO -> Badge("pulado", Color(0xFF8091AB))
+                OccState.PULADO -> Badge("pulado", Luluco.Neutral)
                 OccState.ADIADO -> if (!due) Badge("adiado até ${fmtTime(o.effectiveDueAt)}", Luluco.Pool) else Badge("atrasada", Luluco.Coral)
                 OccState.PENDENTE -> if (due) Badge("atrasada", Luluco.Coral)
             }
@@ -272,13 +276,13 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
             Badge(statusLabel(status), statusColor(status))
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value?.let { Params.format(param, it) } ?: "-", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = statusColor(status))
+            Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Fredoka, fontSize = 38.sp, color = statusColor(status))
             Spacer(Modifier.width(6.dp))
             Text(Params.unit(param), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
         }
         if (range != null) RangeBar(value, range, statusColor(status))
         Muted(if (at != null) "${fmtDateTime(at)} (${fmtAgo(at, now)})" else "sem medição", maxLines = 1)
-        if (daysToExit != null) Text("Projeção: sai da faixa em ~${maxOf(1, daysToExit.roundToInt())} dias", color = Luluco.Coral, fontSize = 13.sp)
+        if (daysToExit != null) Text("Projeção: sai da faixa em ~${maxOf(1, daysToExit.roundToInt())} dias", color = Luluco.CoralText, fontSize = 13.sp)
     }
 }
 
@@ -292,8 +296,8 @@ private fun RangeBar(value: Double?, r: ParamRange, markerColor: Color) {
     Canvas(Modifier.fillMaxWidth().height(18.dp).padding(vertical = 4.dp)) {
         val h = size.height
         val radius = CornerRadius(h / 2, h / 2)
-        drawRoundRect(Luluco.Critical.copy(alpha = 0.35f), size = size, cornerRadius = radius)
-        drawRect(Luluco.Coral.copy(alpha = 0.55f), topLeft = Offset(frac(r.alertaMin) * size.width, 0f), size = Size((frac(r.alertaMax) - frac(r.alertaMin)) * size.width, h))
+        drawRoundRect(Luluco.Critical.copy(alpha = 0.45f), size = size, cornerRadius = radius)
+        drawRect(Luluco.Coral.copy(alpha = 0.75f), topLeft = Offset(frac(r.alertaMin) * size.width, 0f), size = Size((frac(r.alertaMax) - frac(r.alertaMin)) * size.width, h))
         drawRect(Luluco.Ok.copy(alpha = 0.8f), topLeft = Offset(frac(r.idealMin) * size.width, 0f), size = Size((frac(r.idealMax) - frac(r.idealMin)) * size.width, h))
         if (value != null) {
             val x = frac(value) * size.width
@@ -319,7 +323,7 @@ fun AlertCard(a: Alert) {
 @Composable
 private fun Stat(modifier: Modifier, value: String, label: String) {
     Panel(modifier, padding = 12.dp) {
-        Text(value, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(value, fontFamily = Fredoka, fontSize = 30.sp, color = Luluco.Cream)
         Muted(label, maxLines = 2)
     }
 }

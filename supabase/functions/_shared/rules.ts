@@ -17,8 +17,11 @@ export const LABEL: Record<string, string> = {
 };
 const DECIMALS: Record<string, number> = { kh: 1, temperatura: 1, salinidade: 3, po4: 2, no3: 1, ca: 0, mg: 0 };
 
+/** Casas padrao; uma a mais quando o valor registrado precisa (1,0225 / 7,85). */
 export function fmt(p: string, v: number): string {
-  return Number(v).toFixed(DECIMALS[p] ?? 1).replace(".", ",");
+  const d = DECIMALS[p] ?? 1;
+  const scaled = Number(v) * 10 ** d;
+  return Number(v).toFixed(Math.abs(scaled - Math.round(scaled)) > 1e-6 ? d + 1 : d).replace(".", ",");
 }
 
 export function numShort(v: number): string {
@@ -125,12 +128,27 @@ export function doseFor(p: Row, volume: number): number | null {
   return p.dose_base_litros > 0 ? p.dose_quantidade * volume / p.dose_base_litros : p.dose_quantidade;
 }
 
+/** Mesmo arredondamento pratico do app. */
 export function formatDose(q: number | null, unit: string | null): string {
   if (q == null) return "dose a definir";
-  const near = (x: number) => Math.abs(q - x) < 1e-6;
-  const frac = near(0.25) ? "1/4" : near(0.5) ? "1/2" : near(0.75) ? "3/4" : null;
-  if (unit === "colher") return frac ? `${frac} de colher` : `${numShort(q)} ${q > 1 ? "colheres" : "colher"}`;
-  if (unit === "gotas") return `${numShort(q)} ${near(1) ? "gota" : "gotas"}`;
+  const approx = (shown: number) => Math.abs(shown - q) > 0.005 * Math.max(q, 1e-9) + 1e-9 ? "~" : "";
+  if (unit === "colher") {
+    if (q < 0.875) {
+      const opts: [number, string][] = [[0.25, "1/4"], [1 / 3, "1/3"], [0.5, "1/2"], [2 / 3, "2/3"], [0.75, "3/4"]];
+      const [v, label] = opts.reduce((a, b) => Math.abs(b[0] - q) < Math.abs(a[0] - q) ? b : a);
+      return `${approx(v)}${label} de colher`;
+    }
+    const v = Math.round(q * 2) / 2;
+    return `${approx(v)}${numShort(v)} ${v > 1 ? "colheres" : "colher"}`;
+  }
+  if (unit === "gotas") {
+    const v = Math.max(0.5, Math.round(q * 2) / 2);
+    return `${approx(v)}${numShort(v)} ${Math.abs(v - 1) < 1e-6 ? "gota" : "gotas"}`;
+  }
+  if (unit === "g" || unit === "ml") {
+    const v = q >= 10 ? Math.round(q) : Math.round(q * 10) / 10;
+    return `${approx(v)}${numShort(v)} ${unit}`;
+  }
   if (!unit || unit === "outra") return numShort(q);
   return `${numShort(q)} ${unit}`;
 }

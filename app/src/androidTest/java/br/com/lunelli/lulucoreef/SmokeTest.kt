@@ -5,6 +5,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -43,6 +45,12 @@ class SmokeTest {
         Api.offlineForTests = true
         app.graph.session.clear()
         app.graph.db.clearAllTables()
+    }
+
+    /** Abre o menu lateral e escolhe um item. */
+    private fun menu(label: String) {
+        compose.onNodeWithContentDescription("Menu").performClick()
+        compose.onNodeWithTag("menu_$label").performScrollTo().performClick()
     }
 
     @After fun restore() {
@@ -114,12 +122,12 @@ class SmokeTest {
             compose.waitUntil(10_000) { runBlocking { app.graph.db.waterTests().all().first().size == 1 } }
 
             // Historico unificado
-            compose.onNodeWithText("Histórico").performClick()
+            menu("Histórico")
             compose.onNodeWithText("KH: 8,2 dKH").assertIsDisplayed()
             compose.onNodeWithText("Goni Supreme: 1/4 de colher").assertIsDisplayed()
 
             // Meu Aquario
-            compose.onNodeWithText("Meu Aquário").performClick()
+            menu("Meu Aquário")
             compose.onNodeWithText("Corais (1)").assertIsDisplayed()
             compose.onNodeWithText("2x Palhaço").assertIsDisplayed()
             compose.onAllNodesWithText("confirmar").onFirst().assertIsDisplayed()
@@ -129,12 +137,12 @@ class SmokeTest {
             compose.onNodeWithText("Voltar").performScrollTo().performClick()
 
             // Graficos
-            compose.onNodeWithText("Gráficos").performScrollTo().performClick()
+            menu("Gráficos")
             compose.onNodeWithText("Parâmetros").assertIsDisplayed()
             compose.onNodeWithText("KH (dKH)").assertIsDisplayed()
 
             // Saude: abre caso e cai na ficha do caso
-            compose.onNodeWithText("Saúde").performScrollTo().performClick()
+            menu("Saúde")
             compose.onNodeWithText("Novo caso").performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)").performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar").performScrollTo().performClick()
@@ -143,18 +151,50 @@ class SmokeTest {
             compose.onNodeWithText("Casos abertos (1)").assertIsDisplayed()
 
             // Rotinas, Equipamentos e Ajustes abrem sem quebrar
-            compose.onNodeWithText("Rotinas").performScrollTo().performClick()
+            menu("Rotinas")
             compose.onNodeWithText("Produtos e Rotinas").assertIsDisplayed()
-            compose.onNodeWithText("Equipamentos").performScrollTo().performClick()
+            menu("Equipamentos")
             compose.onNodeWithText("Nenhum equipamento cadastrado.").assertIsDisplayed()
-            compose.onNodeWithText("Assistente").performScrollTo().performClick()
+            menu("Assistente")
             compose.onNodeWithText("Analisar meu aquário").assertIsDisplayed()
-            compose.onNodeWithText("Ajustes").performScrollTo().performClick()
+            menu("Ajustes")
             compose.onNodeWithText("Configurações").assertIsDisplayed()
             compose.onNodeWithText("teste@example.com").performScrollTo().assertIsDisplayed()
 
             // Sem rede a sessao continua valida (nao volta para o login)
             assertTrue(app.graph.session.loggedIn.value)
         }
+    }
+
+    /** Quem ja tem o app instalado (banco v1) atualiza sem perder dados: v1 -> v2 cria water_tests.baixaConfianca. */
+    @Test fun migracaoDoBancoLocalPreservaDados() {
+        val name = "migracao_teste.db"
+        app.deleteDatabase(name)
+        fun open() = androidx.room.Room.databaseBuilder(app, br.com.lunelli.lulucoreef.data.AppDb::class.java, name)
+            .addMigrations(br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2).build()
+        open().apply { openHelper.writableDatabase; close() }
+
+        // volta o arquivo ao formato v1: water_tests sem a coluna nova, com uma medicao gravada
+        val raw = android.database.sqlite.SQLiteDatabase.openDatabase(app.getDatabasePath(name).path, null, android.database.sqlite.SQLiteDatabase.OPEN_READWRITE)
+        val sql = raw.rawQuery("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'water_tests'", null).use { it.moveToFirst(); it.getString(0) }
+        val v1 = sql.replace("`baixaConfianca` INTEGER NOT NULL DEFAULT 0, ", "")
+        assertTrue("coluna nova nao encontrada em: $sql", v1 != sql)
+        raw.execSQL("DROP TABLE water_tests")
+        raw.execSQL(v1)
+        raw.execSQL("INSERT INTO water_tests (medidoEm, parametro, valor, unidade, id, createdAt, updatedAt, pending) VALUES (1000, 'kh', 8.2, 'dKH', 'abc', 1000, 1000, 1)")
+        raw.version = 1
+        raw.close()
+
+        val db = open()
+        runBlocking {
+            val t = db.waterTests().all().first().single()
+            assertEquals(8.2, t.valor, 1e-9)
+            assertEquals(false, t.baixaConfianca)
+            assertTrue(t.pending)
+            db.waterTests().upsert(t.copy(baixaConfianca = true))
+            assertTrue(db.waterTests().get("abc")!!.baixaConfianca)
+        }
+        db.close()
+        app.deleteDatabase(name)
     }
 }

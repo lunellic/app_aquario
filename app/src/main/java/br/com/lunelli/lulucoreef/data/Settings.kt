@@ -12,6 +12,7 @@ data class LocalSettings(
     val soundOn: Boolean = true,
     val soundVolume: Int = 70, // 0..100
     val inventoryNoticeSeen: Boolean = false,
+    val waterFx: Boolean = true,
 )
 
 class Settings(context: Context) {
@@ -26,6 +27,7 @@ class Settings(context: Context) {
         soundOn = prefs.getBoolean("sound_on", true),
         soundVolume = prefs.getInt("sound_vol", 70),
         inventoryNoticeSeen = prefs.getBoolean("inv_notice", false),
+        waterFx = prefs.getBoolean("water_fx", true),
     )
 
     fun update(change: (LocalSettings) -> LocalSettings) {
@@ -37,6 +39,7 @@ class Settings(context: Context) {
             .putBoolean("sound_on", s.soundOn)
             .putInt("sound_vol", s.soundVolume)
             .putBoolean("inv_notice", s.inventoryNoticeSeen)
+            .putBoolean("water_fx", s.waterFx)
             .apply()
         _state.value = s
     }

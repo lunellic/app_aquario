@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 const assertEquals = (a: unknown, b: unknown) => assert.deepStrictEqual(a, b);
-import { compliance, criticalAlerts, healthScore, isNight, local, localToMs, occurrencesOn, reminderText } from "./rules.ts";
+import { compliance, criticalAlerts, doseFor, fmt, formatDose, healthScore, isNight, local, localToMs, occurrencesOn, reminderText } from "./rules.ts";
 
 const at = (date: string, time = "12:00") => localToMs(date, time);
 const iso = (t: number) => new Date(t).toISOString();
@@ -29,6 +29,13 @@ Deno.test("rotinas do dia e aviso agrupado iguais aos do app", () => {
   assertEquals(seg.map((o) => o.routine.titulo), ["Amino Coral", "Goni Supreme"]);
   assertEquals(reminderText(seg, [goni, amino], 100), "20h: Amino Coral 2 gotas, Goni Supreme 1/4 de colher");
   assertEquals(occurrencesOn([rGoni, rAmino], [], "2026-11-17").map((o) => o.routine.titulo), ["Goni Supreme"]);
+});
+
+Deno.test("doses para 125 L e casas extras iguais as do app", () => {
+  const f = (p: Record<string, unknown>) => formatDose(doseFor(p, 125), p.dose_unidade as string);
+  assertEquals([f(goni), f(amino), f({ dose_quantidade: 1, dose_unidade: "g", dose_base_litros: 200 }), f({ dose_quantidade: 1, dose_unidade: "gotas" })],
+    ["~1/3 de colher", "2,5 gotas", "~0,6 g", "1 gota"]);
+  assertEquals([fmt("salinidade", 1.025), fmt("salinidade", 1.0225), fmt("kh", 7.85), fmt("ca", 500)], ["1,025", "1,0225", "7,85", "500"]);
 });
 
 Deno.test("adiamento e cumprimento", () => {

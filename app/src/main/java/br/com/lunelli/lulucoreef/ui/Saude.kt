@@ -57,7 +57,7 @@ private fun CaseRow(c: HealthCase, livestockName: String?, entries: List<HealthE
             Column(Modifier.weight(1f)) {
                 Text(c.titulo, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Muted(listOfNotNull(caseType(c.tipo), livestockName ?: "Aquário todo", "aberto em ${fmtDay(c.abertoEm)}", "${entries.size} entradas").joinToString(" · "), maxLines = 1)
-                if (stale) Text("Sem nova entrada há ${(now - last) / DAY_MS} dias", color = Luluco.Coral, style = MaterialTheme.typography.bodySmall)
+                if (stale) Text("Sem nova entrada há ${(now - last) / DAY_MS} dias", color = Luluco.CoralText, style = MaterialTheme.typography.bodySmall)
             }
             if (c.fechadoEm != null) Badge(OUTCOMES.firstOrNull { it.first == c.desfecho }?.second ?: "fechado", MaterialTheme.colorScheme.outline)
         }

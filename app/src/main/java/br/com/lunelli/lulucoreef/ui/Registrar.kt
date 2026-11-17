@@ -60,6 +60,7 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
     var at by remember { mutableLongStateOf(edit?.medidoEm ?: System.currentTimeMillis()) }
     var obs by remember { mutableStateOf(edit?.observacao.orEmpty()) }
     var more by remember { mutableStateOf(false) }
+    var lowConfidence by remember { mutableStateOf(edit?.baixaConfianca ?: false) }
     var confirmAbsurd by remember { mutableStateOf<String?>(null) }
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { try { first.requestFocus() } catch (_: Exception) { } }
@@ -70,7 +71,7 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
     fun doSave() {
         parsed.forEach { (p, v) ->
             val base = edit ?: WaterTest(medidoEm = at, parametro = p, valor = v!!, unidade = Params.unit(p), kit = Params.kit(p))
-            vm.save(base.copy(medidoEm = at, valor = v!!, observacao = obs.ifBlank { null }))
+            vm.save(base.copy(medidoEm = at, valor = v!!, observacao = obs.ifBlank { null }, baixaConfianca = lowConfidence))
         }
         nav.back()
     }
@@ -89,6 +90,13 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
         if (edit == null && !more) TextButton(onClick = { more = true }) { Text("Mais parâmetros (NO3, PO4)") }
         DateTimeField("Medido em", at) { at = it }
         TextInput("Observação (opcional)", obs) { obs = it }
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Checkbox(lowConfidence, { lowConfidence = it })
+            Column {
+                Text("Leitura de baixa confiança")
+                Muted("Fica vazada no gráfico e fora de projeção, alertas e nota de saúde.")
+            }
+        }
         SaveRow(valid, onDelete = edit?.let { e -> { vm.delete(e); nav.back() } }) {
             val absurd = parsed.filter { Params.isAbsurd(it.first, it.second!!) }
             if (absurd.isNotEmpty()) confirmAbsurd = absurd.joinToString(", ") { "${Params.label(it.first)} ${values[it.first]}" } else doSave()

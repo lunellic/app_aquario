@@ -32,7 +32,8 @@ fun HistoricoScreen(vm: MainViewModel, nav: Nav) {
         val names = products.associate { it.id to it.nome }
         val out = ArrayList<HistItem>()
         if (filter == "todos" || filter == "teste") tests.forEach {
-            out += HistItem("t" + it.id, it.medidoEm, "Teste", "${Params.label(it.parametro)}: ${Params.format(it.parametro, it.valor)} ${it.unidade}", it.observacao.orEmpty(), Screen.TestForm(it))
+            out += HistItem("t" + it.id, it.medidoEm, "Teste", "${Params.label(it.parametro)}: ${Params.format(it.parametro, it.valor)} ${it.unidade}",
+                listOfNotNull(if (it.baixaConfianca) "baixa confiança" else null, it.observacao).joinToString(" · "), Screen.TestForm(it))
         }
         if (filter == "todos" || filter == "tpa") changes.forEach {
             out += HistItem("c" + it.id, it.feitaEm, "TPA", "TPA de ${numShort(it.litros)} L", listOfNotNull(it.sal, it.metodo, it.observacao).joinToString(" · "), Screen.TpaForm(it))

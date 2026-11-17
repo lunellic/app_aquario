@@ -6,7 +6,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -63,20 +67,23 @@ fun fmtAgo(ms: Long, now: Long): String {
 
 fun statusColor(s: Status): Color = when (s) {
     Status.IDEAL -> Luluco.Ok
-    Status.ATENCAO -> Luluco.Coral
+    Status.ATENCAO -> Luluco.CoralText
     Status.CRITICO -> Luluco.Critical
-    Status.SEM_MEDICAO -> Color(0xFF8091AB)
+    Status.SEM_MEDICAO -> Luluco.Neutral
 }
 
 fun statusLabel(s: Status) = when (s) {
     Status.IDEAL -> "Ideal"; Status.ATENCAO -> "Atenção"; Status.CRITICO -> "Crítico"; Status.SEM_MEDICAO -> "Sem medição"
 }
 
+/** Card de agua: azul translucido, cantos bem arredondados e borda sutil. */
 @Composable
-fun Panel(modifier: Modifier = Modifier, borderColor: Color? = null, padding: Dp = 14.dp, content: @Composable ColumnScope.() -> Unit) {
-    var m = modifier.clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface)
-    if (borderColor != null) m = m.border(2.dp, borderColor, RoundedCornerShape(16.dp))
-    Column(m.padding(padding), content = content)
+fun Panel(modifier: Modifier = Modifier, borderColor: Color? = null, padding: Dp = 16.dp, content: @Composable ColumnScope.() -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
+    Column(
+        modifier.clip(shape).background(Luluco.Card).border(if (borderColor != null) 2.dp else 1.dp, borderColor ?: Luluco.CardBorder, shape).padding(padding),
+        content = content,
+    )
 }
 
 @Composable
@@ -89,20 +96,22 @@ fun Muted(text: String, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_V
     Text(text, modifier = modifier, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 }
 
-/** Botao grande para mao molhada. */
+/** Botao grande para mao molhada. Laranja por padrao; texto escolhido pelo contraste. */
 @Composable
 fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = MaterialTheme.colorScheme.primary, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
     Button(
-        onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 60.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = if (color == Luluco.Royal || color == Luluco.DeepHigh || color == Luluco.Critical) Luluco.Cream else Luluco.Abyss),
+        onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 60.dp).pressSpring(source),
+        shape = RoundedCornerShape(20.dp), interactionSource = source,
+        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = onColor(color),
+            disabledContainerColor = Luluco.SolidHigh.copy(alpha = 0.6f), disabledContentColor = Luluco.TextSoft),
     ) { Text(text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 2) }
 }
 
 @Composable
 fun Chip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val fg = if (selected) Luluco.Abyss else MaterialTheme.colorScheme.onSurface
+    val bg = if (selected) Luluco.Pool else Luluco.Card
+    val fg = if (selected) Luluco.Navy else Luluco.Cream
     Box(
         modifier.clip(RoundedCornerShape(50)).background(bg).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
@@ -120,7 +129,7 @@ fun ChipRow(options: List<Pair<String, String>>, selected: String?, modifier: Mo
 @Composable
 fun Badge(text: String, color: Color) {
     Box(Modifier.clip(RoundedCornerShape(50)).background(color).padding(horizontal = 10.dp, vertical = 3.dp)) {
-        Text(text, color = Luluco.Abyss, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(text, color = onColor(color), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
@@ -214,15 +223,32 @@ fun ConfirmDialog(title: String, text: String, confirm: String, onConfirm: () ->
     )
 }
 
-/** Cabecalho de tela secundaria com voltar. */
+/** Abre o menu lateral (fornecido pelo AppRoot). */
+val LocalOpenMenu = compositionLocalOf<() -> Unit> { {} }
+
+@Composable
+fun MenuButton() {
+    val open = LocalOpenMenu.current
+    IconButton(onClick = open, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(18.dp)).background(Luluco.Card)) {
+        Icon(Icons.Rounded.Menu, contentDescription = "Menu", tint = Luluco.Cream)
+    }
+}
+
+/** Cabecalho de tela: voltar nas telas internas, menu nas principais. */
 @Composable
 fun ScreenHeader(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
-            OutlinedButton(onClick = onBack) { Text("Voltar") }
-            Spacer(Modifier.width(12.dp))
+            OutlinedButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Voltar")
+            }
+        } else {
+            MenuButton()
         }
-        Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.width(12.dp))
+        Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
     }
 }
@@ -238,5 +264,5 @@ fun Photo(path: String?, modifier: Modifier = Modifier, maxPx: Int = 640, conten
     }
     val b = bmp
     if (b != null) Image(b, contentDescription = null, modifier = modifier, contentScale = contentScale)
-    else Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant))
+    else Box(modifier.background(Luluco.Card))
 }

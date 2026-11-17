@@ -298,7 +298,7 @@ fun SpeciesCard(vm: MainViewModel, l: Livestock) {
             Field("Compatibilidade", o.optString("compatibilidade"))
             val conflicts = o.optJSONArray("conflitos")
             if (conflicts != null && conflicts.length() > 0) {
-                Text("Conflitos com o inventário:", fontWeight = FontWeight.Bold, color = Luluco.Coral)
+                Text("Conflitos com o inventário:", fontWeight = FontWeight.Bold, color = Luluco.CoralText)
                 for (i in 0 until conflicts.length()) {
                     val c = conflicts.optJSONObject(i) ?: continue
                     Text("- ${c.optString("com")}: ${c.optString("motivo")}")
@@ -306,7 +306,7 @@ fun SpeciesCard(vm: MainViewModel, l: Livestock) {
             }
             Field("Observações", o.optString("observacoes"))
         }
-        error?.let { Text(it, color = Luluco.Coral, style = MaterialTheme.typography.bodySmall) }
+        error?.let { Text(it, color = Luluco.CoralText, style = MaterialTheme.typography.bodySmall) }
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(enabled = !running, onClick = { error = null; vm.generateSpecies(l.id) { error = it } }) {

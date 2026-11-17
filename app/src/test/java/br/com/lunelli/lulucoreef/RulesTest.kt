@@ -49,6 +49,26 @@ class RulesTest {
         assertEquals(Status.CRITICO, statusOf(10.1, kh))
     }
 
+    @Test fun casasExtrasSoQuandoPrecisa() {
+        assertEquals("1,025", br.com.lunelli.lulucoreef.domain.Params.format("salinidade", 1.025))
+        assertEquals("1,0225", br.com.lunelli.lulucoreef.domain.Params.format("salinidade", 1.0225))
+        assertEquals("7,85", br.com.lunelli.lulucoreef.domain.Params.format("kh", 7.85))
+        assertEquals("7,7", br.com.lunelli.lulucoreef.domain.Params.format("kh", 7.7))
+        assertEquals("500", br.com.lunelli.lulucoreef.domain.Params.format("ca", 500.0))
+    }
+
+    @Test fun leituraDeBaixaConfiancaFicaForaDasRegras() {
+        val now = ms("2026-11-16")
+        val ranges = mapOf("kh" to kh)
+        val ruim = test("kh", 6.0, now).copy(baixaConfianca = true)
+        val boa = test("kh", 8.0, now - DAY_MS)
+        val alerts = br.com.lunelli.lulucoreef.domain.allAlerts(listOf(ruim, boa), ranges, listOf(WaterChange(now, 10.0)), emptyList(), emptyList(), emptyList(), now)
+        assertFalse(alerts.any { it.key == "range_kh" || it.key == "kh_swing" })
+        // projecao ignora a leitura vazada
+        val serie = listOf(test("kh", 8.4, now - 4 * DAY_MS), test("kh", 8.2, now - 2 * DAY_MS), test("kh", 8.0, now), test("kh", 12.0, now - DAY_MS).copy(baixaConfianca = true))
+        assertEquals(-0.1, trendOf(serie, "kh", kh, now)!!.slopePerDay, 1e-6)
+    }
+
     @Test fun numeroComVirgula() {
         assertEquals(1.025, parseNum("1,025")!!, 1e-9)
         assertEquals(8.2, parseNum(" 8.2 ")!!, 1e-9)
@@ -116,6 +136,14 @@ class RulesTest {
         assertEquals("2 colheres", formatDose(2.0, "colher"))
         // volume muda -> dose recalcula
         assertEquals("1/2 de colher", formatDose(doseFor(goni, 200.0), "colher"))
+        // 125 L (volume atual do Lucas): arredondamento pratico
+        assertEquals("~1/3 de colher", formatDose(doseFor(goni, 125.0), "colher"))
+        assertEquals("2,5 gotas", formatDose(doseFor(amino, 125.0), "gotas"))
+        assertEquals("~0,6 g", formatDose(doseFor(multivit, 125.0), "g"))
+        assertEquals("2,5 colheres", formatDose(2.5, "colher"))
+        assertEquals("2,5 g", formatDose(2.5, "g"))
+        assertEquals("1 gota", formatDose(doseFor(iodine, 125.0), "gotas"))
+        assertEquals(0.3125, doseFor(goni, 125.0)!!, 1e-9) // o valor gravado continua exato
         assertEquals("dose a definir", formatDose(null, "ml"))
     }
 

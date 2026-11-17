@@ -5,6 +5,7 @@ import br.com.lunelli.lulucoreef.data.HealthEntry
 import br.com.lunelli.lulucoreef.data.ParamRange
 import br.com.lunelli.lulucoreef.data.WaterChange
 import br.com.lunelli.lulucoreef.data.WaterTest
+import br.com.lunelli.lulucoreef.data.reliable
 import kotlin.math.abs
 
 /** Alerta de regra fixa (spec 8): o fato e uma acao segura. Nunca sugere suplemento separado de Ca, KH ou Mg. */
@@ -95,5 +96,5 @@ fun staleCaseAlerts(cases: List<HealthCase>, entries: List<HealthEntry>, now: Lo
 fun allAlerts(
     tests: List<WaterTest>, ranges: Map<String, ParamRange>, changes: List<WaterChange>, today: List<Occurrence>,
     cases: List<HealthCase>, entries: List<HealthEntry>, now: Long,
-): List<Alert> = (paramAlerts(tests, ranges, now) + listOfNotNull(tpaAlert(changes, now)) + lateRoutineAlerts(today, now) + staleCaseAlerts(cases, entries, now))
+): List<Alert> = (paramAlerts(tests.reliable(), ranges, now) + listOfNotNull(tpaAlert(changes, now)) + lateRoutineAlerts(today, now) + staleCaseAlerts(cases, entries, now))
     .sortedBy { if (it.severity == Status.CRITICO) 0 else 1 }

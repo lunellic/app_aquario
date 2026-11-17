@@ -111,20 +111,34 @@ fun doseFor(p: Product, volumeL: Double): Double? {
     return if (base != null && base > 0) q * volumeL / base else q
 }
 
+/**
+ * Dose arredondada de forma pratica para medir na mao: colher em fracoes comuns ou de meia em meia,
+ * gotas de meia em meia, g/ml com uma casa. "~" quando o valor exato foi arredondado.
+ * O valor exato continua sendo o gravado em dosings.
+ */
 fun formatDose(q: Double?, unit: String?): String {
     if (q == null) return "dose a definir"
-    val u = unit ?: ""
-    val frac = when {
-        abs(q - 0.25) < 1e-6 -> "1/4"
-        abs(q - 0.5) < 1e-6 -> "1/2"
-        abs(q - 0.75) < 1e-6 -> "3/4"
-        else -> null
-    }
-    return when (u) {
-        "colher" -> if (frac != null) "$frac de colher" else "${numShort(q)} ${if (q > 1.0) "colheres" else "colher"}"
-        "gotas" -> "${numShort(q)} ${if (abs(q - 1.0) < 1e-6) "gota" else "gotas"}"
+    fun approx(shown: Double) = if (abs(shown - q) > 0.005 * maxOf(q, 1e-9) + 1e-9) "~" else ""
+    return when (unit ?: "") {
+        "colher" -> {
+            if (q < 0.875) {
+                val (v, label) = listOf(0.25 to "1/4", 1.0 / 3 to "1/3", 0.5 to "1/2", 2.0 / 3 to "2/3", 0.75 to "3/4").minByOrNull { abs(it.first - q) }!!
+                "${approx(v)}$label de colher"
+            } else {
+                val v = Math.round(q * 2) / 2.0
+                "${approx(v)}${numShort(v)} ${if (v > 1.0) "colheres" else "colher"}"
+            }
+        }
+        "gotas" -> {
+            val v = maxOf(0.5, Math.round(q * 2) / 2.0)
+            "${approx(v)}${numShort(v)} ${if (abs(v - 1.0) < 1e-6) "gota" else "gotas"}"
+        }
+        "g", "ml" -> {
+            val v = if (q >= 10) Math.round(q).toDouble() else Math.round(q * 10) / 10.0
+            "${approx(v)}${numShort(v)} $unit"
+        }
         "", "outra" -> numShort(q)
-        else -> "${numShort(q)} $u"
+        else -> "${numShort(q)} $unit"
     }
 }
 

@@ -1,5 +1,6 @@
 package br.com.lunelli.lulucoreef.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
@@ -17,6 +18,9 @@ interface Syncable {
 }
 
 fun newId(): String = UUID.randomUUID().toString()
+
+/** So as leituras confiaveis entram em status, alertas, projecao e nota de saude. */
+fun List<WaterTest>.reliable(): List<WaterTest> = filter { !it.baixaConfianca }
 
 @Serializable
 @Entity(tableName = "tank_config")
@@ -64,6 +68,8 @@ data class WaterTest(
     @PrimaryKey override val id: String = newId(),
     val kit: String? = null,
     val observacao: String? = null,
+    /** Leitura de baixa confianca: aparece vazada no grafico e fica fora de projecao, alertas e nota de saude. */
+    @ColumnInfo(defaultValue = "0") val baixaConfianca: Boolean = false,
     @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,

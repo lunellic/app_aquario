@@ -98,6 +98,26 @@ fun ConfigScreen(vm: MainViewModel) {
             Muted("No modo noite a tela fica quase preta e os lembretes não tocam. Início igual ao fim desliga.")
         }
 
+        SectionTitle("Visual e modo quiosque")
+        Panel(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Switch(settings.waterFx, { on -> vm.updateSettings { it.copy(waterFx = on) } })
+                Column(Modifier.weight(1f)) {
+                    Text("Animações de água")
+                    Muted("Fundo em movimento, reflexos e ondas. Desligue se o tablet ficar lento.")
+                }
+            }
+            var home by remember { mutableStateOf(br.com.lunelli.lulucoreef.MainActivity.isHomeEnabled(ctx)) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Switch(home, { on -> br.com.lunelli.lulucoreef.MainActivity.setHomeEnabled(ctx, on); home = on })
+                Column(Modifier.weight(1f)) {
+                    Text("Oferecer como tela inicial do tablet")
+                    Muted("Depois de ligar, aperte o botão Home: se o tablet perguntar, escolha Luluco Reef e \"Sempre\". O Fire OS pode ignorar; nesse caso deixe desligado.")
+                }
+            }
+            Muted("O app já fica em tela cheia, abre ao ligar o tablet e aparece por cima da tela de bloqueio (sem PIN). Para sair: voltar duas vezes no Painel.")
+        }
+
         SectionTitle("Som dos lembretes")
         Panel(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -122,7 +142,7 @@ fun ConfigScreen(vm: MainViewModel) {
                 Text("E-mail semanal (domingo, 10h)", Modifier.weight(1f))
                 OutlinedButton(enabled = "test_email" !in busy, onClick = { vm.sendTest("test_email") { feedback = it } }) { Text("Enviar teste") }
             }
-            feedback?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary) }
+            feedback?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Luluco.PoolText) }
             Muted("O push não é enviado no horário do modo noite, exceto alerta crítico.")
         }
 
@@ -135,7 +155,7 @@ fun ConfigScreen(vm: MainViewModel) {
                 else -> "Ainda não sincronizou."
             })
             Muted(if (sync.pending > 0) "${sync.pending} registro(s) aguardando envio." else "Nada pendente de envio.")
-            sync.lastError?.let { Text("Último erro: $it", color = Luluco.Coral, style = MaterialTheme.typography.bodySmall) }
+            sync.lastError?.let { Text("Último erro: $it", color = Luluco.CoralText, style = MaterialTheme.typography.bodySmall) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = { vm.syncNow() }, enabled = !sync.running) { Text("Sincronizar agora") }
                 OutlinedButton(onClick = { confirmLogout = true }) { Text("Sair da conta") }
@@ -186,7 +206,7 @@ private fun RangeDialog(r: ParamRange, onSave: (ParamRange) -> Unit, onDismiss: 
                     NumInput("Alerta abaixo de", aMin, Modifier.weight(1f)) { aMin = it }
                     NumInput("Alerta acima de", aMax, Modifier.weight(1f)) { aMax = it }
                 }
-                if (!ok) Text("Precisa valer: alerta mín. <= ideal mín. < ideal máx. <= alerta máx.", color = Luluco.Coral, style = MaterialTheme.typography.bodySmall)
+                if (!ok) Text("Precisa valer: alerta mín. <= ideal mín. < ideal máx. <= alerta máx.", color = Luluco.CoralText, style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = { TextButton(enabled = ok, onClick = { onSave(r.copy(idealMin = v[1]!!, idealMax = v[2]!!, alertaMin = v[0]!!, alertaMax = v[3]!!)) }) { Text("Salvar") } },

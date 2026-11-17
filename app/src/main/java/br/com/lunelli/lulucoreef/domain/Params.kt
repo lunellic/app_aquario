@@ -45,7 +45,12 @@ object Params {
         else -> false
     }
 
-    fun format(p: String, v: Double) = num(v, decimals(p))
+    /** Casas padrao do parametro; uma casa a mais quando o valor registrado precisa dela (ex.: 1,0225 ou 7,85). */
+    fun format(p: String, v: Double): String {
+        val d = decimals(p)
+        val scaled = v * Math.pow(10.0, d.toDouble())
+        return num(v, if (abs(scaled - Math.rint(scaled)) > 1e-6) d + 1 else d)
+    }
 }
 
 /** Numero em pt-BR com casas fixas. */
@@ -79,7 +84,7 @@ data class Trend(val slopePerDay: Double, val intercept: Double, val daysToExit:
  * daysToExit so vem preenchido se a reta esta dentro da faixa ideal agora e sai dela em ate 14 dias.
  */
 fun trendOf(tests: List<WaterTest>, param: String, range: ParamRange?, now: Long): Trend? {
-    val pts = tests.filter { it.parametro == param && it.medidoEm <= now && now - it.medidoEm <= 30 * DAY_MS }
+    val pts = tests.filter { !it.baixaConfianca && it.parametro == param && it.medidoEm <= now && now - it.medidoEm <= 30 * DAY_MS }
     if (pts.size < 3) return null
     val xs = pts.map { (it.medidoEm - now).toDouble() / DAY_MS }
     val ys = pts.map { it.valor }

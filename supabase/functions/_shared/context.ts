@@ -5,7 +5,10 @@ import { compliance, DAY_MS, doseFor, fmt, formatDose, healthScore, LABEL, local
 export interface Ctx {
   tank: Row | null;
   ranges: Row[];
+  /** So leituras confiaveis: e o que as regras usam. */
   tests: Row[];
+  /** Todas, incluindo as de baixa confianca (para o resumo da IA). */
+  testsAll: Row[];
   changes: Row[];
   products: Row[];
   dosings: Row[];
@@ -33,7 +36,7 @@ export async function loadCtx(db: SupabaseClient, userId: string | null, now: nu
   ]);
   for (const r of res) if (r.error) throw new Error(`banco: ${r.error.message}`);
   const [tank, ranges, tests, changes, products, dosings, routines, logs, livestock, cases, entries, equipment] = res.map((r) => (r.data ?? []) as Row[]);
-  return { tank: tank[0] ?? null, ranges, tests, changes, products, dosings, routines, logs, livestock, cases, entries, equipment };
+  return { tank: tank[0] ?? null, ranges, tests: tests.filter((t) => !t.baixa_confianca), testsAll: tests, changes, products, dosings, routines, logs, livestock, cases, entries, equipment };
 }
 
 const day = (ts: string) => {
@@ -53,10 +56,10 @@ export function summarize(c: Ctx, now: number): string {
     `${LABEL[r.parametro] ?? r.parametro} ${fmt(r.parametro, r.ideal_min)}-${fmt(r.parametro, r.ideal_max)} | <${fmt(r.parametro, r.alerta_min)} ou >${fmt(r.parametro, r.alerta_max)} ${r.unidade}`).join("; "));
 
   const byParam = new Map<string, Row[]>();
-  for (const t of c.tests) byParam.set(t.parametro, [...(byParam.get(t.parametro) ?? []), t]);
-  out.push("TESTES (últimos 90 dias, data hora valor):");
+  for (const t of c.testsAll) byParam.set(t.parametro, [...(byParam.get(t.parametro) ?? []), t]);
+  out.push("TESTES (últimos 90 dias, data hora valor; '?' = leitura de baixa confiança, não usar como base):");
   if (!byParam.size) out.push("  nenhum teste registrado.");
-  for (const [p, list] of byParam) out.push(`  ${LABEL[p] ?? p}: ` + list.slice(-60).map((t) => `${day(t.medido_em)} ${fmt(p, t.valor)}`).join(", "));
+  for (const [p, list] of byParam) out.push(`  ${LABEL[p] ?? p}: ` + list.slice(-60).map((t) => `${day(t.medido_em)} ${fmt(p, t.valor)}${t.baixa_confianca ? "?" : ""}`).join(", "));
 
   out.push("TPAs (últimos 90 dias): " + (c.changes.length ? c.changes.slice(-40).map((w) => `${day(w.feita_em)} ${numShort(w.litros)} L`).join(", ") : "nenhuma registrada."));
 

@@ -59,13 +59,13 @@ fun GraficosScreen(vm: MainViewModel) {
             Panel(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${Params.label(p)} (${Params.unit(p)})", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Muted("${pts.size} medições" + (pts.lastOrNull()?.let { " · última ${Params.format(p, it.valor)}" } ?: ""))
+                    Muted("${pts.size} medições" + (pts.lastOrNull { !it.baixaConfianca }?.let { " · última ${Params.format(p, it.valor)}" } ?: ""))
                 }
                 if (pts.isEmpty()) {
                     Muted("Sem medições neste período.")
                 } else {
                     Chart(p, pts, ranges[p], trend, tpas, doses, from, to, now)
-                    if (trend?.daysToExit != null) Text("Projeção: sai da faixa ideal em ~${maxOf(1, trend.daysToExit.roundToInt())} dias", color = Luluco.Coral, style = MaterialTheme.typography.bodySmall)
+                    if (trend?.daysToExit != null) Text("Projeção: sai da faixa ideal em ~${maxOf(1, trend.daysToExit.roundToInt())} dias", color = Luluco.CoralText, style = MaterialTheme.typography.bodySmall)
                     else if (trend != null) Muted("Projeção: tendência de ${if (trend.slopePerDay >= 0) "+" else ""}${Params.format(p, trend.slopePerDay * 7)} por semana.")
                 }
             }
@@ -94,7 +94,7 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
     val margin = ((hi - lo).takeIf { it > 0 } ?: maxOf(1e-3, hi * 0.05)) * 0.15
     lo -= margin
     hi += margin
-    val line = MaterialTheme.colorScheme.primary
+    val line = Luluco.PoolText
     val grid = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
 
     Row(Modifier.fillMaxWidth().height(170.dp).padding(top = 8.dp)) {
@@ -116,10 +116,15 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
                 tpas.forEach { drawLine(Luluco.Pool.copy(alpha = 0.7f), Offset(x(it), 0f), Offset(x(it), size.height), 1.5.dp.toPx()) }
                 doses.forEach { drawLine(Luluco.Cream.copy(alpha = 0.6f), Offset(x(it), size.height - 7.dp.toPx()), Offset(x(it), size.height), 1.5.dp.toPx()) }
                 // medicoes reais ligadas por linha
-                for (i in 1 until pts.size) {
-                    drawLine(line, Offset(x(pts[i - 1].medidoEm), y(pts[i - 1].valor)), Offset(x(pts[i].medidoEm), y(pts[i].valor)), 2.dp.toPx(), cap = StrokeCap.Round)
+                val solid = pts.filter { !it.baixaConfianca }
+                for (i in 1 until solid.size) {
+                    drawLine(line, Offset(x(solid[i - 1].medidoEm), y(solid[i - 1].valor)), Offset(x(solid[i].medidoEm), y(solid[i].valor)), 2.dp.toPx(), cap = StrokeCap.Round)
                 }
-                pts.forEach { drawCircle(line, 4.dp.toPx(), Offset(x(it.medidoEm), y(it.valor))) }
+                pts.forEach {
+                    val c = Offset(x(it.medidoEm), y(it.valor))
+                    // baixa confianca: ponto vazado, fora da linha e da projecao
+                    if (it.baixaConfianca) drawCircle(line, 4.dp.toPx(), c, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx())) else drawCircle(line, 4.dp.toPx(), c)
+                }
                 // projecao tracejada a partir de agora
                 if (trend != null) {
                     val endDays = (to - now).toDouble() / DAY_MS
