@@ -98,7 +98,7 @@ fun Muted(text: String, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_V
 
 /** Botao grande para mao molhada. Laranja por padrao; texto escolhido pelo contraste. */
 @Composable
-fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = MaterialTheme.colorScheme.primary, onClick: () -> Unit) {
+fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = Luluco.Coral, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     Button(
         onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 60.dp).pressSpring(source),

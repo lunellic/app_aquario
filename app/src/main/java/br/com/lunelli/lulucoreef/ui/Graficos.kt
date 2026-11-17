@@ -22,6 +22,7 @@ import br.com.lunelli.lulucoreef.data.WaterTest
 import br.com.lunelli.lulucoreef.domain.DAY_MS
 import br.com.lunelli.lulucoreef.domain.Params
 import br.com.lunelli.lulucoreef.domain.Trend
+import br.com.lunelli.lulucoreef.domain.num
 import br.com.lunelli.lulucoreef.domain.trendOf
 import kotlin.math.roundToInt
 
@@ -99,9 +100,9 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
 
     Row(Modifier.fillMaxWidth().height(170.dp).padding(top = 8.dp)) {
         Column(Modifier.width(52.dp).fillMaxHeight().padding(bottom = 14.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Muted(Params.format(p, hi))
-            Muted(Params.format(p, (hi + lo) / 2))
-            Muted(Params.format(p, lo))
+            Muted(num(hi, Params.decimals(p)))
+            Muted(num((hi + lo) / 2, Params.decimals(p)))
+            Muted(num(lo, Params.decimals(p)))
         }
         Column(Modifier.weight(1f)) {
             Canvas(Modifier.fillMaxWidth().weight(1f)) {

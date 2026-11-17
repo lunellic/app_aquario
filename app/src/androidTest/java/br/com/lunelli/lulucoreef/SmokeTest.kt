@@ -239,7 +239,8 @@ class SmokeTest {
             }
             db.livestock().upsert(Livestock("Ocellaris Chocolate", tipo = "peixe", nomeCientifico = "Amphiprion ocellaris"))
         }
-        app.graph.settings.update { it.copy(vitrineMinutes = 1) }
+        // vitrine em 1 min; modo noite desligado (inicio = fim) para a captura nao depender da hora do emulador
+        app.graph.settings.update { it.copy(vitrineMinutes = 1, nightStartHour = 0, nightEndHour = 0) }
         app.graph.session.save(JSONObject("""{"access_token":"x","refresh_token":"y","expires_in":999999,"user":{"id":"00000000-0000-0000-0000-000000000001","email":"teste@example.com"}}"""))
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -257,9 +258,11 @@ class SmokeTest {
             shot("teste")
             compose.onNodeWithText("Voltar").performScrollTo().performClick()
             // vitrine entra sozinha depois de 1 minuto sem toque
-            Thread.sleep(72_000)
+            // (no teste o relogio das corrotinas e virtual: espera o tempo real e depois avanca o relogio para o app notar)
+            Thread.sleep(63_000)
+            compose.mainClock.advanceTimeBy(11_000)
             shot("vitrine")
         }
-        app.graph.settings.update { it.copy(vitrineMinutes = 2) }
+        app.graph.settings.update { it.copy(vitrineMinutes = 2, nightStartHour = 0, nightEndHour = 7) }
     }
 }

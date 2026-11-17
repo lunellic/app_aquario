@@ -260,7 +260,7 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
                 val selected = current == t.screen
                 Row(
                     Modifier.fillMaxWidth().testTag("menu_${t.label}").clip(RoundedCornerShape(18.dp))
-                        .background(if (selected) Luluco.Royal else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 13.dp),
+                        .background(if (selected) Luluco.Royal else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(t.icon, contentDescription = null, tint = if (selected) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.size(24.dp))

@@ -1,9 +1,12 @@
 package br.com.lunelli.lulucoreef.ui
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
@@ -54,7 +57,8 @@ val Fredoka = FontFamily(Font(R.font.fredoka_semibold, FontWeight.SemiBold), Fon
 val Manrope = FontFamily(Font(R.font.manrope_regular, FontWeight.Normal), Font(R.font.manrope_bold, FontWeight.Bold))
 
 private val OceanColors = darkColorScheme(
-    primary = Luluco.Coral,
+    // laranja claro: mesmo tom da marca, mas legivel como texto/contorno sobre o azul (contraste > 4.5:1)
+    primary = Luluco.CoralText,
     onPrimary = Luluco.Navy,
     primaryContainer = Luluco.Royal,
     onPrimaryContainer = Luluco.Cream,
@@ -94,5 +98,10 @@ private val LulucoType = Typography(
 
 @Composable
 fun LulucoTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = OceanColors, typography = LulucoType, content = content)
+    MaterialTheme(colorScheme = OceanColors, typography = LulucoType) {
+        // Texto sem cor explicita sai sempre claro (creme) e em Manrope: nunca texto escuro sobre fundo escuro.
+        CompositionLocalProvider(LocalContentColor provides Luluco.Cream) {
+            ProvideTextStyle(LulucoType.bodyLarge, content)
+        }
+    }
 }
