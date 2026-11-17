@@ -81,7 +81,7 @@ Secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Gu
 ## Supabase
 
 - URL e publishable key ficam em `gradle.properties` (são públicas por natureza). Nenhum segredo vai no APK ou no repositório.
-- Migrações em `supabase/migrations`, na ordem do nome. Enquanto o deploy automático não existe: painel do Supabase > SQL Editor > New query, colar o conteúdo de cada arquivo e Run, na ordem: `..._schema.sql`, `..._seed.sql`, `..._sync_cursor.sql`, `..._avisos_e_ia.sql`, `..._historico_lucas.sql`. Todas podem ser rodadas de novo sem duplicar nada.
+- Migrações em `supabase/migrations`, na ordem do nome. Enquanto o deploy automático não existe: painel do Supabase > SQL Editor > New query, colar o conteúdo de cada arquivo e Run, na ordem: `..._schema.sql`, `..._seed.sql`, `..._sync_cursor.sql`, `..._avisos_e_ia.sql`, `..._historico_lucas.sql`, `..._rotina_unica.sql`. Todas podem ser rodadas de novo sem duplicar nada.
 - O seed grava os dados no primeiro usuário de `auth.users`.
 
 ## Bloco C: publicar o backend (uma vez)
