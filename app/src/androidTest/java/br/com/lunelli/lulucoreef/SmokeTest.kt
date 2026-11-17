@@ -103,7 +103,7 @@ class SmokeTest {
             // Painel: rotina do dia com a dose para 100 L
             compose.onNodeWithText("Hoje").assertIsDisplayed()
             compose.onNodeWithText("1/4 de colher").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Revise o inventário").assertIsDisplayed()
+            compose.onNodeWithText("Revise o inventário").performScrollTo().assertIsDisplayed()
 
             // Feito gera a dose no historico
             compose.onNodeWithText("Feito").performScrollTo().performClick()
