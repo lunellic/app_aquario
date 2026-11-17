@@ -26,13 +26,22 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
   const sent: string[] = [];
   const c = await loadCtx(service, userId, now);
   if (!c.tank || c.tank.ntfy_ativo === false) return sent;
+  // sem topico configurado nao ha para onde enviar: nao marca nada como avisado
+  if (!Deno.env.get("NTFY_TOPIC")) return ["sem NTFY_TOPIC"];
+  // se o envio falhar, desfaz a marca para tentar de novo no proximo ciclo
+  const unmark = (keys: string[]) => service.from("notify_log").delete().eq("user_id", userId).in("chave", keys);
   const night = isNight(local(now).hour, c.tank.noite_inicio ?? 0, c.tank.noite_fim ?? 7);
   const vol = Number(c.tank.volume_dosagem_l ?? 100);
 
   // alertas criticos: saem mesmo no modo noite
   for (const a of criticalAlerts(c.tests, c.ranges, now)) {
     if (await firstTime(service, userId, a.key)) {
-      await ntfy("Luluco Reef: alerta crítico", `${a.fato} Reteste para confirmar e corrija devagar.`, 5, ["rotating_light"]);
+      try {
+        await ntfy("Luluco Reef: alerta crítico", `${a.fato} Reteste para confirmar e corrija devagar.`, 5, ["rotating_light"]);
+      } catch (e) {
+        await unmark([a.key]);
+        throw e;
+      }
       sent.push(a.key);
     }
   }
@@ -46,7 +55,12 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
       const fresh = [];
       for (const o of group) if (await firstTime(service, userId, `rot|${o.routine.id}|${o.effectiveDueAt}`)) fresh.push(o);
       if (fresh.length) {
-        await ntfy("Luluco Reef: rotina atrasada", reminderText(fresh, c.products, vol), 3, ["alarm_clock"]);
+        try {
+          await ntfy("Luluco Reef: rotina atrasada", reminderText(fresh, c.products, vol), 3, ["alarm_clock"]);
+        } catch (e) {
+          await unmark(fresh.map((o) => `rot|${o.routine.id}|${o.effectiveDueAt}`));
+          throw e;
+        }
         sent.push(...fresh.map((o) => `rot|${o.routine.titulo}`));
       }
     }
