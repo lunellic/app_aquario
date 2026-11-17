@@ -146,7 +146,7 @@ class SmokeTest {
             compose.onNodeWithText("Novo caso").performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)").performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar").performScrollTo().performClick()
-            compose.onNodeWithText("Nova entrada").assertIsDisplayed()
+            compose.onNodeWithText("Nova entrada").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Voltar").performScrollTo().performClick()
             compose.onNodeWithText("Casos abertos (1)").assertIsDisplayed()
 
