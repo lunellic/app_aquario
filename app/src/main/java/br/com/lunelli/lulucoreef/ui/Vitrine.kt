@@ -101,6 +101,8 @@ fun VitrineScreen(vm: MainViewModel) {
         val shown = Params.ALL.filter { it in settings.shownParams }
         val worstNow = worst
         val compact = shown.size > 4 || today.size > 3 || worstNow != null
+        val lastTpa = changes.filter { it.feitaEm <= now }.maxByOrNull { it.feitaEm }
+        val (doneToday, totalToday) = today.count { it.state == OccState.FEITO } to today.size
         val next = remember(routines, logs, now / 60_000) { upcoming(routines, logs, now, zone, limit = 3) }
         val zdt = Instant.ofEpochMilli(now).atZone(zone)
         val productById = remember(products) { products.associateBy { it.id } }
@@ -145,8 +147,6 @@ fun VitrineScreen(vm: MainViewModel) {
                 }
             }
         }
-        val lastTpa = changes.filter { it.feitaEm <= now }.maxByOrNull { it.feitaEm }
-        val (doneToday, totalToday) = today.count { it.state == OccState.FEITO } to today.size
 
         // Saude em anel + resumo do dia
         val ring: @Composable (Modifier) -> Unit = { m ->
