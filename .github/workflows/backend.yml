@@ -73,8 +73,8 @@ jobs:
       - name: Publicar Edge Functions
         if: steps.check.outputs.go == 'true'
         run: |
-          supabase functions deploy assistant --project-ref "$PROJECT_REF"
-          supabase functions deploy notifier --project-ref "$PROJECT_REF" --no-verify-jwt
+          supabase functions deploy assistant --project-ref "$PROJECT_REF" --yes
+          supabase functions deploy notifier --project-ref "$PROJECT_REF" --no-verify-jwt --yes
 
       - name: Gravar secrets das funções e agendar o cron
         if: steps.check.outputs.go == 'true'
@@ -88,7 +88,7 @@ jobs:
             [ -n "$NTFY_TOPIC" ] && echo "NTFY_TOPIC=$NTFY_TOPIC"
             echo "ANTHROPIC_MODEL=claude-haiku-5-5"
           } > /tmp/fn.env
-          supabase secrets set --project-ref "$PROJECT_REF" --env-file /tmp/fn.env
+          supabase secrets set --project-ref "$PROJECT_REF" --env-file /tmp/fn.env --yes
           rm -f /tmp/fn.env
           sed -e "s#__FUNCTIONS_URL__#https://$PROJECT_REF.supabase.co/functions/v1#g" -e "s#__CRON_SECRET__#$CRON_SECRET#g" supabase/cron.sql > /tmp/cron.sql
           jq -Rs '{query: .}' /tmp/cron.sql > /tmp/q.json
