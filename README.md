@@ -8,10 +8,27 @@ App Android (tablet de parede) para acompanhar um aquário marinho: medições, 
 - [x] Bloco B (acompanhamento): gráficos com projeção, Saúde (casos e entradas com foto), Equipamentos, nota de saúde explicada
 - [x] Bloco C (nuvem e IA): código pronto (Edge Functions `assistant` e `notifier`, cron, telas). **Falta publicar**: depende dos secrets abaixo. Ainda não foi executado contra o projeto real.
 
+## Modo quiosque (v0.3)
+
+O tablet é usado só para o app:
+- tela cheia (immersive sticky) em todas as telas; as barras somem de novo sozinhas depois de arrastar da borda, do teclado ou de um diálogo;
+- aparece por cima da tela de bloqueio e liga a tela (`FLAG_SHOW_WHEN_LOCKED`, `FLAG_DISMISS_KEYGUARD`, `FLAG_TURN_SCREEN_ON`). Só funciona sem PIN/senha no aparelho;
+- abre sozinho ao ligar o tablet e vem para a frente na hora de uma rotina (fora do modo noite);
+- para sair: voltar duas vezes no Painel em até 2 s.
+
+Tela inicial (launcher): em Ajustes > "Oferecer como tela inicial do tablet" o app passa a responder ao botão Home (um `activity-alias` com categoria HOME, desligado por padrão). O Fire OS 5 costuma bloquear launcher de terceiros; se o botão Home continuar abrindo a tela da Amazon, deixe desligado. Não foi testado em Fire real.
+
+## Visual (v0.3)
+
+Tema água sem preto: fundo em degradê azul-marinho da marca com reflexos (cáusticas) de um bitmap pré-renderizado, cards translúcidos, ondas no cabeçalho, anel da nota de saúde, números contando, botões com mola e transição entre telas. Tudo em Canvas a ~20 quadros por segundo, sem shader (o Fire é API 22), pausando fora da tela. Ajustes > "Animações de água" desliga os efeitos se o tablet ficar lento.
+
+Fontes embutidas (licença OFL, textos em `docs/fonts`): Fredoka SemiBold (títulos e números) e Manrope (textos).
+
 ## Testes
 
 - Unitários (`app/src/test`): regras de faixa, projeção, alertas, rotinas, doses, nota de saúde, JSON do Supabase.
-- Fumaça em emulador **Android 5.1 (API 22)** no CI (`app/src/androidTest`): handshake TLS real com o Supabase usando as raízes embutidas e o fluxo principal das telas, offline.
+- Fumaça em emulador **Android 5.1 (API 22)** no CI (`app/src/androidTest`): handshake TLS real com o Supabase usando as raízes embutidas, fluxo principal das telas offline e migração do banco local (v1 para v2).
+- O mesmo job grava capturas de tela no log (tag `LULUCO_SHOT`, JPEG em base64) para conferir o visual sem precisar do aparelho.
 
 ## Dispositivo alvo e versões fixadas
 
@@ -60,7 +77,7 @@ Secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Gu
 ## Supabase
 
 - URL e publishable key ficam em `gradle.properties` (são públicas por natureza). Nenhum segredo vai no APK ou no repositório.
-- Migrações em `supabase/migrations`, na ordem do nome. Enquanto o deploy automático não existe: painel do Supabase > SQL Editor > New query, colar o conteúdo de cada arquivo e Run, na ordem: `..._schema.sql`, `..._seed.sql`, `..._sync_cursor.sql`, `..._avisos_e_ia.sql`. Todas podem ser rodadas de novo sem duplicar nada.
+- Migrações em `supabase/migrations`, na ordem do nome. Enquanto o deploy automático não existe: painel do Supabase > SQL Editor > New query, colar o conteúdo de cada arquivo e Run, na ordem: `..._schema.sql`, `..._seed.sql`, `..._sync_cursor.sql`, `..._avisos_e_ia.sql`, `..._historico_lucas.sql`. Todas podem ser rodadas de novo sem duplicar nada.
 - O seed grava os dados no primeiro usuário de `auth.users`.
 
 ## Bloco C: publicar o backend (uma vez)

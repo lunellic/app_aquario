@@ -45,7 +45,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 private fun VBlock(modifier: Modifier = Modifier, borderColor: Color = Luluco.CardBorder, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(28.dp)
-    Column(modifier.clip(shape).background(Luluco.Navy.copy(alpha = 0.55f)).border(1.5.dp, borderColor, shape).padding(18.dp), content = content)
+    Column(modifier.clip(shape).background(Luluco.Navy.copy(alpha = 0.55f)).border(1.5.dp, borderColor, shape).padding(18.dp), verticalArrangement = Arrangement.Center, content = content)
 }
 
 /**
