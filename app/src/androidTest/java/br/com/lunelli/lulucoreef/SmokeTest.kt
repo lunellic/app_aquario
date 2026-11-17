@@ -197,4 +197,69 @@ class SmokeTest {
         db.close()
         app.deleteDatabase(name)
     }
+
+    /** Tira uma captura da tela e a escreve no logcat (base64) para conferencia visual a partir do log do CI. */
+    private fun shot(name: String) {
+        compose.waitForIdle()
+        Thread.sleep(1200) // deixa as animacoes de entrada terminarem
+        val full = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
+        val w = 800
+        val bmp = android.graphics.Bitmap.createScaledBitmap(full, w, full.height * w / full.width, true)
+        val out = java.io.ByteArrayOutputStream()
+        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 72, out)
+        val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+        b64.chunked(3000).forEachIndexed { i, part -> android.util.Log.i("LULUCO_SHOT", "$name ${i.toString().padStart(3, '0')} $part") }
+        android.util.Log.i("LULUCO_SHOT", "$name FIM")
+    }
+
+    /** Dados parecidos com os reais do Lucas, para ver as telas como elas vao aparecer no tablet. */
+    @Test fun capturasDeTela() {
+        val now = System.currentTimeMillis()
+        val day = 86_400_000L
+        runBlocking {
+            val db = app.graph.db
+            db.tankConfig().upsert(TankConfig(volumeDosagemL = 125.0, salAtual = "Blue Treasure Reef Salt"))
+            listOf(
+                ParamRange("kh", 7.5, 9.0, 7.0, 10.0, "dKH"), ParamRange("ca", 400.0, 450.0, 380.0, 480.0, "ppm"),
+                ParamRange("mg", 1250.0, 1400.0, 1200.0, 1450.0, "ppm"), ParamRange("salinidade", 1.024, 1.026, 1.023, 1.027, "SG"),
+            ).forEach { db.paramRanges().upsert(it) }
+            val goni = Product("Goni Supreme", marca = "Shask", doseQuantidade = 1.0, doseUnidade = "colher", doseBaseLitros = 400.0)
+            val amino = Product("Amino Coral", marca = "Shask", doseQuantidade = 2.0, doseUnidade = "gotas", doseBaseLitros = 100.0)
+            db.products().upsert(goni); db.products().upsert(amino)
+            db.routines().upsert(Routine("Goni Supreme", tipo = "dosagem", productId = goni.id, recorrencia = "diaria", horario = "00:01:00"))
+            db.routines().upsert(Routine("Amino Coral", tipo = "dosagem", productId = amino.id, recorrencia = "diaria", horario = "23:58:00"))
+            fun t(p: String, v: Double, d: Double, low: Boolean = false) = br.com.lunelli.lulucoreef.data.WaterTest((now - d * day).toLong(), p, v, "x", baixaConfianca = low)
+            listOf(t("kh", 7.8, 21.0), t("kh", 7.9, 17.0), t("kh", 8.4, 12.0, true), t("kh", 8.2, 10.0, true), t("kh", 7.7, 9.0), t("kh", 7.7, 7.0), t("kh", 7.6, 6.0), t("kh", 7.85, 0.5),
+                t("ca", 550.0, 17.0), t("ca", 500.0, 12.0), t("ca", 440.0, 0.5), t("mg", 1140.0, 21.0), t("mg", 1200.0, 12.0), t("mg", 1290.0, 0.5),
+                t("salinidade", 1.0225, 17.0), t("salinidade", 1.025, 16.0), t("salinidade", 1.026, 12.0), t("salinidade", 1.025, 0.5),
+            ).forEach { db.waterTests().upsert(it) }
+            db.waterChanges().upsert(br.com.lunelli.lulucoreef.data.WaterChange(now - 3 * day, 14.5, sal = "Blue Treasure Reef Salt"))
+            listOf("Torch Holy Grail" to "LPS", "Hammer Gold" to "LPS", "Duncan" to "LPS", "Zoanthus Rasta" to "zoa", "Montipora setosa" to "SPS").forEach { (n, c) ->
+                db.livestock().upsert(Livestock(n, tipo = "coral", categoria = c, quantidade = if (n == "Hammer Gold") 4 else 1))
+            }
+            db.livestock().upsert(Livestock("Ocellaris Chocolate", tipo = "peixe", nomeCientifico = "Amphiprion ocellaris"))
+        }
+        app.graph.settings.update { it.copy(vitrineMinutes = 1) }
+        app.graph.session.save(JSONObject("""{"access_token":"x","refresh_token":"y","expires_in":999999,"user":{"id":"00000000-0000-0000-0000-000000000001","email":"teste@example.com"}}"""))
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+            Thread.sleep(2500)
+            shot("painel")
+            compose.onNodeWithContentDescription("Menu").performClick()
+            shot("menu")
+            compose.onNodeWithTag("menu_Gráficos").performScrollTo().performClick()
+            shot("graficos")
+            menu("Meu Aquário")
+            shot("aquario")
+            menu("Painel")
+            compose.onNodeWithText("Nova medição").performScrollTo().performClick()
+            shot("teste")
+            compose.onNodeWithText("Voltar").performScrollTo().performClick()
+            // vitrine entra sozinha depois de 1 minuto sem toque
+            Thread.sleep(72_000)
+            shot("vitrine")
+        }
+        app.graph.settings.update { it.copy(vitrineMinutes = 2) }
+    }
 }

@@ -125,4 +125,7 @@ jobs:
           profile: Nexus 7
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: gradle --no-daemon connectedDebugAndroidTest || (adb logcat -d -t 400 '*:E' ; exit 1)
+          script: |
+            adb logcat -G 16M
+            gradle --no-daemon connectedDebugAndroidTest || (adb logcat -d -t 400 '*:E' ; exit 1)
+            adb logcat -d -v raw -s LULUCO_SHOT:I
