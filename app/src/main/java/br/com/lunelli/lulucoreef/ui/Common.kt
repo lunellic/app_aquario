@@ -120,9 +120,10 @@ fun Chip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ChipRow(options: List<Pair<String, String>>, selected: String?, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
+fun ChipRow(options: List<Pair<String, String>>, selected: String?, modifier: Modifier = Modifier, selectedSet: Set<String>? = null, onSelect: (String) -> Unit) {
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.forEach { (value, label) -> Chip(label, value == selected) { onSelect(value) } }
+        // selectedSet: escolha multipla (cada toque liga/desliga)
+        options.forEach { (value, label) -> Chip(label, if (selectedSet != null) value in selectedSet else value == selected) { onSelect(value) } }
     }
 }
 

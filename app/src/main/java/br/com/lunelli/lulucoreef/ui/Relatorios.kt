@@ -60,11 +60,10 @@ fun RelatoriosScreen(vm: MainViewModel) {
         SectionTitle("Período")
         ChipRow(PERIODS, period) { period = it; feedback = null }
         SectionTitle("O que entra")
-        ChipRow(ReportSection.values().map { it.name to it.label }, null) { name ->
+        ChipRow(ReportSection.values().map { it.name to it.label }, null, selectedSet = sections.map { it.name }.toSet()) { name ->
             val s = ReportSection.valueOf(name)
             sections = if (s in sections) sections - s else sections + s
         }
-        Muted("Incluído: " + (ReportSection.values().filter { it in sections }.joinToString(", ") { it.label }.ifEmpty { "nada" }))
 
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             BigButton(if (sending) "Enviando..." else "Enviar para meu e-mail", Modifier.weight(1f), enabled = !sending && sections.isNotEmpty()) {

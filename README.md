@@ -24,6 +24,10 @@ Tema água sem preto: fundo em degradê azul-marinho da marca com reflexos (cáu
 
 Fontes embutidas (licença OFL, textos em `docs/fonts`): Fredoka SemiBold (títulos e números) e Manrope (textos).
 
+## Relatórios
+
+Menu > Relatórios: escolhe o período (7, 30, 90 dias, este mês, mês passado, tudo) e as seções (resumo com a última TPA, testes, consumo, TPAs, produtos usados, rotinas e manutenção, notas). O texto é montado no app (`domain/Report.kt`). "Enviar para meu e-mail" usa a Edge Function `notifier` (modo `report`, Resend) e por isso depende do backend publicado; "Compartilhar" abre os apps do aparelho.
+
 ## Testes
 
 - Unitários (`app/src/test`): regras de faixa, projeção, alertas, rotinas, doses, nota de saúde, JSON do Supabase.

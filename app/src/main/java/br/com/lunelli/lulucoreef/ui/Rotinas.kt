@@ -166,7 +166,7 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: St
         }
         ChipRow(RECURRENCES, rec) { rec = it }
         if (rec == "dias_da_semana") {
-            ChipRow(WEEKDAYS.mapIndexed { i, d -> (i + 1).toString() to d }, null) { v -> val d = v.toInt(); if (d in dias) dias.remove(d) else dias.add(d) }
+            ChipRow(WEEKDAYS.mapIndexed { i, d -> (i + 1).toString() to d }, null, selectedSet = dias.map { it.toString() }.toSet()) { v -> val d = v.toInt(); if (d in dias) dias.remove(d) else dias.add(d) }
             Muted("Selecionados: " + (dias.sorted().joinToString(", ") { WEEKDAYS[it - 1] }.ifEmpty { "nenhum" }))
         }
         if (interval) {

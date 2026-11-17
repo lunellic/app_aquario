@@ -93,7 +93,7 @@ fun ConfigScreen(vm: MainViewModel) {
         Panel(Modifier.fillMaxWidth()) {
             Muted("Parâmetros mostrados no Painel e na tela de standby. NO3 e PO4 ficam desligados até você começar a testar.")
             Spacer(Modifier.height(8.dp))
-            ChipRow(Params.ALL.map { it to Params.label(it) }, null) { p ->
+            ChipRow(Params.ALL.map { it to Params.label(it) }, null, selectedSet = settings.shownParams) { p ->
                 vm.updateSettings { it.copy(shownParams = if (p in it.shownParams) it.shownParams - p else it.shownParams + p) }
             }
             Spacer(Modifier.height(6.dp))

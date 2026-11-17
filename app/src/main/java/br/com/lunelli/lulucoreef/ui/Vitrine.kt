@@ -132,7 +132,7 @@ fun VitrineScreen(vm: MainViewModel) {
                 if (next.isEmpty()) Text("Nada agendado nos próximos dias.", fontSize = 17.sp, color = Luluco.TextSoft)
                 next.forEach { item ->
                     Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(whenText(item.dueAt, now, zone), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (item.late) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.width(150.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(whenText(item.dueAt, now, zone), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (item.late) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.width(132.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(item.routine.titulo, fontSize = 18.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
