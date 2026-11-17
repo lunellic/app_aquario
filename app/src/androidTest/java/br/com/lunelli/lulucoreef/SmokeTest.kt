@@ -101,7 +101,7 @@ class SmokeTest {
             compose.waitForIdle()
 
             // Painel: rotina do dia com a dose para 100 L
-            compose.onNodeWithText("Hoje").assertIsDisplayed()
+            compose.onAllNodesWithText("Hoje").onFirst().assertIsDisplayed()
             compose.onNodeWithText("1/4 de colher").performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Revise o inventário").performScrollTo().assertIsDisplayed()
 
