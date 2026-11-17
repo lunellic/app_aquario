@@ -55,9 +55,9 @@ fun CalendarCard(nav: Nav, routines: List<Routine>, logs: List<RoutineLog>, prod
                 IconButton(onClick = { month = month.plusMonths(1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Próximo mês", tint = Luluco.Cream) }
             }
             Row {
-                listOf("S", "T", "Q", "Q", "S", "S", "D").forEach { Text(it, Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 13.sp, color = Luluco.TextSoft) }
+                listOf("D", "S", "T", "Q", "Q", "S", "S").forEach { Text(it, Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, fontSize = 13.sp, color = Luluco.TextSoft) }
             }
-            val offset = month.atDay(1).dayOfWeek.value - 1 // semana comeca na segunda
+            val offset = month.atDay(1).dayOfWeek.value % 7 // semana comeca no domingo
             val cells = offset + month.lengthOfMonth()
             for (week in 0 until (cells + 6) / 7) {
                 Row {

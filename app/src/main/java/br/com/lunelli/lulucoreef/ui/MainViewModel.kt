@@ -181,6 +181,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Desfaz um "feito" ou "pulado": apaga o registro, a dose gerada por ele e devolve a data da rotina. */
+    fun undo(o: Occurrence) {
+        val l = o.log ?: return
+        save(l.copy(deletedAt = ts()))
+        if (l.status == "feito" && o.routine.tipo == "dosagem") {
+            dosings.value.firstOrNull { it.productId == o.routine.productId && it.dosadoEm == l.feitoEm && it.observacao == "Rotina: ${o.routine.titulo}" }?.let { delete(it) }
+        }
+        if (o.routine.isInterval()) save(o.routine.copy(proximaEm = o.dueAt))
+    }
+
     fun snooze(o: Occurrence) = log(o, "adiado", null)
     fun skip(o: Occurrence) = log(o, "pulado", null)
 

@@ -55,8 +55,8 @@ private fun SaveRow(enabled: Boolean, onDelete: (() -> Unit)?, onSave: () -> Uni
 
 /** Teste: KH, Ca, Mg e salinidade de uma vez (cada um opcional); NO3 e PO4 atras de "mais parametros". */
 @Composable
-fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
-    val params = if (edit != null) listOf(edit.parametro) else Params.ALL
+fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?, only: String? = null) {
+    val params = if (edit != null) listOf(edit.parametro) else if (only != null) listOf(only) else Params.ALL
     val values = remember { mutableStateMapOf<String, String>().apply { if (edit != null) put(edit.parametro, Params.format(edit.parametro, edit.valor)) } }
     var at by remember { mutableLongStateOf(edit?.medidoEm ?: System.currentTimeMillis()) }
     var obs by remember { mutableStateOf(edit?.observacao.orEmpty()) }
@@ -79,7 +79,7 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
 
     FormColumn {
         ScreenHeader(if (edit != null) "Editar ${Params.label(edit.parametro)}" else "Teste de água", onBack = { nav.back() })
-        val visible = if (edit != null) params else Params.MAIN + (if (more) Params.OPTIONAL else emptyList())
+        val visible = if (edit != null || only != null) params else Params.MAIN + (if (more) Params.OPTIONAL else emptyList())
         visible.chunked(2).forEachIndexed { row, pair ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 pair.forEachIndexed { i, p ->
@@ -88,7 +88,7 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        if (edit == null && !more) TextButton(onClick = { more = true }) { Text("Mais parâmetros (NO3, PO4)") }
+        if (edit == null && only == null && !more) TextButton(onClick = { more = true }) { Text("Mais parâmetros (NO3, PO4)") }
         DateTimeField("Medido em", at) { at = it }
         TextInput("Observação (opcional)", obs) { obs = it }
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {

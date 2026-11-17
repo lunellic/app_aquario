@@ -85,7 +85,8 @@ sealed interface Screen {
     data object Assistente : Screen { override val topLevel = true }
     data object Relatorios : Screen { override val topLevel = true }
 
-    data class TestForm(val edit: WaterTest? = null) : Screen
+    data class TestForm(val edit: WaterTest? = null, val only: String? = null) : Screen
+    data class HistoricoDe(val filtro: String) : Screen
     data class TpaForm(val edit: WaterChange? = null, val occurrence: Occurrence? = null) : Screen
     data class DoseForm(val edit: Dosing? = null) : Screen
     data class EventForm(val edit: Event? = null) : Screen
@@ -311,7 +312,8 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         Screen.Equipamentos -> EquipamentosScreen(vm, nav)
         Screen.Assistente -> AssistenteScreen(vm)
         Screen.Relatorios -> RelatoriosScreen(vm)
-        is Screen.TestForm -> TestForm(vm, nav, s.edit)
+        is Screen.TestForm -> TestForm(vm, nav, s.edit, s.only)
+        is Screen.HistoricoDe -> HistoricoScreen(vm, nav, s.filtro)
         is Screen.TpaForm -> TpaForm(vm, nav, s.edit, s.occurrence)
         is Screen.DoseForm -> DoseForm(vm, nav, s.edit)
         is Screen.EventForm -> EventForm(vm, nav, s.edit)

@@ -107,7 +107,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                                 key(p) {
                                     val last = reliableTests.latestOf(p)
                                     val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
-                                    MetricCard(Modifier.weight(1f), p, last?.valor, last?.medidoEm, ranges[p], exit, now)
+                                    MetricCard(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).clickable { nav.go(Screen.TestForm(only = p)) }, p, last?.valor, last?.medidoEm, ranges[p], exit, now)
                                 }
                             }
                             if (pair.size == 1) Spacer(Modifier.weight(1f))
@@ -161,10 +161,10 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                 val weekAgo = now - 7 * DAY_MS
                 val (doseDone, doseExpected) = remember(routines, logs, now) { compliance(routines.filter { it.tipo == "dosagem" }, logs, now, zone) }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Stat(Modifier.weight(1f), tests.count { it.medidoEm >= weekAgo }.toString(), "medições")
-                    Stat(Modifier.weight(1f), changes.count { it.feitaEm >= weekAgo }.toString(), "TPAs")
-                    Stat(Modifier.weight(1f), "$doseDone/$doseExpected", "doses feitas / previstas")
-                    Stat(Modifier.weight(1f), dosings.count { it.dosadoEm >= weekAgo }.toString(), "doses registradas")
+                    Stat(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).clickable { nav.go(Screen.HistoricoDe("teste")) }, tests.count { it.medidoEm >= weekAgo }.toString(), "medições")
+                    Stat(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).clickable { nav.go(Screen.HistoricoDe("tpa")) }, changes.count { it.feitaEm >= weekAgo }.toString(), "TPAs")
+                    Stat(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).clickable { nav.go(Screen.HistoricoDe("dose")) }, "$doseDone/$doseExpected", "doses feitas / previstas")
+                    Stat(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).clickable { nav.go(Screen.HistoricoDe("dose")) }, dosings.count { it.dosadoEm >= weekAgo }.toString(), "doses registradas")
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -259,6 +259,9 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
                 OccState.ADIADO -> if (!due) Badge("adiado até ${fmtTime(o.effectiveDueAt)}", Luluco.Pool) else Badge("atrasada", Luluco.Coral)
                 OccState.PENDENTE -> if (due) Badge("atrasada", Luluco.Coral)
             }
+        }
+        if (!o.open) {
+            TextButton(onClick = { vm.undo(o) }) { Text(if (o.state == OccState.FEITO) "Desfazer (não fiz)" else "Desfazer") }
         }
         if (o.open) {
             Spacer(Modifier.height(8.dp))

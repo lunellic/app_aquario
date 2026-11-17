@@ -20,13 +20,13 @@ private class HistItem(val key: String, val at: Long, val type: String, val titl
 
 /** Historico unificado por data, com filtro por tipo. Tocar abre o registro para editar ou apagar. */
 @Composable
-fun HistoricoScreen(vm: MainViewModel, nav: Nav) {
+fun HistoricoScreen(vm: MainViewModel, nav: Nav, inicial: String? = null) {
     val tests by vm.tests.collectAsStateWithLifecycle()
     val changes by vm.changes.collectAsStateWithLifecycle()
     val dosings by vm.dosings.collectAsStateWithLifecycle()
     val events by vm.events.collectAsStateWithLifecycle()
     val products by vm.products.collectAsStateWithLifecycle()
-    var filter by remember { mutableStateOf("todos") }
+    var filter by remember { mutableStateOf(inicial ?: "todos") }
 
     val rows = remember(tests, changes, dosings, events, products, filter) {
         val names = products.associate { it.id to it.nome }
@@ -48,7 +48,7 @@ fun HistoricoScreen(vm: MainViewModel, nav: Nav) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader("Histórico")
+        ScreenHeader("Histórico", onBack = if (inicial != null) ({ nav.back() }) else null)
         ChipRow(listOf("todos" to "Todos", "teste" to "Testes", "tpa" to "TPAs", "dose" to "Doses", "evento" to "Notas"), filter, Modifier.padding(bottom = 10.dp)) { filter = it }
         if (rows.isEmpty()) Muted("Nada registrado ainda.")
         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {

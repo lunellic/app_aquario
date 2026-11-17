@@ -233,6 +233,8 @@ export function healthScore(tests: Row[], ranges: Row[], changes: Row[], routine
   if (expected > 0 && done < expected) items.push({ label: `Rotinas dos últimos 7 dias: ${done} de ${expected} cumpridas`, points: -15 * (1 - done / expected) });
   const open = cases.filter((c) => !c.fechado_em && !c.deleted_at).length;
   if (open > 0) items.push({ label: `${open} caso(s) de saúde aberto(s)`, points: -Math.min(15, 5 * open) });
+  // cada desconto e arredondado para ponto inteiro (igual ao app)
+  for (const i of items) i.points = -Math.round(-i.points);
   if (missing.length) return { score: null, items, missing };
   // mesmo arredondamento do app (Kotlin roundToInt: metade para cima)
   const score = Math.max(0, Math.min(100, Math.floor(100 + items.reduce((s, i) => s + i.points, 0) + 0.5)));

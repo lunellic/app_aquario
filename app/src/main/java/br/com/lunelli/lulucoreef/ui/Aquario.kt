@@ -53,7 +53,15 @@ fun AquarioScreen(vm: MainViewModel, nav: Nav) {
     val tank by vm.tank.collectAsStateWithLifecycle()
     var status by remember { mutableStateOf("ativo") }
     val ctx = LocalContext.current
-    val shown = all.filter { it.status == status }
+    var classe by remember { mutableStateOf("todos") }
+    val shown = all.filter { it.status == status }.filter {
+        when (classe) {
+            "todos" -> true
+            "peixe" -> it.tipo == "peixe"
+            "outros" -> it.tipo != "peixe" && it.categoria !in listOf("LPS", "SPS", "mole", "zoa")
+            else -> it.categoria == classe
+        }
+    }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ScreenHeader("Meu Aquário") {
@@ -67,6 +75,7 @@ fun AquarioScreen(vm: MainViewModel, nav: Nav) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ChipRow(STATUSES.map { (v, l) -> v to "$l (${all.filter { it.status == v }.sumOf { x -> x.quantidade }})" }, status) { status = it }
         }
+        ChipRow(listOf("todos" to "Todos", "LPS" to "LPS", "SPS" to "SPS", "mole" to "Soft (moles)", "zoa" to "Zoas", "peixe" to "Peixes", "outros" to "Outros"), classe) { classe = it }
         val toReview = shown.count { it.revisar }
         if (toReview > 0) Muted("$toReview itens com selo \"confirmar\": toque para revisar nome, quantidade e local.")
         if (shown.isEmpty()) Muted("Nada aqui.")

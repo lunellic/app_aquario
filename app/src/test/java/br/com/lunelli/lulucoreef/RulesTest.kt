@@ -250,7 +250,7 @@ class HealthScoreTest {
         // KH atencao (-8), Ca critico (-15), Mg velho (-5), TPA ha 12 dias (-10), 4 casos (-15, teto), NO3 critico pela metade (-7,5)
         val tests = listOf(t("kh", 7.2), t("ca", 370.0), t("mg", 1300.0, daysAgo = 9), t("salinidade", 1.025), t("no3", 40.0))
         val h = score(tests, tpaDaysAgo = 12, openCases = 4)
-        assertEquals(40, h.score) // 100 - 60,5 = 39,5, arredonda para 40
+        assertEquals(39, h.score) // descontos inteiros: 8 + 15 + 5 + 10 + 15 + 8 (7,5 arredondado)
         assertEquals(6, h.items.size)
     }
 

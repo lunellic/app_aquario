@@ -68,7 +68,9 @@ fun healthScore(
     val open = cases.count { it.fechadoEm == null && it.deletedAt == null }
     if (open > 0) items += ScoreItem("$open caso${if (open > 1) "s" else ""} de saúde aberto${if (open > 1) "s" else ""}", -minOf(15.0, 5.0 * open))
 
-    if (missing.isNotEmpty()) return HealthScore(null, items, missing)
-    val score = (100 + items.sumOf { it.points }).roundToInt().coerceIn(0, 100)
-    return HealthScore(score, items, missing)
+    // cada desconto e arredondado para ponto inteiro: nada de nota quebrada
+    val rounded = items.map { it.copy(points = -Math.round(-it.points).toDouble()) }
+    if (missing.isNotEmpty()) return HealthScore(null, rounded, missing)
+    val score = (100 + rounded.sumOf { it.points }).roundToInt().coerceIn(0, 100)
+    return HealthScore(score, rounded, missing)
 }

@@ -73,7 +73,7 @@ Deno.test("nota de saude igual a do app", () => {
   assertEquals(healthScore(bons, ranges, tpa(17), [], [], [], now).score, 80);
   const ruins = [t("kh", 7.2), t("ca", 370), t("mg", 1300, 9), t("salinidade", 1.025), t("no3", 40)];
   const h = healthScore(ruins, ranges, tpa(12), [], [], [{}, {}, {}, {}], now);
-  assertEquals([h.score, h.items.length], [40, 6]);
+  assertEquals([h.score, h.items.length], [39, 6]);
   const falta = healthScore([t("kh", 8)], ranges, [], [], [], [], now);
   assertEquals([falta.score, falta.missing], [null, ["medir Cálcio", "medir Magnésio", "medir Salinidade", "registrar uma TPA"]]);
 });
