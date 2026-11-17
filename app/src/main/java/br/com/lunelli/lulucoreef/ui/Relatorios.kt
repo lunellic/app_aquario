@@ -78,7 +78,7 @@ fun RelatoriosScreen(vm: MainViewModel) {
             }
         }
         feedback?.let { Panel(Modifier.fillMaxWidth(), borderColor = Luluco.Pool) { Text(it) } }
-        Muted("\\"Enviar para meu e-mail\\" manda para ${vm.email ?: "o e-mail da conta"} e precisa do backend publicado (Bloco C). \\"Compartilhar\\" abre os apps do aparelho.")
+        Muted("\"Enviar para meu e-mail\" manda para ${vm.email ?: "o e-mail da conta"} e precisa do backend publicado (Bloco C). \"Compartilhar\" abre os apps do aparelho.")
 
         SectionTitle("Prévia")
         Panel(Modifier.fillMaxWidth()) {
