@@ -19,6 +19,7 @@ import br.com.lunelli.lulucoreef.domain.Params
 import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.numShort
 import br.com.lunelli.lulucoreef.domain.parseNum
+import br.com.lunelli.lulucoreef.domain.parseParam
 
 @Composable
 fun RegistrarScreen(nav: Nav) {
@@ -65,7 +66,7 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { try { first.requestFocus() } catch (_: Exception) { } }
 
-    val parsed = params.mapNotNull { p -> values[p]?.takeIf { it.isNotBlank() }?.let { p to parseNum(it) } }
+    val parsed = params.mapNotNull { p -> values[p]?.takeIf { it.isNotBlank() }?.let { p to parseParam(p, it) } }
     val valid = parsed.isNotEmpty() && parsed.all { it.second != null }
 
     fun doSave() {
@@ -82,7 +83,7 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?) {
         visible.chunked(2).forEachIndexed { row, pair ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 pair.forEachIndexed { i, p ->
-                    NumInput(Params.label(p), values[p].orEmpty(), (if (row == 0 && i == 0) Modifier.focusRequester(first) else Modifier).weight(1f), suffix = Params.unit(p)) { values[p] = it }
+                    NumInput(Params.label(p) + (if (p == "salinidade") " (25 = 1,025)" else ""), values[p].orEmpty(), (if (row == 0 && i == 0) Modifier.focusRequester(first) else Modifier).weight(1f), suffix = Params.unit(p)) { values[p] = it }
                 }
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
@@ -120,11 +121,11 @@ fun TpaForm(vm: MainViewModel, nav: Nav, edit: WaterChange?, occurrence: Occurre
     var at by remember { mutableLongStateOf(edit?.feitaEm ?: System.currentTimeMillis()) }
     var confirm by remember { mutableStateOf(false) }
     val l = parseNum(litros)
-    val optionalOk = (salin.isBlank() || parseNum(salin) != null) && (temp.isBlank() || parseNum(temp) != null)
+    val optionalOk = (salin.isBlank() || parseParam("salinidade", salin) != null) && (temp.isBlank() || parseNum(temp) != null)
 
     fun doSave() {
         val base = edit ?: WaterChange(feitaEm = at, litros = l!!)
-        vm.save(base.copy(feitaEm = at, litros = l!!, sal = sal.ifBlank { null }, salinidadeNovaAgua = parseNum(salin), temperaturaNovaAgua = parseNum(temp),
+        vm.save(base.copy(feitaEm = at, litros = l!!, sal = sal.ifBlank { null }, salinidadeNovaAgua = parseParam("salinidade", salin), temperaturaNovaAgua = parseNum(temp),
             metodo = metodo.ifBlank { null }, observacao = obs.ifBlank { null }))
         if (occurrence != null) vm.markDone(occurrence, createDosing = false)
         nav.back()
@@ -144,7 +145,7 @@ fun TpaForm(vm: MainViewModel, nav: Nav, edit: WaterChange?, occurrence: Occurre
         DateTimeField("Feita em", at) { at = it }
         TextInput("Observação (opcional)", obs) { obs = it }
         SaveRow(l != null && l > 0 && optionalOk, onDelete = edit?.let { e -> { vm.delete(e); nav.back() } }) {
-            val s = parseNum(salin)
+            val s = parseParam("salinidade", salin)
             if (l!! > (tank?.volumeDosagemL ?: 100.0) * 0.5 || (s != null && Params.isAbsurd("salinidade", s))) confirm = true else doSave()
         }
     }

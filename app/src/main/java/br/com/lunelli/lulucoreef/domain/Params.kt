@@ -101,3 +101,18 @@ fun trendOf(tests: List<WaterTest>, param: String, range: ParamRange?, now: Long
     }
     return Trend(slope, intercept, exit)
 }
+
+/**
+ * Salinidade digitada de forma abreviada: 25 -> 1,025; 1025 -> 1,025; 225 -> 1,0225; 10225 -> 1,0225.
+ * Valores ja no formato 1,0xx ficam como estao.
+ */
+fun normalizeSalinity(v: Double): Double = when {
+    v >= 10000 && v < 20000 -> v / 10000
+    v >= 1000 && v < 2000 -> v / 1000
+    v >= 100 && v < 1000 -> 1 + v / 10000
+    v >= 10 && v < 100 -> 1 + v / 1000
+    else -> v
+}
+
+/** Numero digitado para um parametro (a salinidade aceita a forma abreviada). */
+fun parseParam(p: String, text: String): Double? = parseNum(text)?.let { if (p == "salinidade") normalizeSalinity(it) else it }

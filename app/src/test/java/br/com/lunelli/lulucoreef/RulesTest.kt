@@ -69,6 +69,17 @@ class RulesTest {
         assertEquals(-0.1, trendOf(serie, "kh", kh, now)!!.slopePerDay, 1e-6)
     }
 
+    @Test fun salinidadeAbreviada() {
+        val f = { t: String -> br.com.lunelli.lulucoreef.domain.parseParam("salinidade", t)!! }
+        assertEquals(1.025, f("25"), 1e-9)
+        assertEquals(1.026, f("26"), 1e-9)
+        assertEquals(1.025, f("1025"), 1e-9)
+        assertEquals(1.025, f("1,025"), 1e-9)
+        assertEquals(1.0225, f("10225"), 1e-9)
+        assertEquals(1.0225, f("225"), 1e-9)
+        assertEquals(8.2, br.com.lunelli.lulucoreef.domain.parseParam("kh", "8,2")!!, 1e-9)
+    }
+
     @Test fun numeroComVirgula() {
         assertEquals(1.025, parseNum("1,025")!!, 1e-9)
         assertEquals(8.2, parseNum(" 8.2 ")!!, 1e-9)
