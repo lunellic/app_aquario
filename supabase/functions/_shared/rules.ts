@@ -101,6 +101,8 @@ export function occurrencesOn(routines: Row[], logs: Row[], date: string): Occur
     }
     const state = log?.status === "feito" ? "feito" : log?.status === "pulado" ? "pulado" : log?.status === "adiado" ? "adiado" : "pendente";
     const effectiveDueAt = state === "adiado" ? ms(log!.updated_at) + SNOOZE_MS : dueAt;
+    // atividade de uma vez ja concluida: aparece so no dia em que foi resolvida
+    if (r.recorrencia === "unica" && (state === "feito" || state === "pulado") && local(ms(log!.feito_em ?? log!.updated_at)).date !== date) continue;
     out.push({ routine: r, dueAt, log, state, effectiveDueAt, open: state === "pendente" || state === "adiado" });
   }
   return out.sort((a, b) => a.dueAt - b.dueAt || String(a.routine.titulo).localeCompare(String(b.routine.titulo)));

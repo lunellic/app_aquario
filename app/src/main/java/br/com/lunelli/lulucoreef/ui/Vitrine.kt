@@ -32,10 +32,11 @@ import br.com.lunelli.lulucoreef.domain.OccState
 import br.com.lunelli.lulucoreef.domain.Params
 import br.com.lunelli.lulucoreef.domain.Status
 import br.com.lunelli.lulucoreef.domain.allAlerts
+import br.com.lunelli.lulucoreef.domain.doseFor
+import br.com.lunelli.lulucoreef.domain.formatDose
 import br.com.lunelli.lulucoreef.domain.healthScore
 import br.com.lunelli.lulucoreef.domain.latestOf
 import br.com.lunelli.lulucoreef.domain.occurrencesOn
-import br.com.lunelli.lulucoreef.domain.reminderText
 import br.com.lunelli.lulucoreef.domain.statusOf
 import br.com.lunelli.lulucoreef.domain.numShort
 import br.com.lunelli.lulucoreef.domain.toLocalDate
@@ -84,7 +85,6 @@ fun VitrineScreen(vm: MainViewModel) {
     val dy = listOf(0, 5, 0, -5, -10, -5, 0, 5)[shift]
 
     val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone)
-    val nextGroup = today.filter { it.open }.groupBy { it.effectiveDueAt / 60_000 }.minByOrNull { it.key }?.value
     val worst = allAlerts(allTests, ranges, changes, today, cases, entries, now).firstOrNull()
     val score = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone).score
     val foto = tank?.fotoVitrinePath
@@ -99,8 +99,52 @@ fun VitrineScreen(vm: MainViewModel) {
         }
 
         val shown = Params.ALL.filter { it in settings.shownParams }
-        val compact = shown.size > 4
-        val next = remember(routines, logs, now / 60_000) { upcoming(routines, logs, now, zone, limit = if (compact) 6 else 5) }
+        val worstNow = worst
+        val compact = shown.size > 4 || today.size > 3 || worstNow != null
+        val next = remember(routines, logs, now / 60_000) { upcoming(routines, logs, now, zone, limit = 3) }
+        val zdt = Instant.ofEpochMilli(now).atZone(zone)
+        val productById = remember(products) { products.associateBy { it.id } }
+
+        // Hora, dia da semana e data: texto solto, sem bloco em volta
+        val clock: @Composable (Modifier) -> Unit = { m ->
+            Column(m.padding(horizontal = 8.dp)) {
+                AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(600)) + slideInVertically(tween(600)) { it / 6 }) togetherWith (fadeOut(tween(400)) + slideOutVertically(tween(600)) { -it / 6 }) }, label = "relogio") { t ->
+                    Text(t, fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 84.sp, lineHeight = 88.sp, color = Luluco.Cream, maxLines = 1)
+                }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(zdt.format(DateTimeFormatter.ofPattern("EEEE", PtBr)).replaceFirstChar { it.uppercase() }, fontFamily = Fredoka, fontSize = 24.sp, color = Luluco.PoolText)
+                    Spacer(Modifier.width(10.dp))
+                    Text(zdt.format(DateTimeFormatter.ofPattern("d 'de' MMMM", PtBr)), fontSize = 17.sp, color = Luluco.Cream, modifier = Modifier.padding(bottom = 3.dp))
+                }
+            }
+        }
+        // Hoje: a lista completa do dia, com o que ja foi feito
+        val hoje: @Composable (Modifier) -> Unit = { m ->
+            VBlock(m, borderColor = if (today.any { it.isDue(now) }) Luluco.Coral else Luluco.CardBorder, pad = 14.dp) {
+                Text(if (today.isEmpty()) "Hoje" else "Hoje · $doneToday de $totalToday feitas", fontFamily = Fredoka, fontSize = 20.sp, color = Luluco.PoolText)
+                if (today.isEmpty()) Text("Nenhuma rotina para hoje.", fontSize = 16.sp, color = Luluco.TextSoft)
+                val perRow = if (today.size > 3) 2 else 1
+                today.chunked(perRow).forEach { rowItems ->
+                    Row(Modifier.padding(top = 5.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        rowItems.forEach { o ->
+                            val p = o.routine.productId?.let { productById[it] }
+                            val dose = if (o.routine.tipo == "dosagem" && p != null) " " + formatDose(doseFor(p, vm.volume), p.doseUnidade) else ""
+                            val color = when {
+                                o.state == OccState.FEITO -> Luluco.Ok
+                                o.state == OccState.PULADO -> Luluco.Neutral
+                                o.isDue(now) -> Luluco.CoralText
+                                else -> Luluco.Cream
+                            }
+                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                                Text(if (o.state == OccState.FEITO) "feito" else if (o.state == OccState.PULADO) "pulou" else fmtTime(o.effectiveDueAt), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.width(48.dp), maxLines = 1)
+                                Text(o.routine.titulo + dose, fontSize = 16.sp, color = if (o.open) Luluco.Cream else Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        if (rowItems.size < perRow) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
         val lastTpa = changes.filter { it.feitaEm <= now }.maxByOrNull { it.feitaEm }
         val (doneToday, totalToday) = today.count { it.state == OccState.FEITO } to today.size
 
@@ -108,8 +152,8 @@ fun VitrineScreen(vm: MainViewModel) {
         val ring: @Composable (Modifier) -> Unit = { m ->
             VBlock(m) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    HealthRing(score, 132.dp)
-                    Spacer(Modifier.width(18.dp))
+                    HealthRing(score, 104.dp)
+                    Spacer(Modifier.width(16.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column {
                             Text("Última TPA", fontSize = 15.sp, color = Luluco.TextSoft)
@@ -126,14 +170,13 @@ fun VitrineScreen(vm: MainViewModel) {
         }
         // Proximos passos: o que esta chegando
         val steps: @Composable (Modifier) -> Unit = { m ->
-            VBlock(m) {
-                Text("Próximos passos", fontFamily = Fredoka, fontSize = 22.sp, color = Luluco.PoolText)
-                Spacer(Modifier.height(8.dp))
+            VBlock(m, pad = 14.dp) {
+                Text("Próximos passos", fontFamily = Fredoka, fontSize = 20.sp, color = Luluco.PoolText)
                 if (next.isEmpty()) Text("Nada agendado nos próximos dias.", fontSize = 17.sp, color = Luluco.TextSoft)
                 next.forEach { item ->
-                    Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(whenText(item.dueAt, now, zone), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (item.late) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.width(132.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(item.routine.titulo, fontSize = 18.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.routine.titulo, fontSize = 16.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -156,18 +199,9 @@ fun VitrineScreen(vm: MainViewModel) {
                 Sparkline(series, now - 30 * DAY_MS, now, statusColor(st), Modifier.fillMaxWidth().height(if (compact) 22.dp else 34.dp), band = r?.let { it.idealMin to it.idealMax })
             }
         }
-        val routine: @Composable (Modifier) -> Unit = { m ->
-            val due = nextGroup?.first()?.isDue(now) == true
-            VBlock(m, borderColor = if (due) Luluco.Coral else Luluco.CardBorder) {
-                Text(if (nextGroup == null) "Rotinas de hoje" else if (due) "Agora" else "Próxima dosagem/rotina", fontSize = 16.sp, color = if (due) Luluco.CoralText else Luluco.TextSoft)
-                Text(nextGroup?.let { reminderText(it, products.associateBy { p -> p.id }, vm.volume, zone) } ?: "Tudo em dia",
-                    fontFamily = Fredoka, fontSize = 22.sp, color = Luluco.Cream, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-        }
         val alert: @Composable (Modifier) -> Unit = { m ->
-            if (worst != null) VBlock(m, borderColor = statusColor(worst.severity)) {
-                Text(statusLabel(worst.severity), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = statusColor(worst.severity))
-                Text(worst.fato, fontSize = 18.sp, color = Luluco.Cream, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (worst != null) VBlock(m, borderColor = statusColor(worst.severity), pad = 12.dp) {
+                Text(statusLabel(worst.severity) + ": " + worst.fato, fontSize = 16.sp, color = statusColor(worst.severity), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
 
@@ -176,8 +210,9 @@ fun VitrineScreen(vm: MainViewModel) {
             if (maxWidth > maxHeight) {
                 Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                     Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(gap)) {
+                        clock(Modifier.fillMaxWidth())
                         ring(Modifier.fillMaxWidth())
-                        steps(Modifier.fillMaxWidth().weight(1f))
+                        steps(Modifier.fillMaxWidth())
                     }
                     Column(Modifier.weight(1.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(gap)) {
                         shown.chunked(2).forEach { pair ->
@@ -186,14 +221,13 @@ fun VitrineScreen(vm: MainViewModel) {
                                 if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                            routine(Modifier.weight(1f))
-                            if (worst != null) alert(Modifier.weight(1f))
-                        }
+                        hoje(Modifier.fillMaxWidth())
+                        if (worst != null) alert(Modifier.fillMaxWidth())
                     }
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                    clock(Modifier.fillMaxWidth())
                     ring(Modifier.fillMaxWidth())
                     shown.chunked(2).forEach { pair ->
                         Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -201,7 +235,7 @@ fun VitrineScreen(vm: MainViewModel) {
                             if (pair.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
-                    routine(Modifier.fillMaxWidth())
+                    hoje(Modifier.fillMaxWidth())
                     alert(Modifier.fillMaxWidth())
                     steps(Modifier.fillMaxWidth())
                 }

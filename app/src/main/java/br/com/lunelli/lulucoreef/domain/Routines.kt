@@ -36,6 +36,12 @@ fun Routine.time(): LocalTime = try {
 }
 
 fun Routine.isInterval() = recorrencia == "a_cada_n_dias" || recorrencia == "a_cada_n_semanas"
+
+/** Atividade de uma vez so, com data marcada (como um compromisso de calendario). */
+fun Routine.isOnce() = recorrencia == "unica"
+
+/** Usa proximaEm como data: rotinas por intervalo e atividades de uma vez. */
+fun Routine.isAnchored() = isInterval() || isOnce()
 fun Routine.intervalDays(): Long = (intervaloN ?: 1).toLong() * (if (recorrencia == "a_cada_n_semanas") 7 else 1)
 
 private fun at(date: LocalDate, time: LocalTime, zone: ZoneId) = date.atTime(time).atZone(zone).toInstant().toEpochMilli()
@@ -62,14 +68,16 @@ fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDa
     val byKey = logs.filter { it.deletedAt == null }.groupBy { it.routineId to it.previstoPara }
     return routines.mapNotNull { r ->
         val due = dueOn(r, date, zone) ?: return@mapNotNull null
-        Occurrence(r, due, byKey[r.id to due]?.maxByOrNull { it.updatedAt })
+        val o = Occurrence(r, due, byKey[r.id to due]?.maxByOrNull { it.updatedAt })
+        // atividade de uma vez ja concluida (feita ou pulada): aparece so no dia em que foi resolvida
+        if (r.isOnce() && !o.open && (o.log!!.feitoEm ?: o.log.updatedAt).toLocalDate(zone) != date) null else o
     }.sortedWith(compareBy({ it.dueAt }, { it.routine.titulo }))
 }
 
 /** Proxima ocorrencia estritamente depois de `after` (para o alarme). */
 fun nextDueAfter(r: Routine, after: Long, zone: ZoneId): Long? {
     if (!r.ativa || r.deletedAt != null) return null
-    if (r.isInterval()) return r.proximaEm?.takeIf { it > after }
+    if (r.isAnchored()) return r.proximaEm?.takeIf { it > after }
     var date = after.toLocalDate(zone)
     repeat(8) {
         val due = dueOn(r, date, zone)
@@ -150,6 +158,7 @@ fun recurrenceText(r: Routine): String {
         "dias_da_semana" -> r.diasSemana.orEmpty().sorted().joinToString(", ") { names.getOrElse(it - 1) { "?" } } + ", $h"
         "a_cada_n_dias" -> "a cada ${r.intervaloN ?: 1} dias, $h"
         "a_cada_n_semanas" -> "a cada ${r.intervaloN ?: 1} semanas, $h"
+        "unica" -> "uma vez só, $h"
         else -> h
     }
 }
@@ -163,4 +172,17 @@ fun reminderText(items: List<Occurrence>, products: Map<String, Product>, volume
         val p = o.routine.productId?.let { products[it] }
         if (o.routine.tipo == "dosagem" && p != null) "${o.routine.titulo} ${formatDose(doseFor(p, volumeL), p.doseUnidade)}" else o.routine.titulo
     }
+}
+
+/**
+ * Agenda de um dia para o calendario: o que esta marcado naquela data.
+ * Diferente de occurrencesOn, rotinas com data (intervalo ou uma vez) aparecem so no dia marcado.
+ */
+fun agendaOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDate, zone: ZoneId): List<Occurrence> {
+    val byKey = logs.filter { it.deletedAt == null }.groupBy { it.routineId to it.previstoPara }
+    return routines.mapNotNull { r ->
+        if (!r.ativa || r.deletedAt != null) return@mapNotNull null
+        val due = if (r.isAnchored()) r.proximaEm?.takeIf { it.toLocalDate(zone) == date } else dueOn(r, date, zone)
+        due?.let { Occurrence(r, it, byKey[r.id to it]?.maxByOrNull { l -> l.updatedAt }) }
+    }.sortedWith(compareBy({ it.dueAt }, { it.routine.titulo }))
 }

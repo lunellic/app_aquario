@@ -28,7 +28,7 @@ import java.time.LocalDate
 
 private val PRODUCT_TYPES = listOf("suplemento" to "Suplemento", "aditivo" to "Aditivo", "tratamento" to "Tratamento", "midia_filtrante" to "Mídia filtrante", "outro" to "Outro")
 private val ROUTINE_TYPES = listOf("dosagem" to "Dosagem", "tpa" to "TPA", "teste" to "Teste", "manutencao" to "Manutenção", "outro" to "Outro")
-private val RECURRENCES = listOf("diaria" to "Todos os dias", "dias_da_semana" to "Dias da semana", "a_cada_n_dias" to "A cada N dias", "a_cada_n_semanas" to "A cada N semanas")
+private val RECURRENCES = listOf("diaria" to "Todos os dias", "dias_da_semana" to "Dias da semana", "a_cada_n_dias" to "A cada N dias", "a_cada_n_semanas" to "A cada N semanas", "unica" to "Uma vez só")
 private val UNITS = listOf("gotas", "ml", "g", "colher", "outra").map { it to it }
 private val WEEKDAYS = listOf("seg", "ter", "qua", "qui", "sex", "sáb", "dom")
 
@@ -54,7 +54,7 @@ fun RotinasScreen(vm: MainViewModel, nav: Nav) {
                         Column(Modifier.weight(1f)) {
                             Text(r.titulo, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val dose = if (r.tipo == "dosagem" && p != null) formatDose(doseFor(p, volume), p.doseUnidade) + " · " else ""
-                            Muted(dose + recurrenceText(r) + (if (r.isInterval()) r.proximaEm?.let { " · próxima em ${fmtDay(it)}" } ?: " · sem data definida" else ""), maxLines = 2)
+                            Muted(dose + recurrenceText(r) + (if (r.isInterval()) r.proximaEm?.let { " · próxima em ${fmtDay(it)}" } ?: " · sem data definida" else if (r.recorrencia == "unica") r.proximaEm?.let { " · ${fmtDay(it)}" } ?: "" else ""), maxLines = 2)
                         }
                         TextButton(onClick = { nav.go(Screen.RoutineHistory(r.id)) }) { Text("histórico") }
                         Switch(checked = r.ativa, onCheckedChange = { vm.save(r.copy(ativa = it)) })
@@ -127,26 +127,27 @@ fun ProductForm(vm: MainViewModel, nav: Nav, id: String?) {
 }
 
 @Composable
-fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: String? = null) {
+fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: String? = null, onceDate: String? = null) {
     val routines by vm.routines.collectAsStateWithLifecycle()
     val products by vm.products.collectAsStateWithLifecycle()
     val equipment by vm.equipment.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val edit = remember(id) { routines.firstOrNull { it.id == id } }
     var titulo by remember { mutableStateOf(edit?.titulo.orEmpty()) }
-    var tipo by remember { mutableStateOf(edit?.tipo ?: if (equipmentIdInicial != null) "manutencao" else "dosagem") }
+    var tipo by remember { mutableStateOf(edit?.tipo ?: if (equipmentIdInicial != null) "manutencao" else if (onceDate != null) "outro" else "dosagem") }
     var productId by remember { mutableStateOf(edit?.productId) }
     var equipmentId by remember { mutableStateOf(edit?.equipmentId ?: equipmentIdInicial) }
-    var rec by remember { mutableStateOf(edit?.recorrencia ?: if (equipmentIdInicial != null) "a_cada_n_semanas" else "diaria") }
+    var rec by remember { mutableStateOf(edit?.recorrencia ?: if (equipmentIdInicial != null) "a_cada_n_semanas" else if (onceDate != null) "unica" else "diaria") }
     val dias = remember { mutableStateListOf<Int>().apply { addAll(edit?.diasSemana.orEmpty()) } }
     var n by remember { mutableStateOf((edit?.intervaloN ?: 1).toString()) }
-    var horario by remember { mutableStateOf(edit?.horario?.take(5) ?: "20:00") }
-    var proxima by remember { mutableStateOf(edit?.proximaEm?.toLocalDate(vm.zone)?.toString()) }
+    var horario by remember { mutableStateOf(edit?.horario?.take(5) ?: if (onceDate != null) "19:00" else "20:00") }
+    var proxima by remember { mutableStateOf(edit?.proximaEm?.toLocalDate(vm.zone)?.toString() ?: onceDate) }
     var instrucao by remember { mutableStateOf(edit?.instrucao.orEmpty()) }
     var ativa by remember { mutableStateOf(edit?.ativa ?: true) }
     var confirmDelete by remember { mutableStateOf(false) }
     val interval = rec == "a_cada_n_dias" || rec == "a_cada_n_semanas"
-    val valid = titulo.isNotBlank() && (rec != "dias_da_semana" || dias.isNotEmpty()) && (!interval || (n.toIntOrNull() ?: 0) > 0)
+    val once = rec == "unica"
+    val valid = titulo.isNotBlank() && (rec != "dias_da_semana" || dias.isNotEmpty()) && (!interval || (n.toIntOrNull() ?: 0) > 0) && (!once || proxima != null)
     val product = products.firstOrNull { it.id == productId }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -176,6 +177,10 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: St
             }
             if (proxima == null) Muted("Sem a data da próxima, a rotina não é cobrada. O Painel pergunta a data da última vez.")
         }
+        if (once) {
+            DateField("Dia", proxima) { proxima = it }
+            Muted("Atividade de uma vez só, como um compromisso: aparece no calendário, nos próximos passos e no \"Hoje\" do dia marcado. Se não for feita, fica como atrasada até você marcar feito ou pular.")
+        }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Horário", color = MaterialTheme.colorScheme.onSurfaceVariant)
             OutlinedButton(onClick = {
@@ -189,7 +194,7 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: St
             BigButton("Salvar", Modifier.weight(1f), enabled = valid) {
                 val b = edit ?: Routine(titulo = titulo.trim())
                 val time = try { java.time.LocalTime.parse(horario) } catch (_: Exception) { java.time.LocalTime.of(20, 0) }
-                val anchor = if (interval) proxima?.let { LocalDate.parse(it).atTime(time).atZone(vm.zone).toInstant().toEpochMilli() } else null
+                val anchor = if (interval || once) proxima?.let { LocalDate.parse(it).atTime(time).atZone(vm.zone).toInstant().toEpochMilli() } else null
                 vm.save(b.copy(titulo = titulo.trim(), tipo = tipo, productId = if (tipo == "dosagem") productId else null,
                     equipmentId = if (tipo == "manutencao") equipmentId else null, recorrencia = rec,
                     diasSemana = if (rec == "dias_da_semana") dias.sorted() else null, intervaloN = if (interval) n.toIntOrNull() else null,

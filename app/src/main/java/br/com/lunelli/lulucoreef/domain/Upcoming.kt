@@ -18,12 +18,14 @@ fun upcoming(routines: List<Routine>, logs: List<RoutineLog>, now: Long, zone: Z
     val out = LinkedHashMap<Pair<String, Long>, UpcomingItem>()
     val today = now.toLocalDate(zone)
     for (i in 0..days) {
-        for (o in occurrencesOn(list.filter { !it.isInterval() }, logs, today.plusDays(i.toLong()), zone)) {
+        for (o in occurrencesOn(list.filter { !it.isAnchored() }, logs, today.plusDays(i.toLong()), zone)) {
             if (o.open) out.getOrPut(o.routine.id to o.dueAt) { UpcomingItem(o.routine, o.dueAt, o.isLate(now)) }
         }
     }
-    for (r in list.filter { it.isInterval() }) {
+    for (r in list.filter { it.isAnchored() }) {
         val due = r.proximaEm ?: continue
+        // atividade de uma vez ja feita ou pulada nao volta a aparecer
+        if (r.isOnce() && logs.any { it.deletedAt == null && it.routineId == r.id && it.previstoPara == due && (it.status == "feito" || it.status == "pulado") }) continue
         out.getOrPut(r.id to due) { UpcomingItem(r, due, due < now) }
     }
     return out.values.sortedBy { it.dueAt }.take(limit)

@@ -274,6 +274,23 @@ class ReportAndUpcomingTest {
         assertEquals("Atrasada desde 10/11", w(ms("2026-11-10", "19:00")))
     }
 
+    @Test fun atividadeDeUmaVezSo() {
+        val muda = Routine("Muda de coral", tipo = "outro", recorrencia = "unica", horario = "19:00", proximaEm = ms("2026-11-19", "19:00"))
+        val d = { s: String -> java.time.LocalDate.parse(s) }
+        assertTrue(occurrencesOn(listOf(muda), emptyList(), d("2026-11-18"), zone).isEmpty())
+        assertEquals(ms("2026-11-19", "19:00"), occurrencesOn(listOf(muda), emptyList(), d("2026-11-19"), zone).single().dueAt)
+        assertEquals(1, occurrencesOn(listOf(muda), emptyList(), d("2026-11-21"), zone).size) // nao feita: continua atrasada
+        val feito = listOf(RoutineLog(muda.id, muda.proximaEm!!, "feito", feitoEm = ms("2026-11-20", "10:00")))
+        assertEquals(OccState.FEITO, occurrencesOn(listOf(muda), feito, d("2026-11-20"), zone).single().state)
+        assertTrue(occurrencesOn(listOf(muda), feito, d("2026-11-21"), zone).isEmpty())
+        // proximos passos e calendario
+        assertEquals("Quinta, 19h", br.com.lunelli.lulucoreef.domain.whenText(br.com.lunelli.lulucoreef.domain.upcoming(listOf(muda), emptyList(), now, zone).single().dueAt, now, zone))
+        assertTrue(br.com.lunelli.lulucoreef.domain.upcoming(listOf(muda), feito, now, zone).isEmpty())
+        assertEquals(1, br.com.lunelli.lulucoreef.domain.agendaOn(listOf(muda), emptyList(), d("2026-11-19"), zone).size)
+        assertTrue(br.com.lunelli.lulucoreef.domain.agendaOn(listOf(muda), emptyList(), d("2026-11-21"), zone).isEmpty())
+        assertEquals(ms("2026-11-19", "19:00"), nextDueAfter(muda, now, zone))
+    }
+
     @Test fun relatorioDoPeriodo() {
         val amino = Product("Amino Coral", doseUnidade = "gotas")
         val carvao = Routine("Troca do carvão ativado", tipo = "manutencao", recorrencia = "a_cada_n_semanas", intervaloN = 4, horario = "19:00")

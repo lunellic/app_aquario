@@ -250,7 +250,10 @@ class SmokeTest {
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
             Thread.sleep(2500)
             shot("painel")
-            compose.onNodeWithContentDescription("Menu").performClick()
+            // calendario do Painel: toca num dia e ve a lista
+            compose.onNodeWithText("Adicionar atividade neste dia").performScrollTo()
+            shot("calendario")
+            compose.onNodeWithContentDescription("Menu").performScrollTo().performClick()
             shot("menu")
             compose.onNodeWithTag("menu_Gráficos").performScrollTo().performClick()
             shot("graficos")
@@ -267,6 +270,12 @@ class SmokeTest {
             shot("vitrine")
             // toque acorda o Painel; relatorios
             compose.onNodeWithText("Próximos passos").performClick()
+            // atividade de uma vez so, criada a partir do calendario
+            compose.onNodeWithText("Adicionar atividade neste dia").performScrollTo().performClick()
+            compose.onNodeWithText("Título").performTextInput("Muda de coral")
+            compose.onNodeWithText("Salvar").performScrollTo().performClick()
+            compose.waitUntil(10_000) { runBlocking { app.graph.db.routines().all().first().any { it.recorrencia == "unica" && it.proximaEm != null } } }
+            compose.onAllNodesWithText("Muda de coral").onFirst().performScrollTo().assertIsDisplayed()
             menu("Relatórios")
             compose.onNodeWithText("Enviar para meu e-mail").assertIsDisplayed()
             shot("relatorios")

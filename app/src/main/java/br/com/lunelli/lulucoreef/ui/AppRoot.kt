@@ -93,7 +93,7 @@ sealed interface Screen {
     data class LivestockForm(val id: String? = null, val tipo: String = "coral") : Screen
     data class CoralProtocol(val id: String) : Screen
     data class ProductForm(val id: String? = null) : Screen
-    data class RoutineForm(val id: String? = null, val equipmentId: String? = null) : Screen
+    data class RoutineForm(val id: String? = null, val equipmentId: String? = null, val onceDate: String? = null) : Screen
     data class CaseForm(val id: String? = null) : Screen
     data class CaseDetail(val id: String) : Screen
     data class EquipmentForm(val id: String? = null) : Screen
@@ -319,7 +319,7 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         is Screen.LivestockForm -> LivestockForm(vm, nav, s.id, s.tipo)
         is Screen.CoralProtocol -> CoralProtocol(vm, nav, s.id)
         is Screen.ProductForm -> ProductForm(vm, nav, s.id)
-        is Screen.RoutineForm -> RoutineForm(vm, nav, s.id, s.equipmentId)
+        is Screen.RoutineForm -> RoutineForm(vm, nav, s.id, s.equipmentId, s.onceDate)
         is Screen.CaseForm -> CaseForm(vm, nav, s.id)
         is Screen.CaseDetail -> CaseDetail(vm, nav, s.id)
         is Screen.EquipmentForm -> EquipmentForm(vm, nav, s.id)

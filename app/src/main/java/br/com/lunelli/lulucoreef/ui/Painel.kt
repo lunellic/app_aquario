@@ -144,6 +144,11 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
             }
             needAnchor.forEach { r -> AnchorQuestion(vm, r) }
 
+            Column(Modifier.cascade(4), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionTitle("Calendário")
+                CalendarCard(nav, routines, logs, productById, volume, now, zone, wide)
+            }
+
             if (alerts.isNotEmpty()) {
                 Column(Modifier.cascade(4), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionTitle("Alertas ativos")

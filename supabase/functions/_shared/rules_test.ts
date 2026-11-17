@@ -57,6 +57,15 @@ Deno.test("rotina por intervalo vencida continua aberta", () => {
   assertEquals(occurrencesOn([{ ...carvao, proxima_em: null }], [], "2026-11-16").length, 0);
 });
 
+Deno.test("atividade de uma vez so", () => {
+  const muda = { id: "m", titulo: "Muda de coral", recorrencia: "unica", horario: "19:00", ativa: true, proxima_em: iso(at("2026-11-19", "19:00")) };
+  assertEquals(occurrencesOn([muda], [], "2026-11-18").length, 0);
+  assertEquals(occurrencesOn([muda], [], "2026-11-19")[0].dueAt, at("2026-11-19", "19:00"));
+  assertEquals(occurrencesOn([muda], [], "2026-11-21").length, 1); // nao feita: continua atrasada
+  const feito = [{ routine_id: "m", previsto_para: muda.proxima_em, status: "feito", feito_em: iso(at("2026-11-20", "10:00")), updated_at: iso(at("2026-11-20", "10:00")) }];
+  assertEquals([occurrencesOn([muda], feito, "2026-11-20").length, occurrencesOn([muda], feito, "2026-11-21").length], [1, 0]);
+});
+
 Deno.test("nota de saude igual a do app", () => {
   const bons = [t("kh", 8), t("ca", 420), t("mg", 1300), t("salinidade", 1.025)];
   const tpa = (d: number) => [{ feita_em: iso(now - d * 86_400_000) }];
