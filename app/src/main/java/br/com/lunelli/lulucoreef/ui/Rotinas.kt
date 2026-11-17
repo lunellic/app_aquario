@@ -38,6 +38,10 @@ fun RotinasScreen(vm: MainViewModel, nav: Nav) {
     val products by vm.products.collectAsStateWithLifecycle()
     val tank by vm.tank.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf("rotinas") }
+    // alteracao de horario em lote: seleciona varias rotinas e escolhe um horario para todas
+    var batch by remember { mutableStateOf(false) }
+    val picked = remember { mutableStateListOf<String>() }
+    val ctx = LocalContext.current
     val volume = tank?.volumeDosagemL ?: 100.0
     val byId = products.associateBy { it.id }
 
@@ -47,10 +51,31 @@ fun RotinasScreen(vm: MainViewModel, nav: Nav) {
         }
         ChipRow(listOf("rotinas" to "Rotinas (${routines.size})", "produtos" to "Produtos (${products.size})"), tab) { tab = it }
         if (tab == "rotinas") {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { batch = !batch; picked.clear() }) { Text(if (batch) "Cancelar" else "Alterar horário em lote") }
+                if (batch) {
+                    TextButton(onClick = { picked.clear(); picked.addAll(routines.map { it.id }) }) { Text("Selecionar todas") }
+                    Button(enabled = picked.isNotEmpty(), onClick = {
+                        TimePickerDialog(ctx, { _, h, m ->
+                            val novo = "%02d:%02d".format(h, m)
+                            routines.filter { it.id in picked }.forEach { r ->
+                                // muda so o horario; os dias continuam os mesmos (rotinas com data mantem a data)
+                                val anchor = r.proximaEm?.let { java.time.Instant.ofEpochMilli(it).atZone(vm.zone).withHour(h).withMinute(m).withSecond(0).toInstant().toEpochMilli() }
+                                vm.save(r.copy(horario = novo, proximaEm = anchor))
+                            }
+                            batch = false
+                            picked.clear()
+                        }, 20, 0, true).show()
+                    }) { Text("Escolher horário (${picked.size})") }
+                }
+            }
+            if (batch) Muted("Toque nas rotinas para selecionar. Só o horário muda; os dias de cada uma continuam iguais.")
             routines.forEach { r ->
                 val p = r.productId?.let { byId[it] }
-                Panel(Modifier.fillMaxWidth().clickable { nav.go(Screen.RoutineForm(r.id)) }, padding = 10.dp) {
+                Panel(Modifier.fillMaxWidth().clickable { if (batch) { if (r.id in picked) picked.remove(r.id) else picked.add(r.id) } else nav.go(Screen.RoutineForm(r.id)) },
+                    borderColor = if (batch && r.id in picked) Luluco.Pool else null, padding = 10.dp) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (batch) Checkbox(r.id in picked, { on -> if (on) picked.add(r.id) else picked.remove(r.id) })
                         Column(Modifier.weight(1f)) {
                             Text(r.titulo, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             val dose = if (r.tipo == "dosagem" && p != null) formatDose(doseFor(p, volume), p.doseUnidade) + " · " else ""
