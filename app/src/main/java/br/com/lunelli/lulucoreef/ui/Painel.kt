@@ -8,6 +8,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -76,6 +79,12 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     val productById = remember(products) { products.associateBy { it.id } }
 
     val today = remember(routines, logs, now) { occurrencesOn(routines, logs, now.toLocalDate(zone), zone) }
+    // Navegacao de dias no "Hoje": voltar para marcar o que ficou de ontem (ex.: dose feita de madrugada) ou ver amanha.
+    var dayOffset by remember { mutableIntStateOf(0) }
+    val realToday = now.toLocalDate(zone)
+    val selDate = realToday.plusDays(dayOffset.toLong())
+    val dayList = remember(routines, logs, now, dayOffset) { if (dayOffset == 0) today else occurrencesOn(routines, logs, selDate, zone) }
+    val yesterdayOpen = remember(routines, logs, now) { occurrencesOn(routines, logs, realToday.minusDays(1), zone).count { it.open && it.dueAt.toLocalDate(zone) == realToday.minusDays(1) } }
     val entries by vm.entries.collectAsStateWithLifecycle()
     val alerts = remember(tests, ranges, changes, today, cases, entries, now) { allAlerts(tests, ranges, changes, today, cases, entries, now) }
     val health = remember(tests, ranges, changes, routines, logs, cases, now) { healthScore(tests, ranges, changes, routines, logs, cases, now, zone) }
@@ -91,9 +100,20 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
 
             val hoje: @Composable (Modifier) -> Unit = { m ->
                 Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionTitle("Hoje")
-                    if (today.isEmpty()) Panel(Modifier.fillMaxWidth()) { Muted("Nenhuma rotina para hoje.") }
-                    today.forEach { o -> TodayItem(vm, nav, o, productById[o.routine.productId], volume, now) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { dayOffset-- }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Dia anterior", tint = Luluco.Cream) }
+                        SectionTitle(dayLabel(dayOffset, selDate))
+                        IconButton(onClick = { dayOffset++ }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Próximo dia", tint = Luluco.Cream) }
+                        Spacer(Modifier.weight(1f))
+                        if (dayOffset != 0) TextButton(onClick = { dayOffset = 0 }) { Text("Voltar para hoje") }
+                    }
+                    if (dayOffset == 0 && yesterdayOpen > 0) {
+                        Text("Ontem ficaram $yesterdayOpen pendente${if (yesterdayOpen > 1) "s" else ""}. Toque para marcar.",
+                            color = Luluco.CoralText, style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { dayOffset = -1 }.padding(vertical = 4.dp))
+                    }
+                    if (dayList.isEmpty()) Panel(Modifier.fillMaxWidth()) { Muted("Nenhuma rotina neste dia.") }
+                    dayList.forEach { o -> TodayItem(vm, nav, o, productById[o.routine.productId], volume, now, selDate) }
                 }
             }
             val metricas: @Composable (Modifier) -> Unit = { m ->
@@ -238,8 +258,17 @@ private fun AnchorQuestion(vm: MainViewModel, r: Routine) {
     }
 }
 
+/** "Hoje", "Ontem", "Amanhã" ou "Seg, 16/11". */
+private fun dayLabel(offset: Int, date: java.time.LocalDate): String = when (offset) {
+    0 -> "Hoje"
+    -1 -> "Ontem"
+    1 -> "Amanhã"
+    else -> date.format(DateTimeFormatter.ofPattern("EEE, dd/MM", PtBr)).replaceFirstChar { it.uppercase() }.replace(".", "")
+}
+
 @Composable
-private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Product?, volume: Double, now: Long) {
+private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Product?, volume: Double, now: Long, day: java.time.LocalDate) {
+    val isToday = day == now.toLocalDate(vm.zone)
     val due = o.isDue(now)
     val detail = when {
         o.routine.tipo == "dosagem" && product != null -> formatDose(doseFor(product, volume), product.doseUnidade)
@@ -251,10 +280,11 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
             Column(Modifier.weight(1f)) {
                 Text(o.routine.titulo, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (detail.isNotEmpty()) Muted(detail, maxLines = 2)
-                if (o.dueAt.toLocalDate(vm.zone) != now.toLocalDate(vm.zone)) Muted("vencida em ${fmtDay(o.dueAt)}")
+                if (o.dueAt.toLocalDate(vm.zone) != day) Muted("vencida em ${fmtDay(o.dueAt)}")
             }
             when (o.state) {
-                OccState.FEITO -> Badge("feito", Luluco.Ok)
+                // mostra a hora real em que foi marcado (com a data, se foi em outro dia)
+                OccState.FEITO -> Badge(o.log?.feitoEm?.let { f -> "feito " + (if (f.toLocalDate(vm.zone) != o.dueAt.toLocalDate(vm.zone)) fmtDateTime(f) else fmtTime(f)) } ?: "feito", Luluco.Ok)
                 OccState.PULADO -> Badge("pulado", Luluco.Neutral)
                 OccState.ADIADO -> if (!due) Badge("adiado até ${fmtTime(o.effectiveDueAt)}", Luluco.Pool) else Badge("atrasada", Luluco.Coral)
                 OccState.PENDENTE -> if (due) Badge("atrasada", Luluco.Coral)
@@ -269,7 +299,7 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
                 BigButton("Feito", Modifier.weight(1.1f), color = Luluco.Ok) {
                     if (o.routine.tipo == "tpa") nav.go(Screen.TpaForm(occurrence = o)) else vm.markDone(o)
                 }
-                BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.SolidHigh) { vm.snooze(o) }
+                if (isToday) BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.SolidHigh) { vm.snooze(o) }
                 BigButton("Pular", Modifier.weight(0.8f), color = Luluco.SolidHigh) { vm.skip(o) }
             }
         }
