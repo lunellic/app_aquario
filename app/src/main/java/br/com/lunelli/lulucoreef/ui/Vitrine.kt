@@ -110,9 +110,10 @@ fun VitrineScreen(vm: MainViewModel) {
             Photo(foto, Modifier.fillMaxSize(), maxPx = 120)
             Box(Modifier.fillMaxSize().background(Luluco.Navy.copy(alpha = 0.88f)))
         }
-        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.55f).align(Alignment.Center), alpha = 0.9f)
+        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.9f, fadeAt = 0.66f)
 
-        Row(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 32.dp)) {
+        Column(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 32.dp)) {
+        Row(Modifier.weight(1f)) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(900)) + slideInVertically(tween(900)) { it / 8 }) togetherWith (fadeOut(tween(600)) + slideOutVertically(tween(900)) { -it / 8 }) }, label = "relogio") { t ->
@@ -125,17 +126,6 @@ fun VitrineScreen(vm: MainViewModel) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(worst.severity)))
                         Spacer(Modifier.width(10.dp))
                         Text(worst.fato, fontSize = 15.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(36.dp)) {
-                    VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score))
-                    VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
-                        if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else null)
-                    shown.forEach { p ->
-                        val last = tests.latestOf(p)
-                        val r = ranges[p]
-                        val st = if (last == null || r == null) Status.SEM_MEDICAO else statusOf(last.valor, r)
-                        VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st))
                     }
                 }
             }
@@ -159,6 +149,18 @@ fun VitrineScreen(vm: MainViewModel) {
                         if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
                         VRow(whenText(item.dueAt, now, zone), item.routine.titulo, null, done = false, late = item.late, wide = true)
                     }
+                }
+            }
+        }
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+                VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score))
+                VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
+                    if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else null)
+                shown.forEach { p ->
+                    val last = tests.latestOf(p)
+                    val r = ranges[p]
+                    val st = if (last == null || r == null) Status.SEM_MEDICAO else statusOf(last.valor, r)
+                    VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st))
                 }
             }
         }

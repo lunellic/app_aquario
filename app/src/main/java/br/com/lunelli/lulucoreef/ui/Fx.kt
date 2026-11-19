@@ -80,7 +80,7 @@ fun WaterBackground(modifier: Modifier = Modifier, strength: Float = 1f) {
  * (inspirada na animacao do Dolby Atmos). Sem shader: so Path e gradiente linear, roda no Fire.
  */
 @Composable
-fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26) {
+fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26, fadeAt: Float = 1f) {
     val time = rememberWaterTime(true)
     val paths = remember(lines) { List(lines) { androidx.compose.ui.graphics.Path() } }
     Canvas(modifier) {
@@ -89,7 +89,7 @@ fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26)
         val h = size.height
         val cy = h / 2
         val amp = h * 0.30f
-        val brush = Brush.horizontalGradient(listOf(Luluco.Pool.copy(alpha = 0f), Luluco.Pool.copy(alpha = 0.55f * alpha), Luluco.Royal.copy(alpha = 0.55f * alpha), Luluco.Violet.copy(alpha = 0f)))
+        val brush = Brush.horizontalGradient(0f to Luluco.Pool.copy(alpha = 0f), 0.22f to Luluco.Pool.copy(alpha = 0.55f * alpha), fadeAt * 0.8f to Luluco.Royal.copy(alpha = 0.5f * alpha), fadeAt to Luluco.Violet.copy(alpha = 0f), 1f to Luluco.Violet.copy(alpha = 0f))
         val steps = 72
         for (i in 0 until lines) {
             val f = i / (lines - 1f)
