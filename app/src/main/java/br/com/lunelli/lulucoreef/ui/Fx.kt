@@ -89,7 +89,7 @@ fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26,
         val h = size.height
         val cy = h / 2
         val amp = h * 0.30f
-        val brush = Brush.horizontalGradient(0f to Luluco.Pool.copy(alpha = 0f), 0.22f to Luluco.Pool.copy(alpha = 0.55f * alpha), fadeAt * 0.8f to Luluco.Royal.copy(alpha = 0.5f * alpha), fadeAt to Luluco.Violet.copy(alpha = 0f), 1f to Luluco.Violet.copy(alpha = 0f))
+        val brush = Brush.horizontalGradient(0f to Luluco.Pool.copy(alpha = 0f), 0.2f to Luluco.Pool.copy(alpha = 0.55f * alpha), 0.55f to Luluco.Royal.copy(alpha = 0.45f * alpha), fadeAt to Luluco.Violet.copy(alpha = 0.16f * alpha), 1f to Luluco.Violet.copy(alpha = 0.05f * alpha))
         val steps = 72
         for (i in 0 until lines) {
             val f = i / (lines - 1f)
@@ -203,11 +203,11 @@ fun Sparkline(values: List<Pair<Long, Double>>, from: Long, to: Long, color: Col
         lo -= pad; hi += pad
         fun x(t: Long) = ((t - from).toDouble() / (to - from).coerceAtLeast(1)).toFloat().coerceIn(0f, 1f) * size.width
         fun y(v: Double) = (1f - ((v - lo) / (hi - lo)).toFloat()) * size.height
-        if (band != null) drawRect(Luluco.Ok.copy(alpha = 0.14f), Offset(0f, y(band.second)), Size(size.width, y(band.first) - y(band.second)))
+        if (band != null) drawRect(Color.White.copy(alpha = 0.05f), Offset(0f, y(band.second)), Size(size.width, y(band.first) - y(band.second)))
         for (i in 1 until values.size) {
-            drawLine(color, Offset(x(values[i - 1].first), y(values[i - 1].second)), Offset(x(values[i].first), y(values[i].second)), 2.5.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(color, Offset(x(values[i - 1].first), y(values[i - 1].second)), Offset(x(values[i].first), y(values[i].second)), 1.6.dp.toPx(), cap = StrokeCap.Round)
         }
         val last = values.last()
-        drawCircle(color, 4.dp.toPx(), Offset(x(last.first), y(last.second)))
+        drawCircle(color, 2.8.dp.toPx(), Offset(x(last.first), y(last.second)))
     }
 }

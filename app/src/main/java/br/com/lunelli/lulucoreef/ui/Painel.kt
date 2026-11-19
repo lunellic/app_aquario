@@ -141,7 +141,8 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                                     key(p) {
                                         val last = reliableTests.latestOf(p)
                                         val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
-                                        MetricCard(Modifier.weight(1f).clickable { nav.go(Screen.TestForm(only = p)) }, p, last?.valor, last?.medidoEm, ranges[p], exit, now)
+                                        val series = remember(reliableTests, p) { reliableTests.filter { it.parametro == p }.sortedBy { it.medidoEm }.takeLast(12).map { it.medidoEm to it.valor } }
+                                        MetricCard(Modifier.weight(1f).clickable { nav.go(Screen.TestForm(only = p)) }, p, last?.valor, last?.medidoEm, ranges[p], exit, now, series)
                                     }
                                 }
                                 if (pair.size == 1) Spacer(Modifier.weight(1f))
@@ -324,7 +325,7 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
 }
 
 @Composable
-fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, range: ParamRange?, daysToExit: Double?, now: Long) {
+fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, range: ParamRange?, daysToExit: Double?, now: Long, series: List<Pair<Long, Double>> = emptyList()) {
     val status = when {
         value == null || at == null -> Status.SEM_MEDICAO
         range == null -> Status.SEM_MEDICAO
@@ -340,6 +341,13 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
             Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 36.sp, letterSpacing = (-1).sp, color = Luluco.Cream)
             Spacer(Modifier.width(6.dp))
             Text(Params.unit(param), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+            Spacer(Modifier.weight(1f))
+            // minilinha das ultimas medicoes + quanto mudou desde a anterior
+            if (series.size >= 2) Column(horizontalAlignment = Alignment.End) {
+                Sparkline(series, series.first().first, series.last().first, Luluco.TextSoft, Modifier.width(78.dp).height(26.dp), band = range?.let { it.idealMin to it.idealMax })
+                val d = series.last().second - series[series.size - 2].second
+                Text(deltaText(param, d), fontSize = 12.sp, color = Luluco.TextSoft, maxLines = 1)
+            }
         }
         if (range != null) RangeBar(value, range, statusColor(status))
         Muted(if (at != null) "${fmtDateTime(at)} (${fmtAgo(at, now)})" else "sem medição", maxLines = 1)
@@ -357,8 +365,10 @@ private fun RangeBar(value: Double?, r: ParamRange, markerColor: Color) {
     Canvas(Modifier.fillMaxWidth().height(16.dp).padding(vertical = 6.dp)) {
         val h = size.height
         val radius = CornerRadius(h / 2, h / 2)
-        drawRoundRect(Color.White.copy(alpha = 0.06f), size = size, cornerRadius = radius)
-        drawRoundRect(Color.White.copy(alpha = 0.16f), topLeft = Offset(frac(r.idealMin) * size.width, 0f), size = Size((frac(r.idealMax) - frac(r.idealMin)) * size.width, h), cornerRadius = radius)
+        // pontas: critico em vermelho forte, atencao em vermelho apagado; meio (ideal) cinza claro
+        drawRoundRect(Luluco.Critical.copy(alpha = 0.85f), size = size, cornerRadius = radius)
+        drawRect(Color(0xFF6B2C2A), topLeft = Offset(frac(r.alertaMin) * size.width, 0f), size = Size((frac(r.alertaMax) - frac(r.alertaMin)) * size.width, h))
+        drawRect(Color(0xFFB9C0CA), topLeft = Offset(frac(r.idealMin) * size.width, 0f), size = Size((frac(r.idealMax) - frac(r.idealMin)) * size.width, h))
         if (value != null) {
             val x = frac(value) * size.width
             drawCircle(Luluco.Card, radius = h * 1.6f, center = Offset(x, h / 2))
@@ -385,4 +395,10 @@ private fun Stat(modifier: Modifier, value: String, label: String) {
         Text(value, fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 28.sp, letterSpacing = (-0.8).sp, color = Luluco.Cream)
         Muted(label, maxLines = 2)
     }
+}
+
+/** "▲ 0,05 desde a anterior" no formato do parametro. */
+fun deltaText(param: String, d: Double): String {
+    if (kotlin.math.abs(d) < 1e-9) return "= igual à anterior"
+    return (if (d > 0) "▲ " else "▼ ") + Params.format(param, kotlin.math.abs(d))
 }

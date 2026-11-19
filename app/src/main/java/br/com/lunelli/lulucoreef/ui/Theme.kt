@@ -61,13 +61,13 @@ fun onColor(bg: Color): Color = if (bg.luminance() > 0.22f) Luluco.Navy else Lul
 /** Fundo em tom da cor (quadradinho de icone, selo, chip). */
 fun tint(c: Color, a: Float = 0.16f): Color = c.copy(alpha = a)
 
-/** Inter (licenca OFL, embutida): a fonte mais proxima da SF Pro usada no app de referencia. */
+/** SF Pro Display (arquivos enviados pelo Lucas): so os pesos do meio para cima. Light cai no Regular. */
 val Jakarta = FontFamily(
-    Font(R.font.inter_light, FontWeight.Light),
-    Font(R.font.inter_regular, FontWeight.Normal),
-    Font(R.font.inter_medium, FontWeight.Medium),
-    Font(R.font.inter_semibold, FontWeight.SemiBold),
-    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.sf_regular, FontWeight.Light),
+    Font(R.font.sf_regular, FontWeight.Normal),
+    Font(R.font.sf_medium, FontWeight.Medium),
+    Font(R.font.sf_bold, FontWeight.SemiBold),
+    Font(R.font.sf_bold, FontWeight.Bold),
 )
 val Display = Jakarta
 val Manrope = Jakarta
@@ -100,8 +100,8 @@ private val OceanColors = darkColorScheme(
     scrim = Color(0xCC05080C),
 )
 
-private fun body(size: Int, weight: FontWeight = FontWeight.Normal) = TextStyle(fontFamily = Jakarta, fontWeight = weight, fontSize = size.sp, lineHeight = (size * 1.4).sp, letterSpacing = (-0.1).sp, fontFeatureSettings = "tnum, cv11")
-private fun title(size: Int) = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.SemiBold, fontSize = size.sp, lineHeight = (size * 1.2).sp, letterSpacing = (-0.4).sp, fontFeatureSettings = "tnum, cv11")
+private fun body(size: Int, weight: FontWeight = FontWeight.Normal) = TextStyle(fontFamily = Jakarta, fontWeight = weight, fontSize = size.sp, lineHeight = (size * 1.4).sp, letterSpacing = (-0.1).sp, fontFeatureSettings = "tnum")
+private fun title(size: Int) = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.SemiBold, fontSize = size.sp, lineHeight = (size * 1.2).sp, letterSpacing = (-0.4).sp, fontFeatureSettings = "tnum")
 
 private val LulucoType = Typography(
     displayLarge = title(56), displayMedium = title(44), displaySmall = title(36),

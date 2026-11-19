@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -253,10 +254,10 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-                Image(painterResource(R.drawable.logo_luluco), "Luluco Reef", Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)))
+                Image(painterResource(R.drawable.logo_mark), "Luluco Reef", Modifier.height(44.dp))
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("Luluco Reef", style = MaterialTheme.typography.titleLarge)
+                    Text("Luluco Reef App", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
                     SyncDot(vm)
                 }
             }

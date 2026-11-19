@@ -110,14 +110,14 @@ fun VitrineScreen(vm: MainViewModel) {
             Photo(foto, Modifier.fillMaxSize(), maxPx = 120)
             Box(Modifier.fillMaxSize().background(Luluco.Navy.copy(alpha = 0.88f)))
         }
-        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.9f, fadeAt = 0.66f)
+        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.9f, fadeAt = 0.8f)
 
         Column(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 32.dp)) {
         Row(Modifier.weight(1f)) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(900)) + slideInVertically(tween(900)) { it / 8 }) togetherWith (fadeOut(tween(600)) + slideOutVertically(tween(900)) { -it / 8 }) }, label = "relogio") { t ->
-                    Text(t, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 112.sp, lineHeight = 112.sp, letterSpacing = (-5).sp, color = Luluco.Cream, maxLines = 1)
+                    Text(t, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 124.sp, lineHeight = 124.sp, letterSpacing = (-4).sp, color = Luluco.Cream, maxLines = 1)
                 }
                 Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                 Spacer(Modifier.weight(1f))
@@ -160,7 +160,8 @@ fun VitrineScreen(vm: MainViewModel) {
                     val last = tests.latestOf(p)
                     val r = ranges[p]
                     val st = if (last == null || r == null) Status.SEM_MEDICAO else statusOf(last.valor, r)
-                    VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st))
+                    val serie = remember(tests, p) { tests.filter { it.parametro == p }.sortedBy { it.medidoEm }.takeLast(10).map { it.medidoEm to it.valor } }
+                    VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st), serie, r?.let { it.idealMin to it.idealMax })
                 }
             }
         }
@@ -168,16 +169,17 @@ fun VitrineScreen(vm: MainViewModel) {
 }
 
 @Composable
-private fun VStat(label: String, value: String, unit: String?, dot: Color?) {
+private fun VStat(label: String, value: String, unit: String?, dot: Color?, serie: List<Pair<Long, Double>> = emptyList(), band: Pair<Double, Double>? = null) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (dot != null) { Box(Modifier.size(6.dp).clip(CircleShape).background(dot)); Spacer(Modifier.width(6.dp)) }
             Eyebrow(label)
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, fontFamily = Display, fontWeight = FontWeight.Normal, fontSize = 30.sp, letterSpacing = (-1).sp, color = Luluco.Cream, maxLines = 1)
+            Text(value, fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = (-1).sp, color = Luluco.Cream, maxLines = 1)
             if (unit != null) Text(" $unit", fontSize = 13.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 5.dp))
         }
+        if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft, Modifier.padding(top = 4.dp).width(84.dp).height(18.dp), band = band)
     }
 }
 
@@ -210,8 +212,7 @@ fun NightScreen(vm: MainViewModel) {
     Box(Modifier.fillMaxSize().background(Color(0xFF050608))) {
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(clock, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 96.sp, letterSpacing = (-4).sp, color = Luluco.Cream.copy(alpha = 0.5f))
-            Eyebrow("modo noite", color = Luluco.TextSoft.copy(alpha = 0.6f))
+            Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 120.sp, letterSpacing = (-4).sp, color = Luluco.Cream.copy(alpha = 0.5f))
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))
