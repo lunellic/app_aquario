@@ -170,7 +170,7 @@ class SmokeTest {
         val name = "migracao_teste.db"
         app.deleteDatabase(name)
         fun open() = androidx.room.Room.databaseBuilder(app, br.com.lunelli.lulucoreef.data.AppDb::class.java, name)
-            .addMigrations(br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2).build()
+            .addMigrations(br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3).build()
         open().apply { openHelper.writableDatabase; close() }
 
         // volta o arquivo ao formato v1: water_tests sem a coluna nova, com uma medicao gravada
@@ -179,6 +179,8 @@ class SmokeTest {
         val v1 = sql.replace("`baixaConfianca` INTEGER NOT NULL DEFAULT 0, ", "")
         assertTrue("coluna nova nao encontrada em: $sql", v1 != sql)
         raw.execSQL("DROP TABLE water_tests")
+        raw.execSQL("DROP TABLE finance_entries")
+        raw.execSQL("DROP TABLE shopping_items")
         raw.execSQL(v1)
         raw.execSQL("INSERT INTO water_tests (medidoEm, parametro, valor, unidade, id, createdAt, updatedAt, pending) VALUES (1000, 'kh', 8.2, 'dKH', 'abc', 1000, 1000, 1)")
         raw.version = 1
