@@ -129,7 +129,7 @@ class SmokeTest {
             // Meu Aquario
             menu("Meu Aquário")
             compose.onAllNodesWithText("2x Palhaço").onFirst().assertExists()
-            compose.onAllNodesWithText("confirmar").onFirst().assertIsDisplayed()
+            compose.onAllNodesWithText("CONFIRMAR").onFirst().assertIsDisplayed()
             compose.onNodeWithText("Duncan").performClick()
             compose.onNodeWithText("Editar").assertIsDisplayed()
             compose.onNodeWithText("Gerar ficha (IA)").performScrollTo().assertIsDisplayed()
