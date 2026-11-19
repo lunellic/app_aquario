@@ -141,12 +141,10 @@ private val groups = listOf(
         Tab(Screen.Saude, "Saúde e quarentena", Icons.Outlined.FavoriteBorder, Luluco.AreaSaude),
         Tab(Screen.Equipamentos, "Equipamentos e produtos", Icons.Outlined.Build, Luluco.AreaEquip),
     )),
-    TabGroup("Análise", listOf(
+    TabGroup("Análise e contas", listOf(
         Tab(Screen.Graficos, "Gráficos", Icons.Outlined.Info, Luluco.AreaGrafico),
         Tab(Screen.Relatorios, "Relatórios", Icons.Outlined.Email, Luluco.AreaRelatorio),
         Tab(Screen.Calculadoras, "Calculadoras", Icons.Outlined.Create, Luluco.AreaCalc),
-    )),
-    TabGroup("Conta", listOf(
         Tab(Screen.Financas, "Finanças", Icons.Outlined.ShoppingCart, Luluco.AreaFinancas),
     )),
 )
