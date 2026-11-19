@@ -117,8 +117,7 @@ fun VitrineScreen(vm: MainViewModel) {
         Row(Modifier.weight(1f)) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                FlipClock(fmtTime(now), 150.sp, Luluco.Cream)
-                Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
+                GlassClock(fmtTime(now), shortDate(zdt.toLocalDate()), Modifier.fillMaxWidth(0.94f), maxFont = 230f)
                 Spacer(Modifier.weight(1f))
                 // todos os avisos ativos (ate 4), um por linha
                 Column(Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -178,7 +177,7 @@ private fun VStat(label: String, value: String, unit: String?, dot: Color?, seri
             Eyebrow(label)
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = (-1).sp, color = Luluco.Cream, maxLines = 1)
+            Text(value, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, letterSpacing = (-1).sp, color = Luluco.Cream, maxLines = 1)
             if (unit != null) Text(" $unit", fontSize = 13.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 5.dp))
         }
         if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft, Modifier.padding(top = 4.dp).width(84.dp).height(18.dp), band = band, colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
@@ -226,7 +225,7 @@ fun NightScreen(vm: MainViewModel) {
         }
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            FlipClock(clock, 128.sp, Color(0xFF8D939B))
+            GlassClock(clock, shortDate(java.time.Instant.ofEpochMilli(now).atZone(vm.zone).toLocalDate()), Modifier.width(560.dp), maxFont = 250f, dim = 0.6f)
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))

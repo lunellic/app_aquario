@@ -1,5 +1,13 @@
 package br.com.lunelli.lulucoreef.ui
 
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -250,6 +258,106 @@ fun FlipClock(time: String, fontSize: androidx.compose.ui.unit.TextUnit, color: 
                     Text(c.toString(), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = fontSize, lineHeight = fontSize, color = color, maxLines = 1)
                 }
             }
+        }
+    }
+}
+
+/** Barlow Condensed (licenca OFL, embutida): numeros altos e estreitos para o relogio de vidro. */
+val Barlow = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(br.com.lunelli.lulucoreef.R.font.barlow_medium, FontWeight.Medium),
+    androidx.compose.ui.text.font.Font(br.com.lunelli.lulucoreef.R.font.barlow_semibold, FontWeight.SemiBold),
+    androidx.compose.ui.text.font.Font(br.com.lunelli.lulucoreef.R.font.barlow_bold, FontWeight.Bold),
+)
+
+/** "Qui 19 Nov" */
+fun shortDate(d: java.time.LocalDate): String {
+    val dias = listOf("Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom")
+    val meses = listOf("Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez")
+    return "${dias[d.dayOfWeek.value - 1]} ${d.dayOfMonth} ${meses[d.monthValue - 1]}"
+}
+
+/**
+ * Relogio de vidro (referencia do Lucas): pilula com a data em cima e um painel de vidro escuro com
+ * numeros altos, estreitos e juntos, cor de aluminio, com brilho na borda de cima e sombra embaixo.
+ * Cada digito vira sozinho quando muda. [dim] escurece tudo para o modo noite.
+ */
+@Composable
+fun GlassClock(time: String, date: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f) {
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+        // 4 digitos + dois pontos ocupam ~1,95 em na Barlow Condensed SemiBold com os digitos encostados
+        val fs = minOf(maxFont, (maxWidth.value - 36f) / 1.95f)
+        val size = fs.sp
+        val glassShape = androidx.compose.foundation.shape.RoundedCornerShape((fs * 0.13f).dp)
+        val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+        val rim = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.30f * dim), Color.White.copy(alpha = 0.06f * dim)))
+        val glass = Brush.verticalGradient(listOf(Color(0xFF3B3E43).copy(alpha = 0.92f), Color(0xFF1C1E21).copy(alpha = 0.92f)))
+        androidx.compose.foundation.layout.Column(Modifier.graphicsLayer { alpha = dim }) {
+            // data numa pilula de vidro
+            androidx.compose.foundation.layout.Box(
+                Modifier.fillMaxWidthCompat().clip(pillShape).background(glass).border(1.5.dp, rim, pillShape).padding(vertical = (fs * 0.035f).dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(date, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = (fs * 0.13f).sp, color = Color(0xFFF2F3F5))
+            }
+            androidx.compose.foundation.layout.Spacer(Modifier.height((fs * 0.045f).dp))
+            // painel de vidro com os numeros
+            androidx.compose.foundation.layout.Box(
+                Modifier.fillMaxWidthCompat().clip(glassShape).background(glass).border(1.5.dp, rim, glassShape)
+                    .padding(horizontal = (fs * 0.04f).dp, vertical = (fs * 0.02f).dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((-fs * 0.035f).dp)) {
+                    time.forEachIndexed { i, ch ->
+                        androidx.compose.runtime.key(i) {
+                            if (ch == ':') GlassColon(fs)
+                            else androidx.compose.animation.AnimatedContent(
+                                targetState = ch,
+                                transitionSpec = {
+                                    (androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it } +
+                                        androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400))) togetherWith
+                                        (androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } +
+                                            androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(320)))
+                                },
+                                label = "vidro$i",
+                            ) { c -> GlassDigit(c, size) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun Modifier.fillMaxWidthCompat() = this.fillMaxWidth()
+
+private val DigitFill = Brush.verticalGradient(listOf(Color(0xFFA9ACB1), Color(0xFF8C9095), Color(0xFF7A7E83)))
+private val DigitRim = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.25f)))
+
+@Composable
+private fun GlassDigit(c: Char, size: androidx.compose.ui.unit.TextUnit) {
+    val base = androidx.compose.ui.text.TextStyle(
+        fontFamily = Barlow, fontWeight = FontWeight.SemiBold, fontSize = size, lineHeight = size * 0.98f,
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
+    )
+    androidx.compose.foundation.layout.Box {
+        // corpo com degrade de aluminio e sombra
+        Text(c.toString(), style = base.copy(brush = DigitFill, shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 6f), 14f)))
+        // borda clara em cima e escura embaixo: o efeito de vidro
+        Text(c.toString(), style = base.copy(brush = DigitRim, drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f, join = StrokeJoin.Round)))
+    }
+}
+
+/** Dois pontos redondos, como na referencia. */
+@Composable
+private fun GlassColon(fs: Float) {
+    val d = (fs * 0.17f).dp
+    androidx.compose.foundation.layout.Column(
+        Modifier.padding(horizontal = (fs * 0.045f).dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((fs * 0.20f).dp),
+    ) {
+        repeat(2) {
+            androidx.compose.foundation.layout.Box(Modifier.size(d).clip(CircleShape).background(DigitFill).border(1.5.dp, DigitRim, CircleShape))
         }
     }
 }

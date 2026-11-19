@@ -1,6 +1,7 @@
 // Edge Function `notifier` (spec 12): push pelo ntfy (rotinas atrasadas e alertas criticos) e e-mail semanal pelo Resend.
 // Chamada pelo pg_cron (header x-cron-secret) ou pelo app nos botoes de teste (JWT do usuario).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { ANALYSIS_REQUEST, askClaude, checkLimit, CORS, json } from "../_shared/ai.ts";
 import { loadCtx, summarize } from "../_shared/context.ts";
 import { compliance, criticalAlerts, DAY_MS, fmt, healthScore, isNight, LABEL, latest, local, MAIN, ms, numShort, occurrencesOn, reminderText, statusOf } from "../_shared/rules.ts";
@@ -139,6 +140,43 @@ ${h.score == null ? `<p>Faltam dados: ${esc(h.missing.join(", "))}.</p>` : h.ite
   return email;
 }
 
+const BACKUP_TABLES = ["tank_config", "param_ranges", "water_tests", "water_changes", "products", "dosings", "routines", "routine_logs", "events",
+  "livestock", "health_cases", "health_entries", "equipment", "finance_entries", "shopping_items", "species_info", "ai_analyses", "temperature_readings"];
+
+/** Copia de todos os dados do usuario em JSON, anexada num e-mail para a propria conta (backup diario e botao "Exportar meus dados"). */
+async function backupEmail(service: SupabaseClient, userId: string, email: string, auto: boolean): Promise<string> {
+  const key = Deno.env.get("RESEND_API_KEY");
+  if (!key) throw new Error("RESEND_API_KEY não configurada nas Edge Functions.");
+  const tables: Record<string, unknown[]> = {};
+  const counts: string[] = [];
+  for (const t of BACKUP_TABLES) {
+    const all: unknown[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await service.from(t).select("*").eq("user_id", userId).range(from, from + 999);
+      if (error) { console.error("backup", t, error.message); break; }
+      all.push(...(data ?? []));
+      if (!data || data.length < 1000) break;
+    }
+    tables[t] = all;
+    if (all.length) counts.push(`${t}: ${all.length}`);
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  const payload = JSON.stringify({ app: "Luluco Reef", exported_at: new Date().toISOString(), user_id: userId, tables });
+  const b64 = encodeBase64(new TextEncoder().encode(payload));
+  const text = `${auto ? "Backup diário" : "Exportação"} do Luluco Reef (${day}).\n\nO arquivo anexo tem todos os seus dados em JSON. Guarde este e-mail: com ele dá para restaurar o app num banco novo.\n\n${counts.join("\n")}`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      from: "Luluco Reef <onboarding@resend.dev>", to: [email],
+      subject: `Luluco Reef: ${auto ? "backup" : "exportação"} ${day}`, text,
+      attachments: [{ filename: `luluco-reef-${day}.json`, content: b64 }],
+    }),
+  });
+  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+  return email;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
@@ -149,6 +187,24 @@ Deno.serve(async (req) => {
     const now = Date.now();
     const secret = Deno.env.get("CRON_SECRET");
     const isCron = !!secret && req.headers.get("x-cron-secret") === secret;
+
+    if (mode === "backup") {
+      if (!isCron) return json({ error: "Não autorizado." }, 401);
+      const { data: tanks, error } = await service.from("tank_config").select("user_id").is("deleted_at", null);
+      if (error) throw new Error(error.message);
+      const results: Record<string, unknown> = {};
+      for (const t of tanks ?? []) {
+        try {
+          const { data: au } = await service.auth.admin.getUserById(t.user_id);
+          const email = au?.user?.email;
+          results[t.user_id] = email ? await backupEmail(service, t.user_id, email, true) : "sem e-mail";
+        } catch (e) {
+          console.error(t.user_id, e);
+          results[t.user_id] = `erro: ${e instanceof Error ? e.message : e}`;
+        }
+      }
+      return json({ ok: true, results });
+    }
 
     if (mode === "tick" || mode === "weekly") {
       if (!isCron) return json({ error: "Não autorizado." }, 401);
@@ -195,6 +251,12 @@ Deno.serve(async (req) => {
       });
       if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
       return json({ ok: true, message: `Relatório enviado para ${email}.` });
+    }
+    if (mode === "export") {
+      const email = u?.user?.email;
+      if (!email) throw new Error("Usuário sem e-mail.");
+      await backupEmail(service, userId, email, false);
+      return json({ ok: true, message: `Seus dados foram enviados para ${email}.` });
     }
     if (mode === "test_email") {
       const email = await weeklyEmail(service, userId, now, false);

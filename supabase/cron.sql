@@ -3,7 +3,7 @@
 create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
-select cron.unschedule(jobname) from cron.job where jobname in ('luluco_tick', 'luluco_weekly');
+select cron.unschedule(jobname) from cron.job where jobname in ('luluco_tick', 'luluco_weekly', 'luluco_backup');
 
 select cron.schedule('luluco_tick', '*/5 * * * *', $job$
   select net.http_post(
@@ -18,5 +18,14 @@ select cron.schedule('luluco_weekly', '0 13 * * 0', $job$
     url := '__FUNCTIONS_URL__/notifier',
     headers := '{"Content-Type":"application/json","x-cron-secret":"__CRON_SECRET__"}'::jsonb,
     body := '{"mode":"weekly"}'::jsonb,
+    timeout_milliseconds := 60000);
+$job$);
+
+-- Todo dia 03:17 de Brasilia (06:17 UTC): backup de todos os dados por e-mail.
+select cron.schedule('luluco_backup', '17 6 * * *', $job$
+  select net.http_post(
+    url := '__FUNCTIONS_URL__/notifier',
+    headers := '{"Content-Type":"application/json","x-cron-secret":"__CRON_SECRET__"}'::jsonb,
+    body := '{"mode":"backup"}'::jsonb,
     timeout_milliseconds := 60000);
 $job$);

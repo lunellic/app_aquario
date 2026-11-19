@@ -157,6 +157,21 @@ fun ConfigScreen(vm: MainViewModel) {
             Muted("O push não é enviado no horário do modo noite, exceto alerta crítico.")
         }
 
+        SectionTitle("Backup e exportação")
+        Panel(Modifier.fillMaxWidth()) {
+            val busy by vm.aiBusy.collectAsStateWithLifecycle()
+            var feedback by remember { mutableStateOf<String?>(null) }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Exportar meus dados")
+                    Muted("Manda para o seu e-mail um arquivo com tudo: testes, TPAs, rotinas, produtos, aquário, saúde e finanças.")
+                }
+                OutlinedButton(enabled = "export" !in busy, onClick = { vm.sendTest("export") { feedback = it } }) { Text(if ("export" in busy) "Enviando..." else "Exportar") }
+            }
+            feedback?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Luluco.PoolText) }
+            Muted("Backup automático: todo dia às 3h o mesmo arquivo chega no seu e-mail.")
+        }
+
         SectionTitle("Conta e sincronização")
         Panel(Modifier.fillMaxWidth()) {
             Text(vm.email ?: "-", fontWeight = FontWeight.Bold)
