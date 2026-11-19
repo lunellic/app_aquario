@@ -118,7 +118,7 @@ fun VitrineScreen(vm: MainViewModel) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.8f), maxFont = 190f)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(4.dp))
                 Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                 Spacer(Modifier.weight(1f))
                 // todos os avisos ativos (ate 4), um por linha

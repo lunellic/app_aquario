@@ -325,7 +325,7 @@ private fun GlassDigit(c: Char, size: androidx.compose.ui.unit.TextUnit, fs: Flo
         lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
     )
     // caixa da altura do numero (sem o respiro da fonte em cima e embaixo): os digitos enchem o painel
-    androidx.compose.foundation.layout.Box(Modifier.height((fs * 0.74f).dp).wrapContentHeight(unbounded = true), contentAlignment = Alignment.Center) {
+    androidx.compose.foundation.layout.Box(Modifier.height((fs * 0.92f).dp).wrapContentHeight(unbounded = true), contentAlignment = Alignment.Center) {
         // corpo com degrade de aluminio e sombra
         Text(c.toString(), style = base.copy(brush = DigitFill, shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 6f), 14f)))
         // borda clara em cima e escura embaixo: o efeito de vidro
