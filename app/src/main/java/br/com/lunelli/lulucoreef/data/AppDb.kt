@@ -18,7 +18,7 @@ class Converters {
 
 @Database(
     entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class, FinanceEntry::class, ShoppingItem::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -64,12 +64,22 @@ abstract class AppDb : RoomDatabase() {
 
     companion object {
         fun build(context: Context): AppDb =
-            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
 
         /** v2: water_tests.baixaConfianca. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE water_tests ADD COLUMN baixaConfianca INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** v4: forma de pagamento e parcelas. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE finance_entries ADD COLUMN `forma` TEXT NOT NULL DEFAULT 'pix'")
+                db.execSQL("ALTER TABLE finance_entries ADD COLUMN `parcela` INTEGER")
+                db.execSQL("ALTER TABLE finance_entries ADD COLUMN `parcelas` INTEGER")
+                db.execSQL("ALTER TABLE finance_entries ADD COLUMN `grupo` TEXT")
             }
         }
 

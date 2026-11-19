@@ -165,6 +165,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun delete(x: FinanceEntry) = save(x.copy(deletedAt = ts()))
     fun delete(x: ShoppingItem) = save(x.copy(deletedAt = ts()))
 
+    /** Compra parcelada no cartao: uma entrada por fatura, todas com o mesmo grupo. */
+    fun saveInstallments(base: FinanceEntry, n: Int) {
+        val grupo = br.com.lunelli.lulucoreef.data.newId()
+        val parte = Math.round(base.valor / n * 100) / 100.0
+        val start = java.time.Instant.ofEpochMilli(base.lancadoEm).atZone(zone)
+        for (i in 0 until n) {
+            val v = if (i == n - 1) Math.round((base.valor - parte * (n - 1)) * 100) / 100.0 else parte
+            save(base.copy(id = br.com.lunelli.lulucoreef.data.newId(), valor = v, parcela = i + 1, parcelas = n, grupo = grupo, lancadoEm = start.plusMonths(i.toLong()).toInstant().toEpochMilli()))
+        }
+    }
+
     /** Marca o item como comprado e lanca a despesa; desmarcar apaga a despesa ligada a ele. */
     fun buy(item: ShoppingItem, valor: Double, quando: Long) {
         save(item.copy(compradoEm = quando, valorPago = valor))
@@ -208,6 +219,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             dosings.value.firstOrNull { it.productId == o.routine.productId && it.dosadoEm == l.feitoEm && it.observacao == "Rotina: ${o.routine.titulo}" }?.let { delete(it) }
         }
         if (o.routine.isInterval()) save(o.routine.copy(proximaEm = o.dueAt))
+    }
+
+    /** Corrige a hora real de um "feito" (e da dose gerada por ele). */
+    fun changeDoneTime(o: Occurrence, at: Long) {
+        val l = o.log ?: return
+        if (l.status != "feito" || l.feitoEm == at) return
+        if (o.routine.tipo == "dosagem") {
+            dosings.value.firstOrNull { it.productId == o.routine.productId && it.dosadoEm == l.feitoEm && it.observacao == "Rotina: ${o.routine.titulo}" }?.let { save(it.copy(dosadoEm = at)) }
+        }
+        save(l.copy(feitoEm = at))
     }
 
     fun snooze(o: Occurrence) = log(o, "adiado", null)

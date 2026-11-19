@@ -51,7 +51,30 @@ fun parseMoney(s: String): Double? = s.replace(".", "").replace(',', '.').trim()
     ?: s.replace(',', '.').trim().toDoubleOrNull()
 private fun prioColor(p: String) = when (p) { "alta" -> Luluco.Critical; "media" -> Luluco.CoralText; else -> Luluco.Neutral }
 private fun YearMonth.label(): String = format(DateTimeFormatter.ofPattern("MMMM 'de' yyyy", PtBr)).replaceFirstChar { it.uppercase() }
-private fun Long.ym(zone: ZoneId): YearMonth = YearMonth.from(Instant.ofEpochMilli(this).atZone(zone))
+
+/** Ciclo da fatura: do dia [dia] de um mes ate a vespera do dia [dia] do mes seguinte. O ciclo leva o nome do mes em que termina. */
+fun cycleOf(at: Long, dia: Int, zone: ZoneId): YearMonth {
+    val d = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+    val ym = YearMonth.from(d)
+    return if (d.dayOfMonth >= dia) ym.plusMonths(1) else ym
+}
+fun cycleRange(ym: YearMonth, dia: Int): String {
+    val ini = ym.minusMonths(1).atDay(minOf(dia, ym.minusMonths(1).lengthOfMonth()))
+    val fim = ym.atDay(minOf(dia, ym.lengthOfMonth())).minusDays(1)
+    val f = DateTimeFormatter.ofPattern("dd/MM")
+    return "${ini.format(f)} a ${fim.format(f)}"
+}
+private fun Long.ym(zone: ZoneId, dia: Int): YearMonth = cycleOf(this, dia, zone)
+
+/** Saldo da caixinha: depositos e vendas entram; gastos no Pix e retiradas saem; cartao nao mexe. */
+fun caixaDelta(e: FinanceEntry): Double = when (e.tipo) {
+    "aporte", "receita" -> e.valor
+    "retirada" -> -e.valor
+    "despesa" -> if (e.forma == "pix") -e.valor else 0.0
+    else -> 0.0
+}
+fun FinanceEntry.parcelaTexto(): String? = if (parcela != null && parcelas != null && parcelas > 1) "parcela $parcela/$parcelas" else null
+fun FinanceEntry.formaTexto(): String = when (tipo) { "aporte" -> "Depósito na caixinha"; "retirada" -> "Retirada da caixinha"; else -> if (forma == "cartao") "Cartão" else "Pix" }
 
 @Composable
 fun FinancasScreen(vm: MainViewModel, nav: Nav) {
@@ -62,8 +85,8 @@ fun FinancasScreen(vm: MainViewModel, nav: Nav) {
                 Text(if (aba == "compras") "Novo item" else "Novo lançamento")
             }
         }
-        ChipRow(listOf("resumo" to "Resumo do mês", "compras" to "Lista de compras"), aba) { aba = it }
-        if (aba == "resumo") Resumo(vm, nav) else Compras(vm, nav)
+        ChipRow(listOf("resumo" to "Resumo do ciclo", "caixinha" to "Caixinha", "compras" to "Lista de compras"), aba) { aba = it }
+        when (aba) { "resumo" -> Resumo(vm, nav); "caixinha" -> Caixinha(vm, nav); else -> Compras(vm, nav) }
         Spacer(Modifier.height(12.dp))
     }
 }
@@ -71,17 +94,23 @@ fun FinancasScreen(vm: MainViewModel, nav: Nav) {
 @Composable
 private fun Resumo(vm: MainViewModel, nav: Nav) {
     val all by vm.finance.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val zone = vm.zone
-    var mes by remember { mutableStateOf(YearMonth.now(zone)) }
+    val dia = settings.cicloDia
+    var mes by remember { mutableStateOf(cycleOf(System.currentTimeMillis(), dia, zone)) }
     var filtro by remember { mutableStateOf("todos") }
-    val entries = all.filter { filtro == "todos" || it.aquario == filtro || it.aquario == "ambos" }
-    val doMes = entries.filter { it.lancadoEm.ym(zone) == mes }
+    val entries = all.filter { (it.tipo == "despesa" || it.tipo == "receita") && (filtro == "todos" || it.aquario == filtro || it.aquario == "ambos") }
+    val doMes = entries.filter { it.lancadoEm.ym(zone, dia) == mes }
+    val cartao = doMes.filter { it.tipo == "despesa" && it.forma == "cartao" }.sumOf { it.valor }
     val gastos = doMes.filter { it.tipo == "despesa" }.sumOf { it.valor }
     val receitas = doMes.filter { it.tipo == "receita" }.sumOf { it.valor }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { mes = mes.minusMonths(1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Mês anterior") }
-        Text(mes.label(), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Column {
+            Text("Fatura de " + mes.label().lowercase(), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Muted(cycleRange(mes, dia))
+        }
         IconButton(onClick = { mes = mes.plusMonths(1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Próximo mês") }
         Spacer(Modifier.weight(1f))
         ChipRow(listOf("todos" to "Todos", "marinho" to "Marinho", "doce" to "Água doce"), filtro) { filtro = it }
@@ -94,12 +123,14 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
             VerticalDivider(color = Luluco.Divider)
             Money(Modifier.weight(1f), "Gastos", gastos, null)
             VerticalDivider(color = Luluco.Divider)
-            Money(Modifier.weight(1f), "Vendas e receitas", receitas, null)
+            Money(Modifier.weight(1f), "No cartão", cartao, null)
+            VerticalDivider(color = Luluco.Divider)
+            Money(Modifier.weight(1f), "Vendas", receitas, null)
         }
         HorizontalDivider(color = Luluco.Divider)
         // ultimos 6 meses: gasto (cinza) e receita (verde) lado a lado
         val meses = (5 downTo 0).map { mes.minusMonths(it.toLong()) }
-        val serie = meses.map { m -> entries.filter { it.lancadoEm.ym(zone) == m }.let { l -> l.filter { it.tipo == "despesa" }.sumOf { it.valor } to l.filter { it.tipo == "receita" }.sumOf { it.valor } } }
+        val serie = meses.map { m -> entries.filter { it.lancadoEm.ym(zone, dia) == m }.let { l -> l.filter { it.tipo == "despesa" }.sumOf { it.valor } to l.filter { it.tipo == "receita" }.sumOf { it.valor } } }
         val maxV = serie.maxOf { maxOf(it.first, it.second) }.coerceAtLeast(1.0)
         Column(Modifier.padding(16.dp)) {
             Eyebrow("Últimos 6 meses")
@@ -138,7 +169,11 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
         }
     }
 
-    SectionTitle("Lançamentos")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SectionTitle("Lançamentos", Modifier.weight(1f))
+        Muted("Ciclo começa no dia ")
+        NumInput("", dia.toString(), Modifier.width(70.dp)) { v -> v.toIntOrNull()?.let { n -> if (n in 1..28) vm.updateSettings { it.copy(cicloDia = n) } } }
+    }
     if (doMes.isEmpty()) Muted("Nada lançado neste mês. Use \"Novo lançamento\" ou marque um item da lista de compras como comprado.")
     else Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
         doMes.forEachIndexed { i, e ->
@@ -147,9 +182,47 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
                 Text(fmtDay(e.lancadoEm), Modifier.width(64.dp), color = Luluco.TextSoft, fontSize = 14.sp)
                 Column(Modifier.weight(1f)) {
                     Text(e.descricao.ifBlank { catLabel(e.categoria) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Muted("${catLabel(e.categoria)} · ${aquarioLabel(e.aquario)}", maxLines = 1)
+                    Muted(listOfNotNull(catLabel(e.categoria), aquarioLabel(e.aquario), e.formaTexto(), e.parcelaTexto()).joinToString(" · "), maxLines = 1)
                 }
                 Text((if (e.tipo == "receita") "+ " else "- ") + money(e.valor), fontWeight = FontWeight.Medium, color = if (e.tipo == "receita") Luluco.Ok else Luluco.Cream)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Caixinha(vm: MainViewModel, nav: Nav) {
+    val all by vm.finance.collectAsStateWithLifecycle()
+    val movs = all.filter { caixaDelta(it) != 0.0 }.sortedBy { it.lancadoEm }
+    var acc = 0.0
+    val linhas = movs.map { acc += caixaDelta(it); it to acc }.reversed()
+    val saldo = acc
+    Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Money(Modifier.weight(1f), "Saldo da caixinha", saldo, if (saldo >= 0) Luluco.Cream else Luluco.CoralText)
+            Row(Modifier.padding(end = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { nav.go(Screen.FinanceForm(null, "aporte")) }) { Text("Depositar") }
+                OutlinedButton(onClick = { nav.go(Screen.FinanceForm(null, "retirada")) }) { Text("Retirar") }
+            }
+        }
+    }
+    Muted("Entram depósitos e vendas. Saem gastos no Pix e retiradas. Compras no cartão não mexem na caixinha.")
+    SectionTitle("Histórico da caixinha")
+    if (linhas.isEmpty()) Muted("Nenhum movimento ainda.")
+    else Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+        linhas.take(60).forEachIndexed { i, (e, s) ->
+            if (i > 0) HorizontalDivider(color = Luluco.Divider)
+            val d = caixaDelta(e)
+            Row(Modifier.fillMaxWidth().clickable { nav.go(Screen.FinanceForm(e.id)) }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(fmtDay(e.lancadoEm), Modifier.width(64.dp), color = Luluco.TextSoft, fontSize = 14.sp)
+                Column(Modifier.weight(1f)) {
+                    Text(e.descricao.ifBlank { e.formaTexto() }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Muted(e.formaTexto(), maxLines = 1)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text((if (d > 0) "+ " else "- ") + money(kotlin.math.abs(d)), fontWeight = FontWeight.Medium, color = if (d > 0) Luluco.Ok else Luluco.Cream)
+                    Muted("saldo " + money(s))
+                }
             }
         }
     }
@@ -232,43 +305,62 @@ private fun Compras(vm: MainViewModel, nav: Nav) {
 }
 
 @Composable
-fun FinanceForm(vm: MainViewModel, nav: Nav, id: String?) {
+fun FinanceForm(vm: MainViewModel, nav: Nav, id: String?, tipoInicial: String? = null) {
     val all by vm.finance.collectAsStateWithLifecycle()
     val edit = remember(id) { all.firstOrNull { it.id == id } }
-    var tipo by remember { mutableStateOf(edit?.tipo ?: "despesa") }
+    var tipo by remember { mutableStateOf(edit?.tipo ?: tipoInicial ?: "despesa") }
     var categoria by remember { mutableStateOf(edit?.categoria ?: "corais_peixes") }
     var descricao by remember { mutableStateOf(edit?.descricao.orEmpty()) }
     var valor by remember { mutableStateOf(edit?.valor?.let { numShort(it) } ?: "") }
     var aquario by remember { mutableStateOf(edit?.aquario ?: "marinho") }
     var quando by remember { mutableLongStateOf(edit?.lancadoEm ?: System.currentTimeMillis()) }
     var obs by remember { mutableStateOf(edit?.observacao.orEmpty()) }
+    var forma by remember { mutableStateOf(edit?.forma ?: "pix") }
+    var parcelas by remember { mutableStateOf("1") }
     var confirmDelete by remember { mutableStateOf(false) }
-    val cats = if (tipo == "despesa") DESPESA_CATS else RECEITA_CATS
+    val cats = if (tipo == "receita") RECEITA_CATS else DESPESA_CATS
     if (cats.none { it.first == categoria }) categoria = cats.first().first
+    val caixa = tipo == "aporte" || tipo == "retirada"
+    val nParc = if (forma == "cartao" && edit == null) (parcelas.toIntOrNull() ?: 1).coerceIn(1, 24) else 1
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenHeader(if (edit != null) "Editar lançamento" else "Novo lançamento", onBack = { nav.back() })
-        ChipRow(listOf("despesa" to "Gasto", "receita" to "Venda ou receita"), tipo) { tipo = it }
-        ChipRow(cats, categoria) { categoria = it }
-        TextInput(if (tipo == "despesa") "O que foi (ex.: Torch Holy Grail)" else "O que foi vendido (ex.: 3 mudas de zoa)", descricao) { descricao = it }
+        ChipRow(listOf("despesa" to "Gasto", "receita" to "Venda", "aporte" to "Depósito na caixinha", "retirada" to "Retirada"), tipo) { tipo = it }
+        if (!caixa) ChipRow(cats, categoria) { categoria = it }
+        TextInput(when (tipo) { "despesa" -> "O que foi (ex.: Torch Holy Grail)"; "receita" -> "O que foi vendido (ex.: 3 mudas de zoa)"; else -> "Descrição (opcional)" }, descricao) { descricao = it }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            NumInput("Valor", valor, Modifier.width(220.dp), suffix = "R$") { valor = it }
+            NumInput(if (nParc > 1) "Valor total" else "Valor", valor, Modifier.width(220.dp), suffix = "R$") { valor = it }
             DateTimeField("Data", quando) { quando = it }
         }
-        SectionTitle("Aquário")
-        ChipRow(AQUARIOS, aquario) { aquario = it }
+        if (tipo == "despesa") {
+            SectionTitle("Pagou com")
+            ChipRow(listOf("pix" to "Pix (sai da caixinha)", "cartao" to "Cartão de crédito"), forma) { forma = it }
+            if (forma == "cartao" && edit == null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    NumInput("Parcelas", parcelas, Modifier.width(140.dp), suffix = "x") { parcelas = it }
+                    parseMoney(valor)?.let { v -> if (nParc > 1) Muted("$nParc parcelas de ${money(v / nParc)}, uma por fatura. Dá para apagar uma parcela depois.") }
+                }
+            }
+            if (edit?.parcelaTexto() != null) Muted("Esta é a ${edit.parcelaTexto()}. Salvar ou apagar mexe só nesta parcela.")
+        }
+        if (!caixa) {
+            SectionTitle("Aquário")
+            ChipRow(AQUARIOS, aquario) { aquario = it }
+        }
         TextInput("Observação", obs, singleLine = false) { obs = it }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BigButton("Salvar", Modifier.weight(1f), enabled = parseMoney(valor) != null) {
                 val b = edit ?: FinanceEntry()
-                vm.save(b.copy(tipo = tipo, categoria = categoria, descricao = descricao.trim(), valor = parseMoney(valor)!!, aquario = aquario, lancadoEm = quando, observacao = obs.trim().ifBlank { null }))
+                val base = b.copy(tipo = tipo, categoria = if (caixa) "outros" else categoria, descricao = descricao.trim(), valor = parseMoney(valor)!!, aquario = aquario,
+                    lancadoEm = quando, observacao = obs.trim().ifBlank { null }, forma = if (tipo == "despesa") forma else "pix")
+                if (nParc > 1) vm.saveInstallments(base, nParc) else vm.save(base)
                 nav.back()
             }
             if (edit != null) BigButton("Apagar", Modifier.width(140.dp), color = Luluco.Solid) { confirmDelete = true }
         }
     }
     if (confirmDelete && edit != null) {
-        ConfirmDialog("Apagar lançamento", "Ele sai do balanço do mês.", "Apagar",
+        ConfirmDialog("Apagar lançamento", if (edit.parcelaTexto() != null) "Apaga só a ${edit.parcelaTexto()}." else "Ele sai do balanço e da caixinha.", "Apagar",
             onConfirm = { vm.delete(edit); confirmDelete = false; nav.back() }, onDismiss = { confirmDelete = false })
     }
 }

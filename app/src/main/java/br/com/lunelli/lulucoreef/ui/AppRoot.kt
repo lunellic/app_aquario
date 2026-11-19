@@ -16,6 +16,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Create
@@ -87,7 +88,7 @@ sealed interface Screen {
     data object Equipamentos : Screen { override val topLevel = true }
     data object Financas : Screen { override val topLevel = true }
     data object Calculadoras : Screen { override val topLevel = true }
-    data class FinanceForm(val id: String? = null) : Screen
+    data class FinanceForm(val id: String? = null, val tipo: String? = null) : Screen
     data class ShoppingForm(val id: String? = null) : Screen
     data object Assistente : Screen { override val topLevel = true }
     data object Relatorios : Screen { override val topLevel = true }
@@ -122,21 +123,32 @@ class Nav {
 
 private class Tab(val screen: Screen, val label: String, val icon: ImageVector, val color: androidx.compose.ui.graphics.Color = Luluco.Pool)
 
-private val tabs = listOf(
-    Tab(Screen.Painel, "Painel", Icons.Rounded.Home, Luluco.Pool),
-    Tab(Screen.Registrar, "Registrar", Icons.Rounded.AddCircle, Luluco.Ok),
-    Tab(Screen.Historico, "Histórico", Icons.Rounded.List, Luluco.Blue),
-    Tab(Screen.Aquario, "Meu Aquário", Icons.Rounded.Star, Luluco.Cyan),
-    Tab(Screen.Graficos, "Gráficos", Icons.Rounded.Info, Luluco.Violet),
-    Tab(Screen.Relatorios, "Relatórios", Icons.Rounded.Email, Luluco.Blue),
-    Tab(Screen.Saude, "Saúde", Icons.Rounded.Favorite, Luluco.Critical),
-    Tab(Screen.Rotinas, "Rotinas", Icons.Rounded.DateRange, Luluco.Amber),
-    Tab(Screen.Equipamentos, "Equipamentos", Icons.Rounded.Build, Luluco.Neutral),
-    Tab(Screen.Financas, "Finanças", Icons.Rounded.ShoppingCart, Luluco.Neutral),
-    Tab(Screen.Calculadoras, "Calculadoras", Icons.Rounded.Create, Luluco.Neutral),
-    Tab(Screen.Assistente, "Assistente", Icons.Rounded.Face, Luluco.Pink),
-    Tab(Screen.Config, "Ajustes", Icons.Rounded.Settings, Luluco.Neutral),
+private class TabGroup(val title: String?, val tabs: List<Tab>)
+
+/** Menu em grupos curtos para caber sem rolar. */
+private val groups = listOf(
+    TabGroup(null, listOf(
+        Tab(Screen.Painel, "Painel", Icons.Outlined.Home, Luluco.AreaPainel),
+        Tab(Screen.Registrar, "Registrar", Icons.Outlined.AddCircle, Luluco.AreaTeste),
+        Tab(Screen.Rotinas, "Rotinas", Icons.Outlined.DateRange, Luluco.AreaDose),
+        Tab(Screen.Historico, "Jornal", Icons.Outlined.List, Luluco.AreaJornal),
+    )),
+    TabGroup("Aquário", listOf(
+        Tab(Screen.Aquario, "Meu Aquário", Icons.Outlined.Star, Luluco.AreaAnimal),
+        Tab(Screen.Saude, "Saúde e quarentena", Icons.Outlined.FavoriteBorder, Luluco.AreaSaude),
+        Tab(Screen.Equipamentos, "Equipamentos e produtos", Icons.Outlined.Build, Luluco.AreaEquip),
+    )),
+    TabGroup("Análise", listOf(
+        Tab(Screen.Graficos, "Gráficos", Icons.Outlined.Info, Luluco.AreaGrafico),
+        Tab(Screen.Relatorios, "Relatórios", Icons.Outlined.Email, Luluco.AreaRelatorio),
+        Tab(Screen.Calculadoras, "Calculadoras", Icons.Outlined.Create, Luluco.AreaCalc),
+    )),
+    TabGroup("Conta", listOf(
+        Tab(Screen.Financas, "Finanças", Icons.Outlined.ShoppingCart, Luluco.AreaFinancas),
+        Tab(Screen.Config, "Ajustes", Icons.Outlined.Settings, Luluco.AreaAjustes),
+    )),
 )
+private val tabs = groups.flatMap { it.tabs }
 
 @Composable
 fun AppRoot(vm: MainViewModel = viewModel()) {
@@ -256,12 +268,12 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
     }
     AnimatedVisibility(open, enter = slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)) { -it }, exit = slideOutHorizontally(tween(200)) { -it }) {
         Column(
-            Modifier.width(280.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)).background(Color(0xFF07090C))
+            Modifier.width(290.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)).background(Color(0xFF07090C))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .padding(14.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
                 Image(painterResource(R.drawable.logo_mark), "Luluco Reef", Modifier.height(44.dp))
                 Spacer(Modifier.width(12.dp))
                 Column {
@@ -269,16 +281,19 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
                     SyncDot(vm)
                 }
             }
-            tabs.forEach { t ->
-                val selected = current == t.screen
-                Row(
-                    Modifier.fillMaxWidth().testTag("menu_${t.label}").clip(RoundedCornerShape(18.dp))
-                        .background(if (selected) Luluco.SolidHigh else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconTile(t.icon, if (selected) Luluco.Pool else Luluco.TextSoft, 34.dp)
-                    Spacer(Modifier.width(14.dp))
-                    Text(t.label, fontSize = 16.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = if (selected) Luluco.Cream else Luluco.TextSoft)
+            groups.forEach { g ->
+                if (g.title != null) Eyebrow(g.title, Modifier.padding(start = 14.dp, top = 10.dp, bottom = 2.dp), color = Luluco.TextFaint)
+                g.tabs.forEach { t ->
+                    val selected = current == t.screen
+                    Row(
+                        Modifier.fillMaxWidth().testTag("menu_${t.label}").clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) Luluco.SolidHigh else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GlowIcon(t.icon, t.color, 32.dp, strong = selected)
+                        Spacer(Modifier.width(12.dp))
+                        Text(t.label, fontSize = 15.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = if (selected) Luluco.Cream else Luluco.TextSoft, maxLines = 1)
+                    }
                 }
             }
         }
@@ -321,9 +336,9 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         Screen.Equipamentos -> EquipamentosScreen(vm, nav)
         Screen.Financas -> FinancasScreen(vm, nav)
         Screen.Calculadoras -> CalculadorasScreen(vm)
-        is Screen.FinanceForm -> FinanceForm(vm, nav, s.id)
+        is Screen.FinanceForm -> FinanceForm(vm, nav, s.id, s.tipo)
         is Screen.ShoppingForm -> ShoppingForm(vm, nav, s.id)
-        Screen.Assistente -> AssistenteScreen(vm)
+        Screen.Assistente -> PainelScreen(vm, nav)
         Screen.Relatorios -> RelatoriosScreen(vm)
         is Screen.TestForm -> TestForm(vm, nav, s.edit, s.only)
         is Screen.HistoricoDe -> HistoricoScreen(vm, nav, s.filtro)

@@ -287,6 +287,12 @@ data class FinanceEntry(
     val aquario: String = "marinho",
     val shoppingItemId: String? = null,
     val observacao: String? = null,
+    /** pix (sai da caixinha) ou cartao (nao sai). */
+    val forma: String = "pix",
+    val parcela: Int? = null,
+    val parcelas: Int? = null,
+    /** mesmo id para todas as parcelas de uma compra. */
+    val grupo: String? = null,
     @PrimaryKey override val id: String = newId(),
     @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),

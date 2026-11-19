@@ -25,7 +25,7 @@ import java.time.LocalDate
 
 val LIVESTOCK_TYPES = listOf("coral" to "Corais", "anemona" to "Anêmonas", "peixe" to "Peixes", "invertebrado" to "Invertebrados", "alga" to "Algas")
 private val TYPE_SINGULAR = mapOf("coral" to "Coral", "anemona" to "Anêmona", "peixe" to "Peixe", "invertebrado" to "Invertebrado", "alga" to "Alga")
-private val CATEGORIES = listOf("LPS", "SPS", "mole", "zoa", "outro").map { it to it }
+private val CATEGORIES = listOf("LPS" to "LPS", "SPS" to "SPS", "mole" to "Soft", "zoa" to "Zoanthus/Palythoa", "outro" to "Outro")
 private val STATUSES = listOf("ativo" to "Ativos", "removido" to "Removidos", "morto" to "Mortos")
 
 fun inventoryText(items: List<Livestock>, nome: String): String {
@@ -75,7 +75,7 @@ fun AquarioScreen(vm: MainViewModel, nav: Nav) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ChipRow(STATUSES.map { (v, l) -> v to "$l (${all.filter { it.status == v }.sumOf { x -> x.quantidade }})" }, status) { status = it }
         }
-        ChipRow(listOf("todos" to "Todos", "LPS" to "LPS", "SPS" to "SPS", "mole" to "Soft (moles)", "zoa" to "Zoas", "peixe" to "Peixes", "outros" to "Outros"), classe) { classe = it }
+        ChipRow(listOf("todos" to "Todos", "LPS" to "LPS", "SPS" to "SPS", "mole" to "Soft", "zoa" to "Zoanthus/Palythoa", "peixe" to "Peixes", "outros" to "Outros"), classe) { classe = it }
         val toReview = shown.count { it.revisar }
         if (toReview > 0) Muted("$toReview itens com selo \"confirmar\": toque para revisar nome, quantidade e local.")
         if (shown.isEmpty()) Muted("Nada aqui.")

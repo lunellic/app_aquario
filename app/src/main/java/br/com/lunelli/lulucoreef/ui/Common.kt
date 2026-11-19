@@ -161,6 +161,20 @@ fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color
     }
 }
 
+/** Icone de contorno dentro de um quadrado contornado na cor da area, com brilho leve atras (sem blur real: o Fire e API 22). */
+@Composable
+fun GlowIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, size: Dp = 32.dp, strong: Boolean = false) {
+    Box(Modifier.size(size + 10.dp), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+            drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(color.copy(alpha = if (strong) 0.38f else 0.22f), Color.Transparent)), radius = this.size.minDimension / 2)
+        }
+        val shape = RoundedCornerShape(size * 0.3f)
+        Box(Modifier.size(size).clip(shape).background(Color(0xFF0B0E13).copy(alpha = 0.6f)).border(1.2.dp, color.copy(alpha = if (strong) 1f else 0.75f), shape), contentAlignment = Alignment.Center) {
+            androidx.compose.material3.Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(size * 0.56f))
+        }
+    }
+}
+
 /** Rotulo pequeno em caixa alta, espaçado (ETAPA, SALDO, TEMPERATURA...). */
 @Composable
 fun Eyebrow(text: String, modifier: Modifier = Modifier, color: Color = Luluco.TextSoft) {

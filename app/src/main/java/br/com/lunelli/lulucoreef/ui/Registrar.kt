@@ -64,7 +64,7 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?, only: String? = null
     var lowConfidence by remember { mutableStateOf(edit?.baixaConfianca ?: false) }
     var confirmAbsurd by remember { mutableStateOf<String?>(null) }
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { try { first.requestFocus() } catch (_: Exception) { } }
+    val tests by vm.tests.collectAsStateWithLifecycle()
 
     val parsed = params.mapNotNull { p -> values[p]?.takeIf { it.isNotBlank() }?.let { p to parseParam(p, it) } }
     val valid = parsed.isNotEmpty() && parsed.all { it.second != null }
@@ -80,12 +80,14 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?, only: String? = null
     FormColumn {
         ScreenHeader(if (edit != null) "Editar ${Params.label(edit.parametro)}" else "Teste de água", onBack = { nav.back() })
         val visible = if (edit != null || only != null) params else Params.MAIN + (if (more) Params.OPTIONAL else emptyList())
-        visible.chunked(2).forEachIndexed { row, pair ->
+        // roletas lado a lado (sem teclado); cada uma comeca no ultimo valor medido
+        visible.chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                pair.forEachIndexed { i, p ->
-                    NumInput(Params.label(p) + (if (p == "salinidade") " (25 = 1,025)" else ""), values[p].orEmpty(), (if (row == 0 && i == 0) Modifier.focusRequester(first) else Modifier).weight(1f), suffix = Params.unit(p)) { values[p] = it }
+                row.forEach { p ->
+                    val lastV = remember(tests, p) { tests.filter { it.parametro == p }.maxByOrNull { it.medidoEm }?.valor }
+                    ParamWheel(p, values[p], edit?.takeIf { it.parametro == p }?.valor ?: lastV, { v -> if (v == null) values.remove(p) else values[p] = v }, Modifier.weight(1f))
                 }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
         if (edit == null && only == null && !more) TextButton(onClick = { more = true }) { Text("Mais parâmetros (NO3, PO4)") }

@@ -91,7 +91,11 @@ fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26,
         val amp = h * 0.30f
         // cores da logo: azul royal -> azul claro -> laranja coral
         val blue = Color(0xFF2F6BE0); val sky = Color(0xFF3FA9E8); val orange = Color(0xFFF26A3D)
-        val brush = Brush.horizontalGradient(0f to blue.copy(alpha = 0f), 0.18f to blue.copy(alpha = 0.6f * alpha), 0.42f to sky.copy(alpha = 0.5f * alpha), 0.6f to orange.copy(alpha = 0.32f * alpha), fadeAt to orange.copy(alpha = 0.14f * alpha), 1f to orange.copy(alpha = 0.05f * alpha))
+        // a fronteira azul/laranja vai e volta devagar: metade sempre azul, metade laranja, trocando de lado
+        val k = (0.5f + 0.5f * sin(t * 0.06f))
+        fun mix(a: Color, b: Color, f: Float) = Color(a.red + (b.red - a.red) * f, a.green + (b.green - a.green) * f, a.blue + (b.blue - a.blue) * f, 1f)
+        val left = mix(blue, orange, k); val mid = mix(sky, sky, 0f); val right = mix(orange, blue, k)
+        val brush = Brush.horizontalGradient(0f to left.copy(alpha = 0f), 0.18f to left.copy(alpha = 0.6f * alpha), 0.42f to mid.copy(alpha = 0.45f * alpha), 0.62f to right.copy(alpha = 0.4f * alpha), fadeAt to right.copy(alpha = 0.16f * alpha), 1f to right.copy(alpha = 0.05f * alpha))
         val steps = 72
         for (i in 0 until lines) {
             val f = i / (lines - 1f)
@@ -195,7 +199,7 @@ fun scoreColor(score: Int?): Color = when {
 
 /** Mini grafico (sparkline) com os pontos reais, para a vitrine. */
 @Composable
-fun Sparkline(values: List<Pair<Long, Double>>, from: Long, to: Long, color: Color, modifier: Modifier = Modifier, band: Pair<Double, Double>? = null) {
+fun Sparkline(values: List<Pair<Long, Double>>, from: Long, to: Long, color: Color, modifier: Modifier = Modifier, band: Pair<Double, Double>? = null, colorOf: ((Double) -> Color)? = null) {
     Canvas(modifier) {
         if (values.isEmpty()) return@Canvas
         var lo = values.minOf { it.second }
@@ -207,9 +211,11 @@ fun Sparkline(values: List<Pair<Long, Double>>, from: Long, to: Long, color: Col
         fun y(v: Double) = (1f - ((v - lo) / (hi - lo)).toFloat()) * size.height
         if (band != null) drawRect(Color.White.copy(alpha = 0.05f), Offset(0f, y(band.second)), Size(size.width, y(band.first) - y(band.second)))
         for (i in 1 until values.size) {
-            drawLine(color, Offset(x(values[i - 1].first), y(values[i - 1].second)), Offset(x(values[i].first), y(values[i].second)), 1.6.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(color.copy(alpha = if (colorOf != null) 0.5f else 1f), Offset(x(values[i - 1].first), y(values[i - 1].second)), Offset(x(values[i].first), y(values[i].second)), 1.6.dp.toPx(), cap = StrokeCap.Round)
         }
+        // cada ponto na cor da zona em que caiu
+        if (colorOf != null) values.forEach { drawCircle(lift(colorOf(it.second)), 2.4.dp.toPx(), Offset(x(it.first), y(it.second))) }
         val last = values.last()
-        drawCircle(color, 2.8.dp.toPx(), Offset(x(last.first), y(last.second)))
+        drawCircle(colorOf?.let { lift(it(last.second)) } ?: color, 3.2.dp.toPx(), Offset(x(last.first), y(last.second)))
     }
 }

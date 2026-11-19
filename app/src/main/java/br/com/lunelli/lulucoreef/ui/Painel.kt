@@ -149,6 +149,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                             }
                         }
                     }
+                    FinanceBlock(vm, nav)
                 }
             }
             if (wide) {
@@ -292,7 +293,9 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
         o.routine.tipo == "dosagem" && product != null -> formatDose(doseFor(product, volume), product.doseUnidade)
         else -> o.routine.instrucao.orEmpty()
     }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+    var editar by remember { mutableStateOf(false) }
+    if (editar) DoneDialog(vm, o) { editar = false }
+    Column(Modifier.fillMaxWidth().then(if (!o.open) Modifier.clickable { editar = true } else Modifier).padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(fmtTime(o.dueAt), fontSize = 17.sp, fontWeight = FontWeight.Medium, color = if (due) Luluco.CoralText else if (o.open) Luluco.Cream else Luluco.TextFaint, modifier = Modifier.width(62.dp))
             Column(Modifier.weight(1f)) {
@@ -308,9 +311,7 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
                 OccState.PENDENTE -> if (due) Badge("atrasada", Luluco.Coral)
             }
         }
-        if (!o.open) {
-            TextButton(onClick = { vm.undo(o) }) { Text(if (o.state == OccState.FEITO) "Desfazer (não fiz)" else "Desfazer") }
-        }
+
         if (o.open) {
             Spacer(Modifier.height(10.dp))
             Row(Modifier.padding(start = 62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -344,7 +345,7 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
             Spacer(Modifier.weight(1f))
             // minilinha das ultimas medicoes + quanto mudou desde a anterior
             if (series.size >= 2) Column(horizontalAlignment = Alignment.End) {
-                Sparkline(series, series.first().first, series.last().first, Luluco.TextSoft, Modifier.width(78.dp).height(26.dp), band = range?.let { it.idealMin to it.idealMax })
+                Sparkline(series, series.first().first, series.last().first, Luluco.TextSoft, Modifier.width(78.dp).height(26.dp), band = range?.let { it.idealMin to it.idealMax }, colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
                 val d = series.last().second - series[series.size - 2].second
                 Text(deltaText(param, d), fontSize = 12.sp, color = Luluco.TextSoft, maxLines = 1)
             }
@@ -366,9 +367,9 @@ private fun RangeBar(value: Double?, r: ParamRange, markerColor: Color) {
         val h = size.height
         val radius = CornerRadius(h / 2, h / 2)
         // pontas: critico em vermelho forte, atencao em vermelho apagado; meio (ideal) cinza claro
-        drawRoundRect(Luluco.Critical.copy(alpha = 0.85f), size = size, cornerRadius = radius)
-        drawRect(Color(0xFF6B2C2A), topLeft = Offset(frac(r.alertaMin) * size.width, 0f), size = Size((frac(r.alertaMax) - frac(r.alertaMin)) * size.width, h))
-        drawRect(Color(0xFFB9C0CA), topLeft = Offset(frac(r.idealMin) * size.width, 0f), size = Size((frac(r.idealMax) - frac(r.idealMin)) * size.width, h))
+        drawRoundRect(Luluco.ZoneCrit, size = size, cornerRadius = radius)
+        drawRect(Luluco.ZoneWarn, topLeft = Offset(frac(r.alertaMin) * size.width, 0f), size = Size((frac(r.alertaMax) - frac(r.alertaMin)) * size.width, h))
+        drawRect(Luluco.ZoneIdeal, topLeft = Offset(frac(r.idealMin) * size.width, 0f), size = Size((frac(r.idealMax) - frac(r.idealMin)) * size.width, h))
         if (value != null) {
             val x = frac(value) * size.width
             drawCircle(Luluco.Card, radius = h * 1.6f, center = Offset(x, h / 2))
@@ -401,4 +402,62 @@ private fun Stat(modifier: Modifier, value: String, label: String) {
 fun deltaText(param: String, d: Double): String {
     if (kotlin.math.abs(d) < 1e-9) return "= igual à anterior"
     return (if (d > 0) "▲ " else "▼ ") + Params.format(param, kotlin.math.abs(d))
+}
+
+/** Cor da zona onde o valor cai: verde (ideal), laranja (fora do ideal), vermelho (critico). */
+fun zoneColor(v: Double, r: ParamRange): Color = when {
+    v >= r.idealMin && v <= r.idealMax -> Luluco.ZoneIdeal
+    v >= r.alertaMin && v <= r.alertaMax -> Luluco.ZoneWarn
+    else -> Luluco.ZoneCrit
+}
+
+/** Atividade ja marcada: corrigir a hora em que foi feita, ou desfazer. */
+@Composable
+private fun DoneDialog(vm: MainViewModel, o: Occurrence, close: () -> Unit) {
+    var quando by remember { mutableLongStateOf(o.log?.feitoEm ?: o.dueAt) }
+    AlertDialog(
+        onDismissRequest = close,
+        title = { Text(o.routine.titulo) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (o.state == OccState.FEITO) {
+                    DateTimeField("Feito em", quando) { quando = it }
+                    Muted("Ajuste se você fez em outro horário.")
+                } else Muted(if (o.state == OccState.PULADO) "Marcada como pulada." else "Adiada.")
+                TextButton(onClick = { vm.undo(o); close() }) { Text(if (o.state == OccState.FEITO) "Desfazer (não fiz)" else "Desfazer", color = Luluco.CoralText) }
+            }
+        },
+        confirmButton = { TextButton(onClick = { if (o.state == OccState.FEITO) vm.changeDoneTime(o, quando); close() }) { Text("Salvar") } },
+        dismissButton = { TextButton(onClick = close) { Text("Cancelar") } },
+    )
+}
+
+/** Bloco curto de financas no Painel: caixinha, gastos e cartao do ciclo atual. */
+@Composable
+private fun FinanceBlock(vm: MainViewModel, nav: Nav) {
+    val all by vm.finance.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val ciclo = cycleOf(System.currentTimeMillis(), settings.cicloDia, vm.zone)
+    val doCiclo = all.filter { cycleOf(it.lancadoEm, settings.cicloDia, vm.zone) == ciclo }
+    val gastos = doCiclo.filter { it.tipo == "despesa" }.sumOf { it.valor }
+    val cartao = doCiclo.filter { it.tipo == "despesa" && it.forma == "cartao" }.sumOf { it.valor }
+    val caixa = all.sumOf { caixaDelta(it) }
+    Panel(Modifier.fillMaxWidth().clickable { nav.top(Screen.Financas) }, padding = 0.dp) {
+        Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.padding(start = 12.dp)) { GlowIcon(androidx.compose.material.icons.Icons.Outlined.ShoppingCart, Luluco.AreaFinancas, 30.dp) }
+            FinCell(Modifier.weight(1f), "Caixinha", caixa)
+            VerticalDivider(color = Luluco.Divider)
+            FinCell(Modifier.weight(1f), "Gastos · " + cycleRange(ciclo, settings.cicloDia), gastos)
+            VerticalDivider(color = Luluco.Divider)
+            FinCell(Modifier.weight(1f), "No cartão", cartao)
+        }
+    }
+}
+
+@Composable
+private fun FinCell(modifier: Modifier, label: String, v: Double) {
+    Column(modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+        Eyebrow(label)
+        Text(money(v), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 20.sp, letterSpacing = (-0.4).sp, color = Luluco.Cream, maxLines = 1)
+    }
 }

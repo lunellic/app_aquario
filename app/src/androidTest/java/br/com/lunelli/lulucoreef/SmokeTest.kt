@@ -1,5 +1,6 @@
 package br.com.lunelli.lulucoreef
 
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onRoot
@@ -120,13 +121,18 @@ class SmokeTest {
 
             // Registrar teste de KH
             compose.onNodeWithText("Nova medição", ignoreCase = true).performScrollTo().performClick()
-            compose.onNodeWithText("KH", ignoreCase = true).performTextInput("8,2")
+            // roleta: girar o KH marca o parametro como medido
+            compose.onNodeWithTag("roleta_kh").performTouchInput { swipeUp(startY = centerY + 40f, endY = centerY - 40f) }
+            compose.waitForIdle()
+            Thread.sleep(800)
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
             compose.waitUntil(10_000) { runBlocking { app.graph.db.waterTests().all().first().size == 1 } }
+            val kh = runBlocking { app.graph.db.waterTests().all().first().first() }
+            assertEquals("kh", kh.parametro)
 
-            // Historico unificado
-            menu("Histórico")
-            compose.onNodeWithText("KH: 8,2 dKH", ignoreCase = true).assertIsDisplayed()
+            // Jornal
+            menu("Jornal")
+            compose.onNodeWithText("KH: " + br.com.lunelli.lulucoreef.domain.Params.format("kh", kh.valor) + " dKH", ignoreCase = true).assertIsDisplayed()
             compose.onNodeWithText("Goni Supreme: 1/4 de colher", ignoreCase = true).assertIsDisplayed()
 
             // Meu Aquario
@@ -144,7 +150,7 @@ class SmokeTest {
             compose.onNodeWithText("KH (dKH)", ignoreCase = true).assertIsDisplayed()
 
             // Saude: abre caso e cai na ficha do caso
-            menu("Saúde")
+            menu("Saúde e quarentena")
             compose.onNodeWithText("Novo caso", ignoreCase = true).performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
@@ -155,10 +161,8 @@ class SmokeTest {
             // Rotinas, Equipamentos e Ajustes abrem sem quebrar
             menu("Rotinas")
             compose.onNodeWithText("Produtos e Rotinas", ignoreCase = true).assertIsDisplayed()
-            menu("Equipamentos")
+            menu("Equipamentos e produtos")
             compose.onNodeWithText("Nenhum equipamento cadastrado.", ignoreCase = true).assertIsDisplayed()
-            menu("Assistente")
-            compose.onNodeWithText("Analisar meu aquário", ignoreCase = true).assertIsDisplayed()
             menu("Ajustes")
             compose.onNodeWithText("Configurações", ignoreCase = true).assertIsDisplayed()
             compose.onNodeWithText("teste@example.com", ignoreCase = true).performScrollTo().assertIsDisplayed()
@@ -173,7 +177,7 @@ class SmokeTest {
         val name = "migracao_teste.db"
         app.deleteDatabase(name)
         fun open() = androidx.room.Room.databaseBuilder(app, br.com.lunelli.lulucoreef.data.AppDb::class.java, name)
-            .addMigrations(br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3).build()
+            .addMigrations(br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_3_4).build()
         open().apply { openHelper.writableDatabase; close() }
 
         // volta o arquivo ao formato v1: water_tests sem a coluna nova, com uma medicao gravada

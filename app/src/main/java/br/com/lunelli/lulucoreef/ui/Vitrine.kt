@@ -117,7 +117,7 @@ fun VitrineScreen(vm: MainViewModel) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(900)) + slideInVertically(tween(900)) { it / 8 }) togetherWith (fadeOut(tween(600)) + slideOutVertically(tween(900)) { -it / 8 }) }, label = "relogio") { t ->
-                    Text(t, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 124.sp, lineHeight = 124.sp, letterSpacing = (-4).sp, color = Luluco.Cream, maxLines = 1)
+                    Text(t, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, lineHeight = 128.sp, letterSpacing = (-3).sp, color = Luluco.Cream, maxLines = 1)
                 }
                 Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                 Spacer(Modifier.weight(1f))
@@ -161,7 +161,7 @@ fun VitrineScreen(vm: MainViewModel) {
                     val r = ranges[p]
                     val st = if (last == null || r == null) Status.SEM_MEDICAO else statusOf(last.valor, r)
                     val serie = remember(tests, p) { tests.filter { it.parametro == p }.sortedBy { it.medidoEm }.takeLast(10).map { it.medidoEm to it.valor } }
-                    VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st), serie, r?.let { it.idealMin to it.idealMax })
+                    VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st), serie, r?.let { it.idealMin to it.idealMax }, r)
                 }
             }
         }
@@ -169,7 +169,7 @@ fun VitrineScreen(vm: MainViewModel) {
 }
 
 @Composable
-private fun VStat(label: String, value: String, unit: String?, dot: Color?, serie: List<Pair<Long, Double>> = emptyList(), band: Pair<Double, Double>? = null) {
+private fun VStat(label: String, value: String, unit: String?, dot: Color?, serie: List<Pair<Long, Double>> = emptyList(), band: Pair<Double, Double>? = null, range: br.com.lunelli.lulucoreef.data.ParamRange? = null) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (dot != null) { Box(Modifier.size(6.dp).clip(CircleShape).background(dot)); Spacer(Modifier.width(6.dp)) }
@@ -179,7 +179,7 @@ private fun VStat(label: String, value: String, unit: String?, dot: Color?, seri
             Text(value, fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 30.sp, letterSpacing = (-1).sp, color = Luluco.Cream, maxLines = 1)
             if (unit != null) Text(" $unit", fontSize = 13.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 5.dp))
         }
-        if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft, Modifier.padding(top = 4.dp).width(84.dp).height(18.dp), band = band)
+        if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft, Modifier.padding(top = 4.dp).width(84.dp).height(18.dp), band = band, colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
     }
 }
 
