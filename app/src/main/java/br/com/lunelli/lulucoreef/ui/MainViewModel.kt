@@ -231,6 +231,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         save(l.copy(feitoEm = at))
     }
 
+    /** Quarentena encerrada: apaga os lembretes que ainda nao aconteceram. */
+    fun dropQuarantineReminders(caseId: String) {
+        val now = ts()
+        routines.value.filter { it.instrucao?.contains("[q:$caseId]") == true && (it.proximaEm ?: 0) > now }.forEach { delete(it) }
+    }
+
     fun snooze(o: Occurrence) = log(o, "adiado", null)
     fun skip(o: Occurrence) = log(o, "pulado", null)
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import br.com.lunelli.lulucoreef.domain.agendaOn
 import br.com.lunelli.lulucoreef.data.reliable
 import br.com.lunelli.lulucoreef.domain.DAY_MS
 import br.com.lunelli.lulucoreef.domain.OccState
@@ -93,7 +94,7 @@ fun VitrineScreen(vm: MainViewModel) {
     val dy = listOf(0, 5, 0, -5, -10, -5, 0, 5)[shift]
 
     val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone)
-    val worst = allAlerts(allTests, ranges, changes, today, cases, entries, now).firstOrNull()
+    val alertas = allAlerts(allTests, ranges, changes, today, cases, entries, now).take(4)
     val score = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone).score
     val foto = tank?.fotoVitrinePath
 
@@ -121,11 +122,14 @@ fun VitrineScreen(vm: MainViewModel) {
                 }
                 Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                 Spacer(Modifier.weight(1f))
-                if (worst != null) {
-                    Row(Modifier.padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(worst.severity)))
-                        Spacer(Modifier.width(10.dp))
-                        Text(worst.fato, fontSize = 15.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // todos os avisos ativos (ate 4), um por linha
+                Column(Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    alertas.forEach { a ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(a.severity)))
+                            Spacer(Modifier.width(10.dp))
+                            Text(a.fato, fontSize = 15.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
@@ -209,7 +213,19 @@ fun NightScreen(vm: MainViewModel) {
     }
     val next = remember(routines, logs, now / 600_000) { upcoming(routines, logs, now, vm.zone, limit = 1).firstOrNull() }
     val clock = remember(now / 60_000) { java.time.Instant.ofEpochMilli(now).atZone(vm.zone).format(DateTimeFormatter.ofPattern("HH:mm")) }
+    val amanha = remember(routines, logs, now / 600_000) {
+        val d = now.toLocalDate(vm.zone).plusDays(1)
+        d to agendaOn(routines, logs, d, vm.zone).sortedBy { it.dueAt }.map { it.routine.titulo }.distinct()
+    }
+    val time = rememberWaterTime(true)
     Box(Modifier.fillMaxSize().background(Color(0xFF050608))) {
+        // luz lateral: cada lado irradia a cor que a onda tem naquele lado agora
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val (l, r) = waveSideColors(time())
+            val rad = size.height * 0.9f
+            drawRect(androidx.compose.ui.graphics.Brush.radialGradient(listOf(l.copy(alpha = 0.16f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(0f, size.height / 2), radius = rad))
+            drawRect(androidx.compose.ui.graphics.Brush.radialGradient(listOf(r.copy(alpha = 0.16f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(size.width, size.height / 2), radius = rad))
+        }
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Box {
@@ -219,6 +235,13 @@ fun NightScreen(vm: MainViewModel) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))
             }
+        }
+        // amanha, bem discreto, no canto de baixo
+        if (amanha.second.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 32.dp)) {
+            Text("AMANHÃ · " + amanha.first.format(DateTimeFormatter.ofPattern("EEEE", PtBr)).uppercase(), fontSize = 11.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.SemiBold, color = Luluco.TextSoft.copy(alpha = 0.5f))
+            Spacer(Modifier.height(6.dp))
+            amanha.second.take(7).forEach { Text(it, fontSize = 14.sp, color = Luluco.TextSoft.copy(alpha = 0.45f), maxLines = 1) }
+            if (amanha.second.size > 7) Text("+${amanha.second.size - 7}", fontSize = 13.sp, color = Luluco.TextSoft.copy(alpha = 0.35f))
         }
     }
 }

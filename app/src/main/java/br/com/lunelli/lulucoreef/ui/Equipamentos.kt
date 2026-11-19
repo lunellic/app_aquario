@@ -25,7 +25,12 @@ fun EquipamentosScreen(vm: MainViewModel, nav: Nav) {
     val equipment by vm.equipment.collectAsStateWithLifecycle()
     val routines by vm.routines.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ScreenHeader("Equipamentos") { Button(onClick = { nav.go(Screen.EquipmentForm()) }) { Text("Adicionar") } }
+        var aba by remember { mutableStateOf("equip") }
+        ScreenHeader("Equipamentos e produtos") {
+            Button(onClick = { nav.go(if (aba == "equip") Screen.EquipmentForm() else Screen.ProductForm()) }) { Text(if (aba == "equip") "Novo equipamento" else "Novo produto") }
+        }
+        ChipRow(listOf("equip" to "Equipamentos", "produtos" to "Produtos"), aba) { aba = it }
+        if (aba == "produtos") { ProductsList(vm, nav); return@Column }
         Muted("Só cadastro e manutenção. O app nunca controla equipamento.")
         if (equipment.isEmpty()) Muted("Nenhum equipamento cadastrado.")
         equipment.forEach { e ->

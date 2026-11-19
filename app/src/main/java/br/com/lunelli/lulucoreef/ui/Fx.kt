@@ -90,11 +90,10 @@ fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26,
         val cy = h / 2
         val amp = h * 0.30f
         // cores da logo: azul royal -> azul claro -> laranja coral
-        val blue = Color(0xFF2F6BE0); val sky = Color(0xFF3FA9E8); val orange = Color(0xFFF26A3D)
+        val sky = Color(0xFF3FA9E8)
         // a fronteira azul/laranja vai e volta devagar: metade sempre azul, metade laranja, trocando de lado
-        val k = (0.5f + 0.5f * sin(t * 0.06f))
-        fun mix(a: Color, b: Color, f: Float) = Color(a.red + (b.red - a.red) * f, a.green + (b.green - a.green) * f, a.blue + (b.blue - a.blue) * f, 1f)
-        val left = mix(blue, orange, k); val mid = mix(sky, sky, 0f); val right = mix(orange, blue, k)
+        val (left, right) = waveSideColors(t)
+        val mid = sky
         val brush = Brush.horizontalGradient(0f to left.copy(alpha = 0f), 0.18f to left.copy(alpha = 0.6f * alpha), 0.42f to mid.copy(alpha = 0.45f * alpha), 0.62f to right.copy(alpha = 0.4f * alpha), fadeAt to right.copy(alpha = 0.16f * alpha), 1f to right.copy(alpha = 0.05f * alpha))
         val steps = 72
         for (i in 0 until lines) {
@@ -218,4 +217,12 @@ fun Sparkline(values: List<Pair<Long, Double>>, from: Long, to: Long, color: Col
         val last = values.last()
         drawCircle(colorOf?.let { lift(it(last.second)) } ?: color, 3.2.dp.toPx(), Offset(x(last.first), y(last.second)))
     }
+}
+
+/** Cor de cada ponta da onda no instante t: azul e laranja trocando de lado devagar, em loop. */
+fun waveSideColors(t: Float): Pair<Color, Color> {
+    val blue = Color(0xFF2F6BE0); val orange = Color(0xFFF26A3D)
+    val k = 0.5f + 0.5f * sin(t * 0.06f)
+    fun mix(a: Color, b: Color, f: Float) = Color(a.red + (b.red - a.red) * f, a.green + (b.green - a.green) * f, a.blue + (b.blue - a.blue) * f, 1f)
+    return mix(blue, orange, k) to mix(orange, blue, k)
 }

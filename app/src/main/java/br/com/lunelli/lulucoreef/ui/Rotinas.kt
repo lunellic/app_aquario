@@ -46,10 +46,9 @@ fun RotinasScreen(vm: MainViewModel, nav: Nav) {
     val byId = products.associateBy { it.id }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ScreenHeader("Produtos e Rotinas") {
-            Button(onClick = { nav.go(if (tab == "rotinas") Screen.RoutineForm() else Screen.ProductForm()) }) { Text(if (tab == "rotinas") "Nova rotina" else "Novo produto") }
+        ScreenHeader("Rotinas") {
+            Button(onClick = { nav.go(Screen.RoutineForm()) }) { Text("Nova rotina") }
         }
-        ChipRow(listOf("rotinas" to "Rotinas (${routines.size})", "produtos" to "Produtos (${products.size})"), tab) { tab = it }
         if (tab == "rotinas") {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = { batch = !batch; picked.clear() }) { Text(if (batch) "Cancelar" else "Alterar horário em lote") }
@@ -86,7 +85,18 @@ fun RotinasScreen(vm: MainViewModel, nav: Nav) {
                     }
                 }
             }
-        } else {
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** Lista de produtos (fica em Equipamentos e produtos). */
+@Composable
+fun ProductsList(vm: MainViewModel, nav: Nav) {
+    val products by vm.products.collectAsStateWithLifecycle()
+    val volume = vm.volume
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        run {
             Muted("Doses mostradas para ${numShort(volume)} L.")
             products.forEach { p ->
                 Panel(Modifier.fillMaxWidth().clickable { nav.go(Screen.ProductForm(p.id)) }, padding = 10.dp) {
@@ -117,10 +127,21 @@ fun ProductForm(vm: MainViewModel, nav: Nav, id: String?) {
     var obs by remember { mutableStateOf(edit?.observacao.orEmpty()) }
     var ativo by remember { mutableStateOf(edit?.ativo ?: true) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var askRoutine by remember { mutableStateOf<Product?>(null) }
     val numbersOk = (dose.isBlank() || parseNum(dose) != null) && (base.isBlank() || (parseNum(base) ?: 0.0) > 0)
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).imePadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenHeader(if (edit != null) "Editar produto" else "Novo produto", onBack = { nav.back() })
+        if (edit == null) {
+            // catalogo: toca para preencher com o rotulo; da para mudar depois (o rotulo as vezes vem diferente)
+            Eyebrow("Preencher com um produto conhecido")
+            ChipRow(PRODUCT_CATALOG.map { it.first to it.first }, null) { k ->
+                PRODUCT_CATALOG.firstOrNull { it.first == k }?.second?.let { c ->
+                    nome = c.nome; marca = c.marca.orEmpty(); tipo = c.tipo; dose = c.doseQuantidade?.let { numShort(it) }.orEmpty(); unidade = c.doseUnidade
+                    base = c.doseBaseLitros?.let { numShort(it) }.orEmpty(); obs = c.observacao.orEmpty()
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             TextInput("Nome", nome, Modifier.weight(1f)) { nome = it }
             TextInput("Marca", marca, Modifier.weight(1f)) { marca = it }
@@ -138,12 +159,22 @@ fun ProductForm(vm: MainViewModel, nav: Nav, id: String?) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             BigButton("Salvar", Modifier.weight(1f), enabled = nome.isNotBlank() && numbersOk) {
                 val b = edit ?: Product(nome = nome.trim())
-                vm.save(b.copy(nome = nome.trim(), marca = marca.trim().ifBlank { null }, tipo = tipo, doseQuantidade = parseNum(dose), doseUnidade = unidade,
-                    doseBaseLitros = parseNum(base), observacao = obs.trim().ifBlank { null }, ativo = ativo))
-                nav.back()
+                val saved = b.copy(nome = nome.trim(), marca = marca.trim().ifBlank { null }, tipo = tipo, doseQuantidade = parseNum(dose), doseUnidade = unidade,
+                    doseBaseLitros = parseNum(base), observacao = obs.trim().ifBlank { null }, ativo = ativo)
+                vm.save(saved)
+                if (edit == null) askRoutine = saved else nav.back()
             }
             if (edit != null) BigButton("Apagar", Modifier.width(140.dp), color = Luluco.Critical) { confirmDelete = true }
         }
+    }
+    askRoutine?.let { p ->
+        AlertDialog(
+            onDismissRequest = { askRoutine = null; nav.back() },
+            title = { Text("Criar uma rotina para ${p.nome}?") },
+            text = { Muted("Ela entra no calendário e nos lembretes, com a dose já calculada para o seu aquário.") },
+            confirmButton = { TextButton(onClick = { askRoutine = null; nav.back(); nav.go(Screen.RoutineForm(productId = p.id)) }) { Text("Criar rotina") } },
+            dismissButton = { TextButton(onClick = { askRoutine = null; nav.back() }) { Text("Agora não") } },
+        )
     }
     if (confirmDelete && edit != null) {
         ConfirmDialog("Apagar produto", "As doses já registradas continuam no histórico. Se ele só saiu de uso, prefira desativar.", "Apagar",
@@ -152,15 +183,15 @@ fun ProductForm(vm: MainViewModel, nav: Nav, id: String?) {
 }
 
 @Composable
-fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: String? = null, onceDate: String? = null) {
+fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: String? = null, onceDate: String? = null, productIdInicial: String? = null) {
     val routines by vm.routines.collectAsStateWithLifecycle()
     val products by vm.products.collectAsStateWithLifecycle()
     val equipment by vm.equipment.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
     val edit = remember(id) { routines.firstOrNull { it.id == id } }
-    var titulo by remember { mutableStateOf(edit?.titulo.orEmpty()) }
+    var titulo by remember { mutableStateOf(edit?.titulo ?: productIdInicial?.let { pid -> products.firstOrNull { it.id == pid }?.nome }.orEmpty()) }
     var tipo by remember { mutableStateOf(edit?.tipo ?: if (equipmentIdInicial != null) "manutencao" else if (onceDate != null) "outro" else "dosagem") }
-    var productId by remember { mutableStateOf(edit?.productId) }
+    var productId by remember { mutableStateOf(edit?.productId ?: productIdInicial) }
     var equipmentId by remember { mutableStateOf(edit?.equipmentId ?: equipmentIdInicial) }
     var rec by remember { mutableStateOf(edit?.recorrencia ?: if (equipmentIdInicial != null) "a_cada_n_semanas" else if (onceDate != null) "unica" else "diaria") }
     val dias = remember { mutableStateListOf<Int>().apply { addAll(edit?.diasSemana.orEmpty()) } }
@@ -258,4 +289,10 @@ fun RoutineHistory(vm: MainViewModel, nav: Nav, id: String) {
             }
         }
     }
+}
+
+/** Catalogo: buffers da calculadora + o que o Lucas ja usa. Valores do rotulo; podem ser ajustados no cadastro. */
+val PRODUCT_CATALOG: List<Pair<String, Product>> = br.com.lunelli.lulucoreef.domain.BUFFERS.map { b ->
+    "${b.marca} ${b.nome}" to Product(nome = b.nome, marca = b.marca, tipo = "suplemento", doseQuantidade = b.quantidade, doseUnidade = b.unidade, doseBaseLitros = b.litros,
+        observacao = "Rótulo: ${numShort(b.quantidade)} ${b.unidade} em ${numShort(b.litros)} L sobe ${numShort(b.sobe)} ${if (b.param == "kh") "dKH" else "ppm"}." + (b.nota?.let { " $it" } ?: ""))
 }

@@ -36,7 +36,8 @@ fun SaudeScreen(vm: MainViewModel, nav: Nav) {
     val closed = cases.filter { it.fechadoEm != null }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ScreenHeader("Saúde") { Button(onClick = { nav.go(Screen.CaseForm()) }) { Text("Novo caso") } }
+        ScreenHeader("Saúde e quarentena") { Button(onClick = { nav.go(Screen.CaseForm()) }) { Text("Nova observação ou tratamento") } }
+        QuarentenaSection(nav)
         SectionTitle("Casos abertos (${open.size})")
         if (open.isEmpty()) Muted("Nenhum caso aberto.")
         open.forEach { c -> CaseRow(c, names[c.livestockId], entries.filter { it.caseId == c.id }, now) { nav.go(Screen.CaseDetail(c.id)) } }
@@ -125,15 +126,15 @@ fun CaseDetail(vm: MainViewModel, nav: Nav, id: String) {
         Panel(Modifier.fillMaxWidth()) {
             Text(listOfNotNull(caseType(c.tipo), livestock.firstOrNull { it.id == c.livestockId }?.nomePopular ?: "Aquário todo").joinToString(" · "), fontWeight = FontWeight.Bold)
             Muted("Aberto em ${fmtDateTime(c.abertoEm)}" + (c.fechadoEm?.let { " · fechado em ${fmtDateTime(it)} (${OUTCOMES.firstOrNull { o -> o.first == c.desfecho }?.second ?: "-"})" } ?: ""))
-            c.observacao?.let { Text(it) }
+            c.observacao?.replace(Regex("#\\w+:[^\\s#]+"), "")?.trim()?.takeIf { it.isNotEmpty() }?.let { Text(it) }
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (c.fechadoEm == null) OutlinedButton(onClick = { closing = true }) { Text("Fechar caso") }
                 else OutlinedButton(onClick = { vm.save(c.copy(fechadoEm = null, desfecho = null)) }) { Text("Reabrir") }
-                AiGuidanceButton(vm, c)
-            }
+                            }
         }
 
+        if (c.tipo == "quarentena") QuarantinePlan(vm, c)
         if (c.fechadoEm == null) {
             SectionTitle("Nova entrada")
             Panel(Modifier.fillMaxWidth()) {
@@ -179,6 +180,7 @@ fun CaseDetail(vm: MainViewModel, nav: Nav, id: String) {
                     OUTCOMES.forEach { (value, label) ->
                         Text(label, Modifier.fillMaxWidth().clickable {
                             vm.save(c.copy(fechadoEm = System.currentTimeMillis(), desfecho = value))
+                            vm.dropQuarantineReminders(c.id)
                             closing = false
                         }.padding(vertical = 14.dp), fontWeight = FontWeight.Bold)
                     }

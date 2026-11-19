@@ -87,7 +87,9 @@ sealed interface Screen {
     data object Saude : Screen { override val topLevel = true }
     data object Equipamentos : Screen { override val topLevel = true }
     data object Financas : Screen { override val topLevel = true }
+    data class Calendario(val dia: String? = null) : Screen { override val topLevel get() = dia == null }
     data object Calculadoras : Screen { override val topLevel = true }
+    data class QuarantineStart(val protocolo: String) : Screen
     data class FinanceForm(val id: String? = null, val tipo: String? = null) : Screen
     data class ShoppingForm(val id: String? = null) : Screen
     data object Assistente : Screen { override val topLevel = true }
@@ -102,7 +104,7 @@ sealed interface Screen {
     data class LivestockForm(val id: String? = null, val tipo: String = "coral") : Screen
     data class CoralProtocol(val id: String) : Screen
     data class ProductForm(val id: String? = null) : Screen
-    data class RoutineForm(val id: String? = null, val equipmentId: String? = null, val onceDate: String? = null) : Screen
+    data class RoutineForm(val id: String? = null, val equipmentId: String? = null, val onceDate: String? = null, val productId: String? = null) : Screen
     data class CaseForm(val id: String? = null) : Screen
     data class CaseDetail(val id: String) : Screen
     data class EquipmentForm(val id: String? = null) : Screen
@@ -130,7 +132,8 @@ private val groups = listOf(
     TabGroup(null, listOf(
         Tab(Screen.Painel, "Painel", Icons.Outlined.Home, Luluco.AreaPainel),
         Tab(Screen.Registrar, "Registrar", Icons.Outlined.AddCircle, Luluco.AreaTeste),
-        Tab(Screen.Rotinas, "Rotinas", Icons.Outlined.DateRange, Luluco.AreaDose),
+        Tab(Screen.Calendario(), "Calendário", Icons.Outlined.DateRange, Luluco.AreaTpa),
+        Tab(Screen.Rotinas, "Rotinas", Icons.Outlined.Notifications, Luluco.AreaDose),
         Tab(Screen.Historico, "Jornal", Icons.Outlined.List, Luluco.AreaJornal),
     )),
     TabGroup("Aquário", listOf(
@@ -335,7 +338,9 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         Screen.Saude -> SaudeScreen(vm, nav)
         Screen.Equipamentos -> EquipamentosScreen(vm, nav)
         Screen.Financas -> FinancasScreen(vm, nav)
+        is Screen.Calendario -> CalendarioScreen(vm, nav, s.dia)
         Screen.Calculadoras -> CalculadorasScreen(vm)
+        is Screen.QuarantineStart -> QuarantineStart(vm, nav, s.protocolo)
         is Screen.FinanceForm -> FinanceForm(vm, nav, s.id, s.tipo)
         is Screen.ShoppingForm -> ShoppingForm(vm, nav, s.id)
         Screen.Assistente -> PainelScreen(vm, nav)
@@ -349,7 +354,7 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         is Screen.LivestockForm -> LivestockForm(vm, nav, s.id, s.tipo)
         is Screen.CoralProtocol -> CoralProtocol(vm, nav, s.id)
         is Screen.ProductForm -> ProductForm(vm, nav, s.id)
-        is Screen.RoutineForm -> RoutineForm(vm, nav, s.id, s.equipmentId, s.onceDate)
+        is Screen.RoutineForm -> RoutineForm(vm, nav, s.id, s.equipmentId, s.onceDate, s.productId)
         is Screen.CaseForm -> CaseForm(vm, nav, s.id)
         is Screen.CaseDetail -> CaseDetail(vm, nav, s.id)
         is Screen.EquipmentForm -> EquipmentForm(vm, nav, s.id)

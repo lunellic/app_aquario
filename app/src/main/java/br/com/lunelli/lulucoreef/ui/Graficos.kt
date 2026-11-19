@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.lunelli.lulucoreef.data.ParamRange
 import br.com.lunelli.lulucoreef.data.WaterTest
@@ -76,29 +77,31 @@ fun GraficosScreen(vm: MainViewModel) {
     }
 }
 
-/** Dois parametros no mesmo grafico, cada um na propria escala (ex.: KH caindo junto com Ca). */
+/** Ate 6 parametros no mesmo grafico, cada um na propria escala, com periodo proprio (ex.: KH, Ca e Mg em 90 dias). */
 @Composable
-private fun Compare(tests: List<WaterTest>, from: Long, now: Long) {
-    var a by remember { mutableStateOf("kh") }
-    var b by remember { mutableStateOf("ca") }
-    val opts = (Params.MAIN + Params.OPTIONAL).map { it to Params.label(it) }
-    val colA = Luluco.Royal
-    val colB = Luluco.Coral
+private fun Compare(tests: List<WaterTest>, @Suppress("UNUSED_PARAMETER") fromTop: Long, now: Long) {
+    var sel by remember { mutableStateOf(setOf("kh", "ca", "mg")) }
+    var dias by remember { mutableStateOf("90") }
+    val from = now - (dias.toLong() * DAY_MS)
+    val all = Params.MAIN + Params.OPTIONAL
+    val cores = listOf(Luluco.AreaTeste, Luluco.Coral, Luluco.AreaAnimal, Luluco.AreaCalc, Luluco.AreaGrafico, Luluco.AreaTpa)
+    val cor = all.withIndex().associate { (i, p) -> p to cores[i % cores.size] }
     Panel(Modifier.fillMaxWidth()) {
-        Text("Comparar dois parâmetros", fontWeight = FontWeight.SemiBold)
+        Text("Comparar parâmetros", fontWeight = FontWeight.SemiBold)
+        Muted("Marque quantos quiser. Cada linha usa a própria escala: compare o formato, não a altura.")
         Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) { Legend(colA, ""); ChipRow(opts, a) { a = it } }
+        ChipRow(all.map { it to Params.label(it) }, null, selectedSet = sel) { p -> sel = if (p in sel) sel - p else sel + p }
         Spacer(Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) { Legend(colB, ""); ChipRow(opts, b) { b = it } }
-        val sa = tests.filter { it.parametro == a && it.medidoEm in from..now }.sortedBy { it.medidoEm }
-        val sb = tests.filter { it.parametro == b && it.medidoEm in from..now }.sortedBy { it.medidoEm }
+        ChipRow(listOf("7" to "7 dias", "30" to "30 dias", "90" to "90 dias", "365" to "1 ano"), dias) { dias = it }
+        val series = sel.toList().sortedBy { all.indexOf(it) }.map { p -> p to tests.filter { it.parametro == p && it.medidoEm in from..now }.sortedBy { it.medidoEm } }
         Spacer(Modifier.height(10.dp))
-        if (sa.size < 2 && sb.size < 2) Muted("Poucas medições neste período.")
-        else Canvas(Modifier.fillMaxWidth().height(180.dp)) {
+        if (series.none { it.second.size >= 2 }) Muted("Poucas medições neste período.")
+        else Canvas(Modifier.fillMaxWidth().height(220.dp)) {
             fun x(t: Long) = ((t - from).toFloat() / (now - from).coerceAtLeast(1)) * size.width
-            for (i in 0..3) drawLine(Color.White.copy(alpha = 0.05f), Offset(0f, size.height * i / 3), Offset(size.width, size.height * i / 3), 1f)
-            listOf(sa to colA, sb to colB).forEach { (s, c) ->
+            for (i in 0..4) drawLine(Color.White.copy(alpha = 0.05f), Offset(0f, size.height * i / 4), Offset(size.width, size.height * i / 4), 1f)
+            series.forEach { (p, s) ->
                 if (s.isEmpty()) return@forEach
+                val c = cor[p] ?: Luluco.Cream
                 val lo = s.minOf { it.valor }; val hi = s.maxOf { it.valor }
                 val span = (hi - lo).takeIf { it > 0 } ?: 1.0
                 fun y(v: Double) = (1f - ((v - lo) / span).toFloat()) * size.height * 0.84f + size.height * 0.08f
@@ -106,9 +109,13 @@ private fun Compare(tests: List<WaterTest>, from: Long, now: Long) {
                 s.forEach { drawCircle(c, 3.dp.toPx(), Offset(x(it.medidoEm), y(it.valor))) }
             }
         }
-        fun faixa(p: String, s: List<WaterTest>) = if (s.isEmpty()) "${Params.label(p)}: sem medições" else "${Params.label(p)}: ${Params.format(p, s.minOf { it.valor })} a ${Params.format(p, s.maxOf { it.valor })} ${Params.unit(p)}"
-        Muted(faixa(a, sa) + "   ·   " + faixa(b, sb))
-        Muted("Cada linha usa a própria escala: compare o formato (subindo, caindo), não a altura.")
+        Spacer(Modifier.height(6.dp))
+        series.forEach { (p, s) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Legend(cor[p] ?: Luluco.Cream, "")
+                Text(if (s.isEmpty()) "${Params.label(p)}: sem medições" else "${Params.label(p)}: ${Params.format(p, s.minOf { it.valor })} a ${Params.format(p, s.maxOf { it.valor })} ${Params.unit(p)}", fontSize = 13.sp, color = Luluco.TextSoft)
+            }
+        }
     }
 }
 

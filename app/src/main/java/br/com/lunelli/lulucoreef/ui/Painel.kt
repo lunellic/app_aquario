@@ -3,6 +3,7 @@ package br.com.lunelli.lulucoreef.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.material3.VerticalDivider

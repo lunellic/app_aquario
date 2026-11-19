@@ -151,7 +151,7 @@ class SmokeTest {
 
             // Saude: abre caso e cai na ficha do caso
             menu("Saúde e quarentena")
-            compose.onNodeWithText("Novo caso", ignoreCase = true).performClick()
+            compose.onNodeWithText("Nova observação ou tratamento", ignoreCase = true).performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
             compose.onNodeWithText("Nova entrada", ignoreCase = true).performScrollTo().assertIsDisplayed()
@@ -160,7 +160,7 @@ class SmokeTest {
 
             // Rotinas, Equipamentos e Ajustes abrem sem quebrar
             menu("Rotinas")
-            compose.onNodeWithText("Produtos e Rotinas", ignoreCase = true).assertIsDisplayed()
+            compose.onNodeWithText("Nova rotina", ignoreCase = true).assertIsDisplayed()
             menu("Equipamentos e produtos")
             compose.onNodeWithText("Nenhum equipamento cadastrado.", ignoreCase = true).assertIsDisplayed()
             menu("Ajustes")

@@ -10,6 +10,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import br.com.lunelli.lulucoreef.domain.BUFFERS
+import br.com.lunelli.lulucoreef.domain.Params
 import br.com.lunelli.lulucoreef.domain.normalizeSalinity
 import br.com.lunelli.lulucoreef.domain.numShort
 import kotlin.math.roundToInt
@@ -78,13 +80,56 @@ fun CalculadorasScreen(vm: MainViewModel) {
         }
 
         SectionTitle("Correção de KH, Ca e Mg")
-        Panel(Modifier.fillMaxWidth()) {
-            Text("Em construção", fontWeight = FontWeight.Medium)
-            Muted("Vai calcular a dose para levar o parâmetro do valor atual até o alvo, com os buffers mais usados.")
-        }
+        Correcao(vm)
         Spacer(Modifier.height(12.dp))
     }
 }
+
+/** Correcao de KH, Ca e Mg: produto, valor atual, alvo e volume real; mostra a dose total e como dividir pelos dias. */
+@Composable
+private fun Correcao(vm: MainViewModel) {
+    val tests by vm.tests.collectAsStateWithLifecycle()
+    var param by remember { mutableStateOf("mg") }
+    val opts = BUFFERS.filter { it.param == param }
+    var prodId by remember(param) { mutableStateOf(opts.firstOrNull { it.marca == "Aquaforest" }?.id ?: opts.first().id) }
+    val prod = opts.firstOrNull { it.id == prodId } ?: opts.first()
+    val ultimo = remember(tests, param) { tests.filter { it.parametro == param && !it.baixaConfianca }.maxByOrNull { it.medidoEm }?.valor }
+    var atual by remember(param, ultimo) { mutableStateOf(ultimo?.let { Params.format(param, it) } ?: "") }
+    var alvo by remember(param) { mutableStateOf(when (param) { "kh" -> "8"; "ca" -> "430"; else -> "1350" }) }
+    var litros by remember { mutableStateOf(numShort(vm.volume)) }
+
+    Panel(Modifier.fillMaxWidth()) {
+        ChipRow(listOf("mg" to "Magnésio", "ca" to "Cálcio", "kh" to "KH"), param) { param = it }
+        Spacer(Modifier.height(8.dp))
+        ChipRow(opts.map { it.id to "${it.marca} · ${it.nome}" }, prodId) { prodId = it }
+        Spacer(Modifier.height(8.dp))
+        Muted("Rótulo: ${numShort(prod.quantidade)} ${prod.unidade} em ${numShort(prod.litros)} L sobe ${Params.format(param, prod.sobe)} ${Params.unit(param)}" +
+            (prod.maxDia?.let { " · máximo ${Params.format(param, it)} ${Params.unit(param)} por dia" } ?: ""))
+        prod.nota?.let { Muted(it) }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            NumInput("Valor atual", atual, Modifier.weight(1f), suffix = Params.unit(param)) { atual = it }
+            NumInput("Alvo", alvo, Modifier.weight(1f), suffix = Params.unit(param)) { alvo = it }
+            NumInput("Litragem real", litros, Modifier.weight(1f), suffix = "L") { litros = it }
+        }
+        Muted("Use a litragem real: desconte rochas, areia e equipamentos.")
+        val a = num(atual); val t = num(alvo); val v = num(litros)
+        if (a != null && t != null && v != null && v > 0) {
+            Spacer(Modifier.height(10.dp))
+            val delta = t - a
+            if (delta <= 0) Result("Já está no alvo ou acima", "Não precisa corrigir. Para baixar, só com TPA ou esperando o consumo.")
+            else {
+                val total = prod.doseFor(delta, v)
+                val dias = prod.maxDia?.let { kotlin.math.ceil(delta / it).toInt().coerceAtLeast(1) } ?: 1
+                Result("${fmtQty(total)} ${prod.unidade} no total", "Para subir ${Params.format(param, delta)} ${Params.unit(param)} em ${numShort(v)} L.")
+                if (dias > 1) Muted("Divida em $dias dias: ${fmtQty(total / dias)} ${prod.unidade} por dia (sobe ~${Params.format(param, delta / dias)} ${Params.unit(param)} por dia).")
+                Muted("Ordem: magnésio primeiro, depois cálcio e por último KH. Nunca misture no mesmo copo e espere 15 a 30 min entre um e outro, num ponto de boa circulação.")
+            }
+        }
+    }
+}
+
+private fun fmtQty(x: Double): String = if (x >= 10) x.roundToInt().toString() else numShort(Math.round(x * 10) / 10.0)
 
 @Composable
 private fun Result(title: String, sub: String) {
