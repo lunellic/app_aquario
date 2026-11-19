@@ -113,20 +113,20 @@ class Nav {
     fun top(s: Screen) { onLeave(); stack.clear(); stack.add(s) }
 }
 
-private class Tab(val screen: Screen, val label: String, val icon: ImageVector)
+private class Tab(val screen: Screen, val label: String, val icon: ImageVector, val color: androidx.compose.ui.graphics.Color = Luluco.Pool)
 
 private val tabs = listOf(
-    Tab(Screen.Painel, "Painel", Icons.Rounded.Home),
-    Tab(Screen.Registrar, "Registrar", Icons.Rounded.AddCircle),
-    Tab(Screen.Historico, "Histórico", Icons.Rounded.List),
-    Tab(Screen.Aquario, "Meu Aquário", Icons.Rounded.Star),
-    Tab(Screen.Graficos, "Gráficos", Icons.Rounded.Info),
-    Tab(Screen.Relatorios, "Relatórios", Icons.Rounded.Email),
-    Tab(Screen.Saude, "Saúde", Icons.Rounded.Favorite),
-    Tab(Screen.Rotinas, "Rotinas", Icons.Rounded.DateRange),
-    Tab(Screen.Equipamentos, "Equipamentos", Icons.Rounded.Build),
-    Tab(Screen.Assistente, "Assistente", Icons.Rounded.Face),
-    Tab(Screen.Config, "Ajustes", Icons.Rounded.Settings),
+    Tab(Screen.Painel, "Painel", Icons.Rounded.Home, Luluco.Pool),
+    Tab(Screen.Registrar, "Registrar", Icons.Rounded.AddCircle, Luluco.Ok),
+    Tab(Screen.Historico, "Histórico", Icons.Rounded.List, Luluco.Blue),
+    Tab(Screen.Aquario, "Meu Aquário", Icons.Rounded.Star, Luluco.Cyan),
+    Tab(Screen.Graficos, "Gráficos", Icons.Rounded.Info, Luluco.Violet),
+    Tab(Screen.Relatorios, "Relatórios", Icons.Rounded.Email, Luluco.Blue),
+    Tab(Screen.Saude, "Saúde", Icons.Rounded.Favorite, Luluco.Critical),
+    Tab(Screen.Rotinas, "Rotinas", Icons.Rounded.DateRange, Luluco.Amber),
+    Tab(Screen.Equipamentos, "Equipamentos", Icons.Rounded.Build, Luluco.Neutral),
+    Tab(Screen.Assistente, "Assistente", Icons.Rounded.Face, Luluco.Pink),
+    Tab(Screen.Config, "Ajustes", Icons.Rounded.Settings, Luluco.Neutral),
 )
 
 @Composable
@@ -267,7 +267,7 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
                         .background(if (selected) Luluco.Royal else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(t.icon, contentDescription = null, tint = if (selected) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.size(24.dp))
+                    IconTile(t.icon, t.color, 34.dp)
                     Spacer(Modifier.width(14.dp))
                     Text(t.label, fontSize = 17.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, color = Luluco.Cream)
                 }

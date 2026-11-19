@@ -24,23 +24,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import br.com.lunelli.lulucoreef.R
 import br.com.lunelli.lulucoreef.domain.Params
 import br.com.lunelli.lulucoreef.domain.num
 import kotlinx.coroutines.delay
@@ -73,40 +67,25 @@ fun rememberWaterTime(enabled: Boolean = LocalWaterFx.current): () -> Float {
 }
 
 /**
- * Fundo de agua: degrade azul-marinho da marca, duas manchas de luz que se movem devagar e
- * reflexos (causticas) de um bitmap pre-renderizado em duas camadas. Sem shader (o Fire e API 22).
+ * Fundo v0.4: grafite escuro com tres manchas de luz (verde-agua, azul e violeta) que derivam
+ * bem devagar, como uma aurora discreta. Sem textura e sem shader (o Fire e API 22).
  */
 @Composable
 fun WaterBackground(modifier: Modifier = Modifier, strength: Float = 1f) {
     val time = rememberWaterTime()
-    val caustics = ImageBitmap.imageResource(R.drawable.caustics)
     Canvas(modifier) {
         val t = time()
         drawRect(Brush.verticalGradient(listOf(Luluco.DeepTop, Luluco.DeepBottom)))
         val w = size.width
         val h = size.height
-        val r = maxOf(w, h) * 0.55f
-        val c1 = Offset(w * (0.25f + 0.12f * sin(t * 0.11f)), h * (0.2f + 0.1f * cos(t * 0.09f)))
-        val c2 = Offset(w * (0.8f + 0.1f * cos(t * 0.07f)), h * (0.85f + 0.1f * sin(t * 0.08f)))
-        drawCircle(Brush.radialGradient(listOf(Luluco.Pool.copy(alpha = 0.20f * strength), Color.Transparent), c1, r), r, c1)
-        drawCircle(Brush.radialGradient(listOf(Luluco.Royal.copy(alpha = 0.45f * strength), Color.Transparent), c2, r), r, c2)
-        tile(caustics, maxOf(w, h) * 0.55f, t * 9f, t * 4f, 0.10f * strength)
-        tile(caustics, maxOf(w, h) * 0.38f, -t * 6f, t * 7f, 0.07f * strength)
-    }
-}
-
-private fun DrawScope.tile(img: ImageBitmap, tile: Float, dx: Float, dy: Float, alpha: Float) {
-    val ts = tile.roundToInt().coerceAtLeast(32)
-    val ox = ((dx % ts) + ts) % ts - ts
-    val oy = ((dy % ts) + ts) % ts - ts
-    var y = oy
-    while (y < size.height) {
-        var x = ox
-        while (x < size.width) {
-            drawImage(img, srcOffset = IntOffset.Zero, srcSize = IntSize(img.width, img.height), dstOffset = IntOffset(x.roundToInt(), y.roundToInt()), dstSize = IntSize(ts, ts), alpha = alpha)
-            x += ts
+        val big = maxOf(w, h)
+        fun glow(color: Color, a: Float, cx: Float, cy: Float, r: Float) {
+            val c = Offset(cx, cy)
+            drawCircle(Brush.radialGradient(listOf(color.copy(alpha = a * strength), Color.Transparent), c, r), r, c)
         }
-        y += ts
+        glow(Luluco.Pool, 0.13f, w * (0.18f + 0.10f * sin(t * 0.045f)), h * (0.10f + 0.08f * cos(t * 0.038f)), big * 0.55f)
+        glow(Luluco.Royal, 0.12f, w * (0.88f + 0.08f * cos(t * 0.031f)), h * (0.35f + 0.12f * sin(t * 0.027f)), big * 0.50f)
+        glow(Luluco.Violet, 0.07f, w * (0.45f + 0.15f * sin(t * 0.022f + 1.3f)), h * (1.0f + 0.06f * cos(t * 0.035f)), big * 0.45f)
     }
 }
 
@@ -176,12 +155,12 @@ fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp 
             val sw = stroke.toPx()
             val inset = sw / 2
             val arcSize = Size(this.size.width - sw, this.size.height - sw)
-            drawArc(Color.White.copy(alpha = 0.14f), -90f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(sw))
+            drawArc(Color.White.copy(alpha = 0.07f), -90f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(sw))
             if (score != null) drawArc(color, -90f, 360f * a.value, false, Offset(inset, inset), arcSize, style = Stroke(sw, cap = StrokeCap.Round))
         }
         androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (score == null) "-" else (a.value * 100).roundToInt().toString(), fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.34f).sp, color = color)
-            if (label != null) Text(label, fontSize = (size.value * 0.12f).coerceAtLeast(11f).sp, color = Luluco.TextSoft)
+            Text(if (score == null) "-" else (a.value * 100).roundToInt().toString(), fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.34f).sp, color = color)
+            if (label != null) Text(label.uppercase(), fontSize = (size.value * 0.095f).coerceAtLeast(10f).sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = Luluco.TextSoft)
         }
     }
 }

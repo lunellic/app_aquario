@@ -2,6 +2,7 @@ package br.com.lunelli.lulucoreef.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -199,20 +200,22 @@ private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, h
     val zdt = Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault())
     val greeting = when (zdt.hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
     val date = zdt.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr)).replaceFirstChar { it.uppercase() }
-    val shape = RoundedCornerShape(28.dp)
-    Box(modifier.fillMaxWidth().height(148.dp).clip(shape).background(Brush.horizontalGradient(listOf(Luluco.Royal, Luluco.Pool.copy(alpha = 0.75f))))) {
+    val shape = RoundedCornerShape(20.dp)
+    val ring = scoreColor(health.score)
+    Box(modifier.fillMaxWidth().height(148.dp).clip(shape).background(Luluco.Card).border(1.dp, Luluco.CardBorder, shape)) {
         if (foto != null) {
             Photo(foto, Modifier.fillMaxSize(), maxPx = 1024)
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Luluco.Navy.copy(alpha = 0.85f), Luluco.Royal.copy(alpha = 0.45f)))))
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Luluco.Card, Luluco.Card.copy(alpha = 0.92f), Luluco.Card.copy(alpha = 0.55f)))))
         }
-        if (LocalWaterFx.current) Waves(Modifier.fillMaxWidth().height(46.dp).align(Alignment.BottomCenter), color = Luluco.Cream)
+        // brilho da cor da nota atras do anel, como no ReefFlow
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(ring.copy(alpha = 0.22f), androidx.compose.ui.graphics.Color.Transparent), center = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, 0f), radius = 520f)))
         Row(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             MenuButton()
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("$greeting, Lucas", fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 32.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(date, color = Luluco.Cream, maxLines = 1)
-                Text("$nome  ·  ${numShort(volume)} L  ·  $count habitantes", color = Luluco.Cream.copy(alpha = 0.85f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                Eyebrow(date)
+                Text("$greeting, Lucas", fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 30.sp, letterSpacing = (-0.5).sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$nome  ·  ${numShort(volume)} L  ·  $count habitantes", color = Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
             Box(Modifier.clip(CircleShape).clickable(onClick = onScore).padding(4.dp)) {
                 HealthRing(health.score, 112.dp)
@@ -276,7 +279,7 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
     }
     Panel(Modifier.fillMaxWidth(), borderColor = if (due) Luluco.Coral else null, padding = 12.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(fmtTime(o.dueAt), fontFamily = Fredoka, fontSize = 20.sp, color = if (due) Luluco.CoralText else Luluco.PoolText, modifier = Modifier.width(66.dp))
+            Text(fmtTime(o.dueAt), fontFamily = Display, fontSize = 20.sp, color = if (due) Luluco.CoralText else Luluco.PoolText, modifier = Modifier.width(66.dp))
             Column(Modifier.weight(1f)) {
                 Text(o.routine.titulo, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (detail.isNotEmpty()) Muted(detail, maxLines = 2)
@@ -319,7 +322,7 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
             Badge(statusLabel(status), statusColor(status))
         }
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Fredoka, fontSize = 38.sp, color = statusColor(status))
+            Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Display, fontSize = 38.sp, color = statusColor(status))
             Spacer(Modifier.width(6.dp))
             Text(Params.unit(param), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
         }
@@ -366,7 +369,7 @@ fun AlertCard(a: Alert) {
 @Composable
 private fun Stat(modifier: Modifier, value: String, label: String) {
     Panel(modifier, padding = 12.dp) {
-        Text(value, fontFamily = Fredoka, fontSize = 30.sp, color = Luluco.Cream)
+        Text(value, fontFamily = Display, fontSize = 30.sp, color = Luluco.Cream)
         Muted(label, maxLines = 2)
     }
 }

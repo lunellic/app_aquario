@@ -16,49 +16,66 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import br.com.lunelli.lulucoreef.R
 
-/** Paleta da logo. Sem preto: tudo parte do azul-marinho da marca. */
+/**
+ * Tema v0.4: escuro neutro e sobrio (grafite azulado), cor so com funcao.
+ * Os nomes antigos foram mantidos para nao mexer em todas as telas; os valores mudaram.
+ */
 object Luluco {
-    val Royal = Color(0xFF0A47B5)
-    val Pool = Color(0xFF12A5C0)
-    val Coral = Color(0xFFF05A35)
-    val Cream = Color(0xFFFBF1E4)
+    // destaque principal (acoes, selecao, progresso)
+    val Pool = Color(0xFF19C3A3)      // verde-agua
+    val PoolText = Color(0xFF34D8B8)
+    val Royal = Color(0xFF2F6FDB)     // azul (acao secundaria e inicio do degrade)
+    // atencao e alerta
+    val Coral = Color(0xFFF2643D)     // coral para borda/selo de "atrasado"
+    val CoralText = Color(0xFFFBBF24) // ambar legivel para texto de atencao
+    val Ok = Color(0xFF22C55E)
+    val Critical = Color(0xFFEF4444)
+    val Neutral = Color(0xFF64748B)
 
-    // fundo em gradiente
-    val DeepTop = Color(0xFF06225E)
-    val DeepBottom = Color(0xFF0A2E73)
-    val Navy = Color(0xFF06225E)
+    // categorias (icones em quadradinhos coloridos)
+    val Violet = Color(0xFF8B5CF6)
+    val Blue = Color(0xFF3B82F6)
+    val Amber = Color(0xFFF59E0B)
+    val Pink = Color(0xFFEC4899)
+    val Cyan = Color(0xFF06B6D4)
 
-    // superficies
-    val Card = Color(0x610A47B5) // azul royal translucido
-    val CardBorder = Color(0x33FFFFFF)
-    val Solid = Color(0xFF0C3A8E) // dialogos e campos (precisa ser opaco)
-    val SolidHigh = Color(0xFF1250B8)
+    // fundo e superficies
+    val DeepTop = Color(0xFF0A0E13)
+    val DeepBottom = Color(0xFF0C1118)
+    val Navy = Color(0xFF0A0E13)
+    val Card = Color(0xFF11171F)
+    val CardBorder = Color(0xFF1F2833)
+    val Solid = Color(0xFF151C26)
+    val SolidHigh = Color(0xFF1C2531)
 
     // texto
-    val TextSoft = Color(0xFFB9CBEA) // secundario, contraste > 7:1 sobre o fundo
-    val CoralText = Color(0xFFFF9470) // laranja claro para texto (contraste > 4.5:1)
-    val PoolText = Color(0xFF5AD0E6)
+    val Cream = Color(0xFFEEF2F6)
+    val TextSoft = Color(0xFF8C99AA)
 
-    val Ok = Color(0xFF3DDC97)
-    val Critical = Color(0xFFFF6B6B)
-    val Neutral = Color(0xFF9FB4D8)
-
-    // nomes antigos usados em algumas telas
     val Abyss = Navy
     val Deep = Solid
     val DeepHigh = SolidHigh
 }
 
-/** Cor de texto com contraste garantido sobre um preenchimento: marinho em cores claras, creme nas escuras. */
+/** Texto com contraste garantido sobre um preenchimento. */
 fun onColor(bg: Color): Color = if (bg.luminance() > 0.22f) Luluco.Navy else Luluco.Cream
 
-/** Fredoka (titulos e numeros grandes, combina com a logo) e Manrope (textos). Ambas OFL, embutidas. */
-val Fredoka = FontFamily(Font(R.font.fredoka_semibold, FontWeight.SemiBold), Font(R.font.fredoka_semibold, FontWeight.Bold))
-val Manrope = FontFamily(Font(R.font.manrope_regular, FontWeight.Normal), Font(R.font.manrope_bold, FontWeight.Bold))
+/** Fundo em tom da cor (quadradinho de icone, selo, chip). */
+fun tint(c: Color, a: Float = 0.16f): Color = c.copy(alpha = a)
+
+/** Plus Jakarta Sans (licenca OFL, embutida): geometrica e moderna. Display = pesos fortes para numeros e titulos. */
+val Jakarta = FontFamily(
+    Font(R.font.jakarta_light, FontWeight.Light),
+    Font(R.font.jakarta_regular, FontWeight.Normal),
+    Font(R.font.jakarta_medium, FontWeight.Medium),
+    Font(R.font.jakarta_semibold, FontWeight.SemiBold),
+    Font(R.font.jakarta_bold, FontWeight.Bold),
+)
+val Display = Jakarta
+val Manrope = Jakarta
 
 private val OceanColors = darkColorScheme(
-    // laranja claro: mesmo tom da marca, mas legivel como texto/contorno sobre o azul (contraste > 4.5:1)
-    primary = Luluco.CoralText,
+    primary = Luluco.PoolText,
     onPrimary = Luluco.Navy,
     primaryContainer = Luluco.Royal,
     onPrimaryContainer = Luluco.Cream,
@@ -78,22 +95,22 @@ private val OceanColors = darkColorScheme(
     surfaceContainerLow = Luluco.Solid,
     surfaceContainerHigh = Luluco.Solid,
     surfaceContainerHighest = Luluco.SolidHigh,
-    outline = Color(0xFF7FA2E0),
-    outlineVariant = Color(0xFF3F68B8),
+    outline = Color(0xFF2C3846),
+    outlineVariant = Color(0xFF1F2833),
     error = Luluco.Critical,
     onError = Luluco.Navy,
-    scrim = Color(0xCC041A49),
+    scrim = Color(0xCC05080C),
 )
 
-private fun body(size: Int, weight: FontWeight = FontWeight.Normal) = TextStyle(fontFamily = Manrope, fontWeight = weight, fontSize = size.sp, lineHeight = (size * 1.4).sp)
-private fun title(size: Int) = TextStyle(fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = size.sp, lineHeight = (size * 1.2).sp)
+private fun body(size: Int, weight: FontWeight = FontWeight.Normal) = TextStyle(fontFamily = Jakarta, fontWeight = weight, fontSize = size.sp, lineHeight = (size * 1.4).sp)
+private fun title(size: Int) = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Bold, fontSize = size.sp, lineHeight = (size * 1.2).sp, letterSpacing = (-0.2).sp)
 
 private val LulucoType = Typography(
     displayLarge = title(56), displayMedium = title(44), displaySmall = title(36),
     headlineLarge = title(32), headlineMedium = title(28), headlineSmall = title(24),
     titleLarge = title(22), titleMedium = title(18), titleSmall = title(16),
     bodyLarge = body(16), bodyMedium = body(15), bodySmall = body(13),
-    labelLarge = body(15, FontWeight.Bold), labelMedium = body(13, FontWeight.Bold), labelSmall = body(12, FontWeight.Bold),
+    labelLarge = body(15, FontWeight.SemiBold), labelMedium = body(13, FontWeight.Bold), labelSmall = body(12, FontWeight.Bold),
 )
 
 @Composable

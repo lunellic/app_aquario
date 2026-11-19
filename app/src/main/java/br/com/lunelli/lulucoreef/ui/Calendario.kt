@@ -51,7 +51,7 @@ fun CalendarCard(nav: Nav, routines: List<Routine>, logs: List<RoutineLog>, prod
         Column(m) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { month = month.minusMonths(1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Mês anterior", tint = Luluco.Cream) }
-                Text(month.format(DateTimeFormatter.ofPattern("MMMM 'de' yyyy", PtBr)).replaceFirstChar { it.uppercase() }, fontFamily = Fredoka, fontSize = 20.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(month.format(DateTimeFormatter.ofPattern("MMMM 'de' yyyy", PtBr)).replaceFirstChar { it.uppercase() }, fontFamily = Display, fontSize = 20.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 IconButton(onClick = { month = month.plusMonths(1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Próximo mês", tint = Luluco.Cream) }
             }
             Row {
@@ -94,7 +94,7 @@ fun CalendarCard(nav: Nav, routines: List<Routine>, logs: List<RoutineLog>, prod
                 today.plusDays(1) -> "Amanhã"
                 else -> selected.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr)).replaceFirstChar { it.uppercase() }
             }
-            Text(label, fontFamily = Fredoka, fontSize = 20.sp, color = Luluco.PoolText)
+            Text(label, fontFamily = Display, fontSize = 20.sp, color = Luluco.PoolText)
             if (agenda.isEmpty()) Muted("Nada marcado neste dia.")
             agenda.forEach { o ->
                 val p = o.routine.productId?.let { products[it] }

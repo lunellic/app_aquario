@@ -111,10 +111,10 @@ fun VitrineScreen(vm: MainViewModel) {
         val clock: @Composable (Modifier) -> Unit = { m ->
             Column(m.padding(horizontal = 8.dp)) {
                 AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(600)) + slideInVertically(tween(600)) { it / 6 }) togetherWith (fadeOut(tween(400)) + slideOutVertically(tween(600)) { -it / 6 }) }, label = "relogio") { t ->
-                    Text(t, fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = 84.sp, lineHeight = 88.sp, color = Luluco.Cream, maxLines = 1)
+                    Text(t, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 96.sp, lineHeight = 100.sp, letterSpacing = (-3).sp, color = Luluco.Cream, maxLines = 1)
                 }
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(zdt.format(DateTimeFormatter.ofPattern("EEEE", PtBr)).replaceFirstChar { it.uppercase() }, fontFamily = Fredoka, fontSize = 24.sp, color = Luluco.PoolText)
+                    Text(zdt.format(DateTimeFormatter.ofPattern("EEEE", PtBr)).uppercase(), fontSize = 15.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold, color = Luluco.PoolText)
                     Spacer(Modifier.width(10.dp))
                     Text(zdt.format(DateTimeFormatter.ofPattern("d 'de' MMMM", PtBr)), fontSize = 17.sp, color = Luluco.Cream, modifier = Modifier.padding(bottom = 3.dp))
                 }
@@ -123,7 +123,7 @@ fun VitrineScreen(vm: MainViewModel) {
         // Hoje: a lista completa do dia, com o que ja foi feito
         val hoje: @Composable (Modifier) -> Unit = { m ->
             VBlock(m, borderColor = if (today.any { it.isDue(now) }) Luluco.Coral else Luluco.CardBorder, pad = 14.dp) {
-                Text(if (today.isEmpty()) "Hoje" else "Hoje · $doneToday de $totalToday feitas", fontFamily = Fredoka, fontSize = 20.sp, color = Luluco.PoolText)
+                Text(if (today.isEmpty()) "Hoje" else "Hoje · $doneToday de $totalToday feitas", fontFamily = Display, fontSize = 20.sp, color = Luluco.PoolText)
                 if (today.isEmpty()) Text("Nenhuma rotina para hoje.", fontSize = 16.sp, color = Luluco.TextSoft)
                 val perRow = if (today.size > 3) 2 else 1
                 today.chunked(perRow).forEach { rowItems ->
@@ -158,11 +158,11 @@ fun VitrineScreen(vm: MainViewModel) {
                         Column {
                             Text("Última TPA", fontSize = 15.sp, color = Luluco.TextSoft)
                             Text(lastTpa?.let { "há ${(now - it.feitaEm) / DAY_MS} dias · ${numShort(it.litros)} L" } ?: "nenhuma registrada",
-                                fontFamily = Fredoka, fontSize = 22.sp, color = if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else Luluco.Cream, maxLines = 1)
+                                fontFamily = Display, fontSize = 22.sp, color = if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else Luluco.Cream, maxLines = 1)
                         }
                         Column {
                             Text("Rotinas de hoje", fontSize = 15.sp, color = Luluco.TextSoft)
-                            Text(if (totalToday == 0) "nenhuma" else "$doneToday de $totalToday feitas", fontFamily = Fredoka, fontSize = 22.sp, color = Luluco.Cream, maxLines = 1)
+                            Text(if (totalToday == 0) "nenhuma" else "$doneToday de $totalToday feitas", fontFamily = Display, fontSize = 22.sp, color = Luluco.Cream, maxLines = 1)
                         }
                     }
                 }
@@ -171,7 +171,7 @@ fun VitrineScreen(vm: MainViewModel) {
         // Proximos passos: o que esta chegando
         val steps: @Composable (Modifier) -> Unit = { m ->
             VBlock(m, pad = 14.dp) {
-                Text("Próximos passos", fontFamily = Fredoka, fontSize = 20.sp, color = Luluco.PoolText)
+                Text("Próximos passos", fontFamily = Display, fontSize = 20.sp, color = Luluco.PoolText)
                 if (next.isEmpty()) Text("Nada agendado nos próximos dias.", fontSize = 17.sp, color = Luluco.TextSoft)
                 next.forEach { item ->
                     Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -192,7 +192,7 @@ fun VitrineScreen(vm: MainViewModel) {
                     Badge(statusLabel(st), statusColor(st))
                 }
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(last?.let { Params.format(p, it.valor) } ?: "-", fontFamily = Fredoka, fontWeight = FontWeight.SemiBold, fontSize = if (compact) 34.sp else 46.sp, color = statusColor(st), maxLines = 1)
+                    Text(last?.let { Params.format(p, it.valor) } ?: "-", fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = if (compact) 34.sp else 46.sp, color = statusColor(st), maxLines = 1)
                     Spacer(Modifier.width(6.dp))
                     Text(Params.unit(p), fontSize = 15.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = if (compact) 5.dp else 9.dp))
                 }
@@ -259,12 +259,24 @@ fun NightScreen(vm: MainViewModel) {
         onDispose { setBrightness(activity, WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE) }
     }
     val next = remember(routines, logs, now / 600_000) { upcoming(routines, logs, now, vm.zone, limit = 1).firstOrNull() }
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF041033), Color(0xFF071F52))))) {
-        Waves(Modifier.fillMaxWidth().fillMaxHeight(0.42f).align(Alignment.BottomCenter), color = Luluco.Pool)
-        Waves(Modifier.fillMaxWidth().fillMaxHeight(0.22f).align(Alignment.BottomCenter), color = Luluco.Royal)
+    val time = rememberWaterTime()
+    val clock = remember(now / 60_000) { java.time.Instant.ofEpochMilli(now).atZone(vm.zone).format(DateTimeFormatter.ofPattern("HH:mm")) }
+    Box(Modifier.fillMaxSize().background(Color(0xFF05070A))) {
+        // orbita lenta: um arco fino girando em volta do relogio, e um ponto que respira
+        androidx.compose.foundation.Canvas(Modifier.size(360.dp).align(Alignment.Center)) {
+            val t = time()
+            val r = size.minDimension / 2 - 6f
+            drawCircle(Luluco.Pool.copy(alpha = 0.06f), r, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
+            drawArc(Luluco.Pool.copy(alpha = 0.32f), (t * 6f) % 360f, 70f, false,
+                topLeft = androidx.compose.ui.geometry.Offset(6f, 6f), size = androidx.compose.ui.geometry.Size(r * 2, r * 2),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(3f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            drawArc(Luluco.Violet.copy(alpha = 0.22f), (200f - t * 3.5f) % 360f, 40f, false,
+                topLeft = androidx.compose.ui.geometry.Offset(26f, 26f), size = androidx.compose.ui.geometry.Size(r * 2 - 40f, r * 2 - 40f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(2f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Luluco Reef", fontFamily = Fredoka, fontSize = 40.sp, color = Luluco.Cream.copy(alpha = 0.45f))
-            Text("modo noite", fontSize = 16.sp, color = Luluco.TextSoft.copy(alpha = 0.55f))
+            Text(clock, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 88.sp, letterSpacing = (-3).sp, color = Luluco.Cream.copy(alpha = 0.55f))
+            Eyebrow("modo noite", color = Luluco.TextSoft.copy(alpha = 0.6f))
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))
