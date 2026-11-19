@@ -225,7 +225,7 @@ fun NightScreen(vm: MainViewModel) {
         }
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            GlassClock(clock, shortDate(java.time.Instant.ofEpochMilli(now).atZone(vm.zone).toLocalDate()), Modifier.width(520.dp), maxFont = 340f, dim = 0.6f)
+            GlassClock(clock, shortDate(java.time.Instant.ofEpochMilli(now).atZone(vm.zone).toLocalDate()), Modifier.width(520.dp), maxFont = 300f, dim = 0.6f)
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))
