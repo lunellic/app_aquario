@@ -212,7 +212,11 @@ fun NightScreen(vm: MainViewModel) {
     Box(Modifier.fillMaxSize().background(Color(0xFF050608))) {
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 120.sp, letterSpacing = (-4).sp, color = Luluco.Cream.copy(alpha = 0.5f))
+            Box {
+                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Luluco.Cream.copy(alpha = 0.6f))
+                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Luluco.Cream.copy(alpha = 0.6f),
+                    style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
+            }
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))

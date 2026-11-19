@@ -1,5 +1,8 @@
 package br.com.lunelli.lulucoreef.ui
 
+import br.com.lunelli.lulucoreef.data.FinanceEntry
+import br.com.lunelli.lulucoreef.data.ShoppingItem
+
 import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -64,6 +67,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val livestock = db.livestock().all().state()
     val events = db.events().all().state()
     val equipment = db.equipment().all().state()
+    val finance = db.finance().all().state()
+    val shopping = db.shopping().all().state()
     val cases = db.healthCases().all().state()
     val entries = db.healthEntries().all().state()
     val speciesInfo = db.speciesInfo().all().state()
@@ -155,6 +160,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun delete(x: Dosing) = save(x.copy(deletedAt = ts()))
     fun delete(x: Event) = save(x.copy(deletedAt = ts()))
     fun delete(x: Product) = save(x.copy(deletedAt = ts()))
+    fun save(x: FinanceEntry) = persist(db.finance(), x.copy(updatedAt = ts(), pending = true))
+    fun save(x: ShoppingItem) = persist(db.shopping(), x.copy(updatedAt = ts(), pending = true))
+    fun delete(x: FinanceEntry) = save(x.copy(deletedAt = ts()))
+    fun delete(x: ShoppingItem) = save(x.copy(deletedAt = ts()))
+
+    /** Marca o item como comprado e lanca a despesa; desmarcar apaga a despesa ligada a ele. */
+    fun buy(item: ShoppingItem, valor: Double, quando: Long) {
+        save(item.copy(compradoEm = quando, valorPago = valor))
+        save(FinanceEntry(lancadoEm = quando, tipo = "despesa", categoria = item.categoria, descricao = item.nome, valor = valor, aquario = item.aquario, shoppingItemId = item.id))
+    }
+    fun unbuy(item: ShoppingItem) {
+        save(item.copy(compradoEm = null, valorPago = null))
+        finance.value.filter { it.shoppingItemId == item.id }.forEach { delete(it) }
+    }
     fun delete(x: Routine) = save(x.copy(deletedAt = ts()))
     fun delete(x: Livestock) = save(x.copy(deletedAt = ts()))
     fun delete(x: Equipment) = save(x.copy(deletedAt = ts()))

@@ -89,7 +89,9 @@ fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26,
         val h = size.height
         val cy = h / 2
         val amp = h * 0.30f
-        val brush = Brush.horizontalGradient(0f to Luluco.Pool.copy(alpha = 0f), 0.2f to Luluco.Pool.copy(alpha = 0.55f * alpha), 0.55f to Luluco.Royal.copy(alpha = 0.45f * alpha), fadeAt to Luluco.Violet.copy(alpha = 0.16f * alpha), 1f to Luluco.Violet.copy(alpha = 0.05f * alpha))
+        // cores da logo: azul royal -> azul claro -> laranja coral
+        val blue = Color(0xFF2F6BE0); val sky = Color(0xFF3FA9E8); val orange = Color(0xFFF26A3D)
+        val brush = Brush.horizontalGradient(0f to blue.copy(alpha = 0f), 0.18f to blue.copy(alpha = 0.6f * alpha), 0.45f to sky.copy(alpha = 0.5f * alpha), 0.7f to orange.copy(alpha = 0.5f * alpha), fadeAt to orange.copy(alpha = 0.2f * alpha), 1f to orange.copy(alpha = 0.06f * alpha))
         val steps = 72
         for (i in 0 until lines) {
             val f = i / (lines - 1f)

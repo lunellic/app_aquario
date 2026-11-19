@@ -17,8 +17,8 @@ class Converters {
 }
 
 @Database(
-    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class],
-    version = 2,
+    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class, FinanceEntry::class, ShoppingItem::class],
+    version = 3,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -38,6 +38,8 @@ abstract class AppDb : RoomDatabase() {
     abstract fun events(): EventDao
     abstract fun speciesInfo(): SpeciesInfoDao
     abstract fun aiAnalyses(): AiAnalysisDao
+    abstract fun finance(): FinanceEntryDao
+    abstract fun shopping(): ShoppingItemDao
 
     /** Tabelas na ordem de envio (respeita chaves estrangeiras). */
     fun syncTables(): List<SyncTable<*>> = listOf(
@@ -56,16 +58,26 @@ abstract class AppDb : RoomDatabase() {
         SyncTable("events", events(), Event.serializer()),
         SyncTable("species_info", speciesInfo(), SpeciesInfo.serializer()),
         SyncTable("ai_analyses", aiAnalyses(), AiAnalysis.serializer()),
+        SyncTable("shopping_items", shopping(), ShoppingItem.serializer()),
+        SyncTable("finance_entries", finance(), FinanceEntry.serializer()),
     )
 
     companion object {
         fun build(context: Context): AppDb =
-            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2).build()
+            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
 
         /** v2: water_tests.baixaConfianca. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE water_tests ADD COLUMN baixaConfianca INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** v3: financas e lista de compras. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `finance_entries` (`lancadoEm` INTEGER NOT NULL, `tipo` TEXT NOT NULL, `categoria` TEXT NOT NULL, `descricao` TEXT NOT NULL, `valor` REAL NOT NULL, `aquario` TEXT NOT NULL, `shoppingItemId` TEXT, `observacao` TEXT, `id` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `pending` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `shopping_items` (`nome` TEXT NOT NULL, `categoria` TEXT NOT NULL, `valorMedio` REAL, `prioridade` TEXT NOT NULL, `aquario` TEXT NOT NULL, `observacao` TEXT, `compradoEm` INTEGER, `valorPago` REAL, `id` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `pending` INTEGER NOT NULL, PRIMARY KEY(`id`))")
             }
         }
     }

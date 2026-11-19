@@ -18,6 +18,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Create
+import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Face
@@ -83,6 +85,10 @@ sealed interface Screen {
     data object Graficos : Screen { override val topLevel = true }
     data object Saude : Screen { override val topLevel = true }
     data object Equipamentos : Screen { override val topLevel = true }
+    data object Financas : Screen { override val topLevel = true }
+    data object Calculadoras : Screen { override val topLevel = true }
+    data class FinanceForm(val id: String? = null) : Screen
+    data class ShoppingForm(val id: String? = null) : Screen
     data object Assistente : Screen { override val topLevel = true }
     data object Relatorios : Screen { override val topLevel = true }
 
@@ -126,6 +132,8 @@ private val tabs = listOf(
     Tab(Screen.Saude, "Saúde", Icons.Rounded.Favorite, Luluco.Critical),
     Tab(Screen.Rotinas, "Rotinas", Icons.Rounded.DateRange, Luluco.Amber),
     Tab(Screen.Equipamentos, "Equipamentos", Icons.Rounded.Build, Luluco.Neutral),
+    Tab(Screen.Financas, "Finanças", Icons.Rounded.ShoppingCart, Luluco.Neutral),
+    Tab(Screen.Calculadoras, "Calculadoras", Icons.Rounded.Create, Luluco.Neutral),
     Tab(Screen.Assistente, "Assistente", Icons.Rounded.Face, Luluco.Pink),
     Tab(Screen.Config, "Ajustes", Icons.Rounded.Settings, Luluco.Neutral),
 )
@@ -248,7 +256,7 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
     }
     AnimatedVisibility(open, enter = slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)) { -it }, exit = slideOutHorizontally(tween(200)) { -it }) {
         Column(
-            Modifier.width(280.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)).background(Luluco.Solid)
+            Modifier.width(280.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)).background(Color(0xFF07090C))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .padding(14.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -257,7 +265,7 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
                 Image(painterResource(R.drawable.logo_mark), "Luluco Reef", Modifier.height(44.dp))
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text("Luluco Reef App", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
+                    Text("Luluco Reef", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
                     SyncDot(vm)
                 }
             }
@@ -311,6 +319,10 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         Screen.Graficos -> GraficosScreen(vm)
         Screen.Saude -> SaudeScreen(vm, nav)
         Screen.Equipamentos -> EquipamentosScreen(vm, nav)
+        Screen.Financas -> FinancasScreen(vm, nav)
+        Screen.Calculadoras -> CalculadorasScreen(vm)
+        is Screen.FinanceForm -> FinanceForm(vm, nav, s.id)
+        is Screen.ShoppingForm -> ShoppingForm(vm, nav, s.id)
         Screen.Assistente -> AssistenteScreen(vm)
         Screen.Relatorios -> RelatoriosScreen(vm)
         is Screen.TestForm -> TestForm(vm, nav, s.edit, s.only)

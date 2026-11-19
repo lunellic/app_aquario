@@ -275,3 +275,39 @@ data class AiAnalysis(
     @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
     @Transient override val pending: Boolean = false,
 ) : Syncable
+
+@Serializable
+@Entity(tableName = "finance_entries")
+data class FinanceEntry(
+    @Serializable(with = TsSerializer::class) val lancadoEm: Long = System.currentTimeMillis(),
+    val tipo: String = "despesa",
+    val categoria: String = "outros",
+    val descricao: String = "",
+    val valor: Double = 0.0,
+    val aquario: String = "marinho",
+    val shoppingItemId: String? = null,
+    val observacao: String? = null,
+    @PrimaryKey override val id: String = newId(),
+    @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
+    @Transient override val pending: Boolean = false,
+) : Syncable
+
+@Serializable
+@Entity(tableName = "shopping_items")
+data class ShoppingItem(
+    val nome: String = "",
+    val categoria: String = "outros",
+    val valorMedio: Double? = null,
+    val prioridade: String = "media",
+    val aquario: String = "marinho",
+    val observacao: String? = null,
+    @Serializable(with = TsSerializer::class) val compradoEm: Long? = null,
+    val valorPago: Double? = null,
+    @PrimaryKey override val id: String = newId(),
+    @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
+    @Transient override val pending: Boolean = false,
+) : Syncable

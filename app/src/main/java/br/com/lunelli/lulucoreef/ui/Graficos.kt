@@ -71,7 +71,44 @@ fun GraficosScreen(vm: MainViewModel) {
                 }
             }
         }
+        Compare(tests.filter { !it.baixaConfianca }, from, now)
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** Dois parametros no mesmo grafico, cada um na propria escala (ex.: KH caindo junto com Ca). */
+@Composable
+private fun Compare(tests: List<WaterTest>, from: Long, now: Long) {
+    var a by remember { mutableStateOf("kh") }
+    var b by remember { mutableStateOf("ca") }
+    val opts = (Params.MAIN + Params.OPTIONAL).map { it to Params.label(it) }
+    val colA = Luluco.Royal
+    val colB = Luluco.Coral
+    Panel(Modifier.fillMaxWidth()) {
+        Text("Comparar dois parâmetros", fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) { Legend(colA, ""); ChipRow(opts, a) { a = it } }
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) { Legend(colB, ""); ChipRow(opts, b) { b = it } }
+        val sa = tests.filter { it.parametro == a && it.medidoEm in from..now }.sortedBy { it.medidoEm }
+        val sb = tests.filter { it.parametro == b && it.medidoEm in from..now }.sortedBy { it.medidoEm }
+        Spacer(Modifier.height(10.dp))
+        if (sa.size < 2 && sb.size < 2) Muted("Poucas medições neste período.")
+        else Canvas(Modifier.fillMaxWidth().height(180.dp)) {
+            fun x(t: Long) = ((t - from).toFloat() / (now - from).coerceAtLeast(1)) * size.width
+            for (i in 0..3) drawLine(Color.White.copy(alpha = 0.05f), Offset(0f, size.height * i / 3), Offset(size.width, size.height * i / 3), 1f)
+            listOf(sa to colA, sb to colB).forEach { (s, c) ->
+                if (s.isEmpty()) return@forEach
+                val lo = s.minOf { it.valor }; val hi = s.maxOf { it.valor }
+                val span = (hi - lo).takeIf { it > 0 } ?: 1.0
+                fun y(v: Double) = (1f - ((v - lo) / span).toFloat()) * size.height * 0.84f + size.height * 0.08f
+                for (i in 1 until s.size) drawLine(c, Offset(x(s[i - 1].medidoEm), y(s[i - 1].valor)), Offset(x(s[i].medidoEm), y(s[i].valor)), 2.dp.toPx(), cap = StrokeCap.Round)
+                s.forEach { drawCircle(c, 3.dp.toPx(), Offset(x(it.medidoEm), y(it.valor))) }
+            }
+        }
+        fun faixa(p: String, s: List<WaterTest>) = if (s.isEmpty()) "${Params.label(p)}: sem medições" else "${Params.label(p)}: ${Params.format(p, s.minOf { it.valor })} a ${Params.format(p, s.maxOf { it.valor })} ${Params.unit(p)}"
+        Muted(faixa(a, sa) + "   ·   " + faixa(b, sb))
+        Muted("Cada linha usa a própria escala: compare o formato (subindo, caindo), não a altura.")
     }
 }
 
