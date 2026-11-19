@@ -154,6 +154,7 @@ class SmokeTest {
             compose.onNodeWithText("Nova observação ou tratamento", ignoreCase = true).performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Nova entrada", ignoreCase = true).performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick()
             compose.onNodeWithText("Casos abertos (1)", ignoreCase = true).assertIsDisplayed()
