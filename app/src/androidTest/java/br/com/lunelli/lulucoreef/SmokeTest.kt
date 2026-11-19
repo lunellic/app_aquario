@@ -244,6 +244,14 @@ class SmokeTest {
                 db.livestock().upsert(Livestock(n, tipo = "coral", categoria = c, quantidade = if (n == "Hammer Gold") 4 else 1))
             }
             db.livestock().upsert(Livestock("Ocellaris Chocolate", tipo = "peixe", nomeCientifico = "Amphiprion ocellaris"))
+            listOf(Triple("Torch Holy Grail", "corais_peixes", 380.0), Triple("Blue Treasure 6,7 kg", "sal_suplementos", 260.0), Triple("Ração Fauna Marin", "alimentacao", 70.0)).forEachIndexed { i, (d, c, v) ->
+                db.finance().upsert(br.com.lunelli.lulucoreef.data.FinanceEntry(lancadoEm = now - (i * 3 + 1) * day, categoria = c, descricao = d, valor = v))
+            }
+            db.finance().upsert(br.com.lunelli.lulucoreef.data.FinanceEntry(lancadoEm = now - 2 * day, tipo = "receita", categoria = "venda_corais", descricao = "3 mudas de zoa", valor = 150.0))
+            db.finance().upsert(br.com.lunelli.lulucoreef.data.FinanceEntry(lancadoEm = now - 35 * day, categoria = "equipamentos", descricao = "Bomba de circulação", valor = 420.0))
+            db.shopping().upsert(br.com.lunelli.lulucoreef.data.ShoppingItem("Magnésio Buffer Aquaforest", "sal_suplementos", 95.0, "alta"))
+            db.shopping().upsert(br.com.lunelli.lulucoreef.data.ShoppingItem("Ração para betta", "alimentacao", 25.0, "media", aquario = "doce"))
+            db.shopping().upsert(br.com.lunelli.lulucoreef.data.ShoppingItem("Refil de carvão ativado", "manutencao", 60.0, "baixa"))
         }
         // vitrine em 1 min; modo noite desligado (inicio = fim) para a captura nao depender da hora do emulador
         app.graph.settings.update { it.copy(vitrineMinutes = 1, nightStartHour = 0, nightEndHour = 0) }
@@ -282,6 +290,12 @@ class SmokeTest {
             step { menu("Relatórios") }
             step { compose.onNodeWithText("Enviar para meu e-mail", ignoreCase = true).assertIsDisplayed() }
             shot("relatorios")
+            step { menu("Finanças") }
+            shot("financas")
+            step { compose.onNodeWithText("Lista de compras", ignoreCase = true).performClick() }
+            shot("compras")
+            step { menu("Calculadoras") }
+            shot("calculadoras")
             // modo noite: liga para qualquer hora e espera 1 minuto sem toque
             app.graph.settings.update { it.copy(nightStartHour = 0, nightEndHour = 0, vitrineMinutes = 0) }
             step { menu("Painel") }
