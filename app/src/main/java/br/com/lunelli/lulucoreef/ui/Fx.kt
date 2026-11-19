@@ -1,5 +1,6 @@
 package br.com.lunelli.lulucoreef.ui
 
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -225,4 +226,30 @@ fun waveSideColors(t: Float): Pair<Color, Color> {
     val k = 0.5f + 0.5f * sin(t * 0.06f)
     fun mix(a: Color, b: Color, f: Float) = Color(a.red + (b.red - a.red) * f, a.green + (b.green - a.green) * f, a.blue + (b.blue - a.blue) * f, 1f)
     return mix(blue, orange, k) to mix(orange, blue, k)
+}
+
+/**
+ * Relogio de virar: so o digito que mudou desce (o novo entra por cima, o antigo sai por baixo),
+ * como os relogios antigos de plaquinha. 12:09 -> 12:10 mexe nos dois ultimos; 12:10 -> 12:11 so no ultimo.
+ */
+@Composable
+fun FlipClock(time: String, fontSize: androidx.compose.ui.unit.TextUnit, color: Color, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((-fontSize.value * 0.03f).dp)) {
+        time.forEachIndexed { i, ch ->
+            androidx.compose.runtime.key(i) {
+                androidx.compose.animation.AnimatedContent(
+                    targetState = ch,
+                    transitionSpec = {
+                        (androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it } +
+                            androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(380))) togetherWith
+                            (androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } +
+                                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300)))
+                    },
+                    label = "digito$i",
+                ) { c ->
+                    Text(c.toString(), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = fontSize, lineHeight = fontSize, color = color, maxLines = 1)
+                }
+            }
+        }
+    }
 }

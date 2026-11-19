@@ -117,14 +117,7 @@ fun VitrineScreen(vm: MainViewModel) {
         Row(Modifier.weight(1f)) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(900)) + slideInVertically(tween(900)) { it / 8 }) togetherWith (fadeOut(tween(600)) + slideOutVertically(tween(900)) { -it / 8 }) }, label = "relogio") { t ->
-                    // Bold da SF e o peso maximo que temos; tres copias lado a lado (cor opaca) engrossam o traco sem borrar
-                    Box {
-                        listOf(-1.2f, 0f, 1.2f).forEach { dx ->
-                            Text(t, Modifier.offset(x = dx.dp), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, lineHeight = 128.sp, letterSpacing = (-2).sp, color = Luluco.Cream, maxLines = 1)
-                        }
-                    }
-                }
+                FlipClock(fmtTime(now), 150.sp, Luluco.Cream)
                 Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                 Spacer(Modifier.weight(1f))
                 // todos os avisos ativos (ate 4), um por linha
@@ -233,9 +226,7 @@ fun NightScreen(vm: MainViewModel) {
         }
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box {
-                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Color(0xFF8D939B))
-            }
+            FlipClock(clock, 128.sp, Color(0xFF8D939B))
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))

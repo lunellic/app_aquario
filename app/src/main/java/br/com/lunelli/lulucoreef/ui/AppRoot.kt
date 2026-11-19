@@ -336,7 +336,7 @@ private fun ScreenContent(vm: MainViewModel, nav: Nav) {
 private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
     when (s) {
         Screen.Painel -> PainelScreen(vm, nav)
-        Screen.Registrar -> RegistrarScreen(nav)
+        Screen.Registrar -> RegistrarScreen(vm, nav)
         Screen.Historico -> HistoricoScreen(vm, nav)
         Screen.Aquario -> AquarioScreen(vm, nav)
         Screen.Rotinas -> RotinasScreen(vm, nav)

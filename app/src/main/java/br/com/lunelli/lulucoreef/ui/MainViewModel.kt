@@ -142,7 +142,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(x: TankConfig) = persist(db.tankConfig(), x.copy(updatedAt = ts(), pending = true))
     fun save(x: ParamRange) = persist(db.paramRanges(), x.copy(updatedAt = ts(), pending = true))
-    fun save(x: WaterTest) = persist(db.waterTests(), x.copy(updatedAt = ts(), pending = true))
+    fun save(x: WaterTest) { persist(db.waterTests(), x.copy(updatedAt = ts(), pending = true)); scheduleTestCheck() }
+
+    private var testCheck: kotlinx.coroutines.Job? = null
+    /** Depois de salvar medicoes: se KH, Ca e Mg (os que a rotina de teste pede) ja foram medidos hoje, a rotina de teste de hoje vira "feito". */
+    private fun scheduleTestCheck() {
+        testCheck?.cancel()
+        testCheck = viewModelScope.launch {
+            kotlinx.coroutines.delay(1200)
+            val today = java.time.LocalDate.now(zone)
+            br.com.lunelli.lulucoreef.domain.agendaOn(routines.value, logs.value, today, zone)
+                .filter { it.routine.tipo == "teste" && it.open && testsDoneToday(it.routine) }
+                .forEach { markDone(it) }
+        }
+    }
+
+    /** Parametros que a rotina de teste pede (pelo titulo), entre KH, Ca e Mg; todos medidos hoje? */
+    fun testsDoneToday(r: br.com.lunelli.lulucoreef.data.Routine): Boolean {
+        val t = r.titulo.lowercase()
+        val pedidos = listOfNotNull("kh".takeIf { "kh" in t }, "ca".takeIf { Regex("\\bca\\b|cálcio|calcio").containsMatchIn(t) }, "mg".takeIf { Regex("\\bmg\\b|magn").containsMatchIn(t) })
+            .ifEmpty { listOf("kh", "ca", "mg") }
+        val today = java.time.LocalDate.now(zone)
+        val medidos = tests.value.filter { java.time.Instant.ofEpochMilli(it.medidoEm).atZone(zone).toLocalDate() == today }.map { it.parametro }.toSet()
+        return pedidos.all { it in medidos }
+    }
     fun save(x: WaterChange) = persist(db.waterChanges(), x.copy(updatedAt = ts(), pending = true))
     fun save(x: Product) = persist(db.products(), x.copy(updatedAt = ts(), pending = true))
     fun save(x: Dosing) = persist(db.dosings(), x.copy(updatedAt = ts(), pending = true))

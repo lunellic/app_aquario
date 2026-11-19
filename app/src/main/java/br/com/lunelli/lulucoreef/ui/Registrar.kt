@@ -1,5 +1,11 @@
 package br.com.lunelli.lulucoreef.ui
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,16 +28,40 @@ import br.com.lunelli.lulucoreef.domain.parseNum
 import br.com.lunelli.lulucoreef.domain.parseParam
 
 @Composable
-fun RegistrarScreen(nav: Nav) {
+fun RegistrarScreen(vm: MainViewModel, nav: Nav) {
+    val tests by vm.tests.collectAsStateWithLifecycle()
+    val changes by vm.changes.collectAsStateWithLifecycle()
+    val dosings by vm.dosings.collectAsStateWithLifecycle()
+    val events by vm.events.collectAsStateWithLifecycle()
+    val now = System.currentTimeMillis()
+    fun ago(t: Long?): String {
+        if (t == null) return "nenhum ainda"
+        val d = java.time.temporal.ChronoUnit.DAYS.between(java.time.Instant.ofEpochMilli(t).atZone(vm.zone).toLocalDate(), java.time.LocalDate.now(vm.zone))
+        return when (d) { 0L -> "último hoje"; 1L -> "último ontem"; else -> "último há $d dias" }
+    }
+    data class Item(val title: String, val sub: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val color: androidx.compose.ui.graphics.Color, val go: Screen)
+    val items = listOf(
+        Item("Teste de água", "KH, cálcio, magnésio, salinidade · " + ago(tests.maxOfOrNull { it.medidoEm }), androidx.compose.material.icons.Icons.Outlined.Search, Luluco.AreaTeste, Screen.TestForm()),
+        Item("TPA", "Troca parcial de água · " + ago(changes.maxOfOrNull { it.feitaEm }), androidx.compose.material.icons.Icons.Outlined.Refresh, Luluco.AreaTpa, Screen.TpaForm()),
+        Item("Dose avulsa", "Produto fora da rotina · " + ago(dosings.maxOfOrNull { it.dosadoEm }), androidx.compose.material.icons.Icons.Outlined.AddCircle, Luluco.AreaDose, Screen.DoseForm()),
+        Item("Nota no jornal", "Algo que aconteceu no aquário · " + ago(events.maxOfOrNull { it.ocorridoEm }), androidx.compose.material.icons.Icons.Outlined.Edit, Luluco.AreaJornal, Screen.EventForm()),
+    )
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenHeader("Registrar")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BigButton("Teste de água", Modifier.weight(1f).height(110.dp)) { nav.go(Screen.TestForm()) }
-            BigButton("TPA", Modifier.weight(1f).height(110.dp)) { nav.go(Screen.TpaForm()) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            BigButton("Dosagem", Modifier.weight(1f).height(110.dp), color = Luluco.Royal) { nav.go(Screen.DoseForm()) }
-            BigButton("Evento / nota", Modifier.weight(1f).height(110.dp), color = Luluco.Royal) { nav.go(Screen.EventForm()) }
+        Muted("O que você fez agora? Testes e TPAs também podem ser marcados direto na lista de Hoje, no Painel.")
+        Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+            items.forEachIndexed { i, it ->
+                if (i > 0) HorizontalDivider(color = Luluco.Divider)
+                Row(Modifier.fillMaxWidth().clickable { nav.go(it.go) }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    GlowIcon(it.icon, it.color, 34.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(it.title, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                        Muted(it.sub, maxLines = 1)
+                    }
+                    androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Luluco.TextFaint)
+                }
+            }
         }
     }
 }

@@ -317,7 +317,12 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
             Spacer(Modifier.height(10.dp))
             Row(Modifier.padding(start = 62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BigButton("Feito", Modifier.weight(1.1f), color = Luluco.Pool) {
-                    if (o.routine.tipo == "tpa") nav.go(Screen.TpaForm(occurrence = o)) else vm.markDone(o)
+                    when {
+                        o.routine.tipo == "tpa" -> nav.go(Screen.TpaForm(occurrence = o))
+                        // teste sem medicoes de hoje: abre as roletas; quando KH, Ca e Mg forem salvos, a rotina se marca sozinha
+                        o.routine.tipo == "teste" && !vm.testsDoneToday(o.routine) -> nav.go(Screen.TestForm())
+                        else -> vm.markDone(o)
+                    }
                 }
                 if (isToday) BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.Solid) { vm.snooze(o) }
                 BigButton("Pular", Modifier.weight(0.8f), color = Luluco.Solid) { vm.skip(o) }
