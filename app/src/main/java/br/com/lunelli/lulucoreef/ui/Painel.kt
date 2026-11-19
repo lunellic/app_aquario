@@ -299,7 +299,7 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
         if (o.open) {
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BigButton("Feito", Modifier.weight(1.1f), color = Luluco.Ok) {
+                BigButton("Feito", Modifier.weight(1.1f), color = Luluco.Pool) {
                     if (o.routine.tipo == "tpa") nav.go(Screen.TpaForm(occurrence = o)) else vm.markDone(o)
                 }
                 if (isToday) BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.SolidHigh) { vm.snooze(o) }
