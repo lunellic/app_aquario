@@ -117,7 +117,7 @@ fun VitrineScreen(vm: MainViewModel) {
         Row(Modifier.weight(1f)) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                GlassClock(fmtTime(now), shortDate(zdt.toLocalDate()), Modifier.fillMaxWidth(0.94f), maxFont = 230f)
+                GlassClock(fmtTime(now), shortDate(zdt.toLocalDate()), Modifier.fillMaxWidth(0.94f), maxFont = 300f)
                 Spacer(Modifier.weight(1f))
                 // todos os avisos ativos (ate 4), um por linha
                 Column(Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -225,7 +225,7 @@ fun NightScreen(vm: MainViewModel) {
         }
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            GlassClock(clock, shortDate(java.time.Instant.ofEpochMilli(now).atZone(vm.zone).toLocalDate()), Modifier.width(560.dp), maxFont = 250f, dim = 0.6f)
+            GlassClock(clock, shortDate(java.time.Instant.ofEpochMilli(now).atZone(vm.zone).toLocalDate()), Modifier.width(520.dp), maxFont = 340f, dim = 0.6f)
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
                 Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))

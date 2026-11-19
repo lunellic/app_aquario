@@ -1,7 +1,6 @@
 // Edge Function `notifier` (spec 12): push pelo ntfy (rotinas atrasadas e alertas criticos) e e-mail semanal pelo Resend.
 // Chamada pelo pg_cron (header x-cron-secret) ou pelo app nos botoes de teste (JWT do usuario).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 import { ANALYSIS_REQUEST, askClaude, checkLimit, CORS, json } from "../_shared/ai.ts";
 import { loadCtx, summarize } from "../_shared/context.ts";
 import { compliance, criticalAlerts, DAY_MS, fmt, healthScore, isNight, LABEL, latest, local, MAIN, ms, numShort, occurrencesOn, reminderText, statusOf } from "../_shared/rules.ts";
@@ -162,7 +161,10 @@ async function backupEmail(service: SupabaseClient, userId: string, email: strin
   }
   const day = new Date().toISOString().slice(0, 10);
   const payload = JSON.stringify({ app: "Luluco Reef", exported_at: new Date().toISOString(), user_id: userId, tables });
-  const b64 = encodeBase64(new TextEncoder().encode(payload));
+  const bytes = new TextEncoder().encode(payload);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  const b64 = btoa(bin);
   const text = `${auto ? "Backup diário" : "Exportação"} do Luluco Reef (${day}).\n\nO arquivo anexo tem todos os seus dados em JSON. Guarde este e-mail: com ele dá para restaurar o app num banco novo.\n\n${counts.join("\n")}`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

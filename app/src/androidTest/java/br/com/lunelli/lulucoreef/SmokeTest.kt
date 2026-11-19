@@ -312,7 +312,7 @@ class SmokeTest {
             shot("saude")
             step { compose.onNodeWithText("Cobre (Cupramine) + Prazipro", ignoreCase = true).performClick() }
             shot("quarentena")
-            step { menu("Saúde e quarentena") }
+            step { compose.onNodeWithText("Voltar", ignoreCase = true).performClick() }
             step { menu("Equipamentos e produtos") }
             step { compose.onNodeWithText("Produtos", ignoreCase = true).performClick() }
             shot("produtos")

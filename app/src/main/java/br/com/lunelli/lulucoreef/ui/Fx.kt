@@ -1,5 +1,6 @@
 package br.com.lunelli.lulucoreef.ui
 
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
@@ -284,8 +285,8 @@ fun shortDate(d: java.time.LocalDate): String {
 @Composable
 fun GlassClock(time: String, date: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f) {
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
-        // 4 digitos + dois pontos ocupam ~1,95 em na Barlow Condensed SemiBold com os digitos encostados
-        val fs = minOf(maxFont, (maxWidth.value - 36f) / 1.95f)
+        // 4 digitos + dois pontos ocupam ~1,3 em na Barlow Condensed SemiBold com os digitos encostados
+        val fs = minOf(maxFont, (maxWidth.value - 40f) / 1.32f)
         val size = fs.sp
         val glassShape = androidx.compose.foundation.shape.RoundedCornerShape((fs * 0.13f).dp)
         val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
@@ -294,16 +295,16 @@ fun GlassClock(time: String, date: String, modifier: Modifier = Modifier, maxFon
         androidx.compose.foundation.layout.Column(Modifier.graphicsLayer { alpha = dim }) {
             // data numa pilula de vidro
             androidx.compose.foundation.layout.Box(
-                Modifier.fillMaxWidthCompat().clip(pillShape).background(glass).border(1.5.dp, rim, pillShape).padding(vertical = (fs * 0.035f).dp),
+                Modifier.fillMaxWidthCompat().clip(pillShape).background(glass).border(1.5.dp, rim, pillShape).padding(vertical = (fs * 0.025f).coerceIn(6f, 12f).dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(date, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = (fs * 0.13f).sp, color = Color(0xFFF2F3F5))
+                Text(date, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = (fs * 0.10f).coerceIn(18f, 30f).sp, color = Color(0xFFF2F3F5))
             }
-            androidx.compose.foundation.layout.Spacer(Modifier.height((fs * 0.045f).dp))
+            androidx.compose.foundation.layout.Spacer(Modifier.height((fs * 0.03f).dp))
             // painel de vidro com os numeros
             androidx.compose.foundation.layout.Box(
                 Modifier.fillMaxWidthCompat().clip(glassShape).background(glass).border(1.5.dp, rim, glassShape)
-                    .padding(horizontal = (fs * 0.04f).dp, vertical = (fs * 0.02f).dp),
+                    .padding(horizontal = (fs * 0.035f).dp, vertical = (fs * 0.035f).dp),
                 contentAlignment = Alignment.Center,
             ) {
                 androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((-fs * 0.035f).dp)) {
@@ -319,7 +320,7 @@ fun GlassClock(time: String, date: String, modifier: Modifier = Modifier, maxFon
                                             androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(320)))
                                 },
                                 label = "vidro$i",
-                            ) { c -> GlassDigit(c, size) }
+                            ) { c -> GlassDigit(c, size, fs) }
                         }
                     }
                 }
@@ -334,13 +335,14 @@ private val DigitFill = Brush.verticalGradient(listOf(Color(0xFFA9ACB1), Color(0
 private val DigitRim = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.25f)))
 
 @Composable
-private fun GlassDigit(c: Char, size: androidx.compose.ui.unit.TextUnit) {
+private fun GlassDigit(c: Char, size: androidx.compose.ui.unit.TextUnit, fs: Float) {
     val base = androidx.compose.ui.text.TextStyle(
         fontFamily = Barlow, fontWeight = FontWeight.SemiBold, fontSize = size, lineHeight = size * 0.98f,
         platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
         lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
     )
-    androidx.compose.foundation.layout.Box {
+    // caixa da altura do numero (sem o respiro da fonte em cima e embaixo): os digitos enchem o painel
+    androidx.compose.foundation.layout.Box(Modifier.height((fs * 0.74f).dp).wrapContentHeight(unbounded = true), contentAlignment = Alignment.Center) {
         // corpo com degrade de aluminio e sombra
         Text(c.toString(), style = base.copy(brush = DigitFill, shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 6f), 14f)))
         // borda clara em cima e escura embaixo: o efeito de vidro
@@ -351,10 +353,10 @@ private fun GlassDigit(c: Char, size: androidx.compose.ui.unit.TextUnit) {
 /** Dois pontos redondos, como na referencia. */
 @Composable
 private fun GlassColon(fs: Float) {
-    val d = (fs * 0.17f).dp
+    val d = (fs * 0.13f).dp
     androidx.compose.foundation.layout.Column(
         Modifier.padding(horizontal = (fs * 0.045f).dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((fs * 0.20f).dp),
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((fs * 0.22f).dp),
     ) {
         repeat(2) {
             androidx.compose.foundation.layout.Box(Modifier.size(d).clip(CircleShape).background(DigitFill).border(1.5.dp, DigitRim, CircleShape))
