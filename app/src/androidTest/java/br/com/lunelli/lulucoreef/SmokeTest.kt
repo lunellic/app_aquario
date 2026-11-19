@@ -1,5 +1,8 @@
 package br.com.lunelli.lulucoreef
 
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onRoot
 import android.content.pm.ActivityInfo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
@@ -290,6 +293,9 @@ class SmokeTest {
             step { menu("Relatórios") }
             step { compose.onNodeWithText("Enviar para meu e-mail", ignoreCase = true).assertIsDisplayed() }
             shot("relatorios")
+            app.graph.settings.update { it.copy(vitrineMinutes = 0) }
+            step { compose.onRoot().performTouchInput { click(center) } }
+            Thread.sleep(800)
             step { menu("Finanças") }
             shot("financas")
             step { compose.onNodeWithText("Lista de compras", ignoreCase = true).performClick() }

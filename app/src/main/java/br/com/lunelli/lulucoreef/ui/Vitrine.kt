@@ -152,7 +152,7 @@ fun VitrineScreen(vm: MainViewModel) {
                 }
             }
         }
-                Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween) {
                 VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score))
                 VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
                     if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else null)
@@ -213,8 +213,8 @@ fun NightScreen(vm: MainViewModel) {
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Box {
-                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Luluco.Cream.copy(alpha = 0.6f))
-                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Luluco.Cream.copy(alpha = 0.6f),
+                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Color(0xFF8D939B))
+                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Color(0xFF8D939B),
                     style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
             }
             if (next != null) {
