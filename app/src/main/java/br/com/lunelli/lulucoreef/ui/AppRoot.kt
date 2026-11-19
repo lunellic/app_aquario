@@ -148,10 +148,9 @@ private val groups = listOf(
     )),
     TabGroup("Conta", listOf(
         Tab(Screen.Financas, "Finanças", Icons.Outlined.ShoppingCart, Luluco.AreaFinancas),
-        Tab(Screen.Config, "Ajustes", Icons.Outlined.Settings, Luluco.AreaAjustes),
     )),
 )
-private val tabs = groups.flatMap { it.tabs }
+private val tabs = groups.flatMap { it.tabs } + Tab(Screen.Config, "Ajustes", Icons.Outlined.Settings, Luluco.AreaAjustes)
 
 @Composable
 fun AppRoot(vm: MainViewModel = viewModel()) {
@@ -274,26 +273,30 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
             Modifier.width(290.dp).fillMaxHeight().clip(RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)).background(Color(0xFF07090C))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .padding(14.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
-                Image(painterResource(R.drawable.logo_mark), "Luluco Reef", Modifier.height(44.dp))
+                Image(painterResource(R.drawable.logo_mark), "Luluco Reef", Modifier.height(38.dp))
                 Spacer(Modifier.width(12.dp))
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text("Luluco Reef", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
                     SyncDot(vm)
                 }
+                // Ajustes vira um icone no topo para o menu caber sem rolar
+                Box(Modifier.testTag("menu_Ajustes").clip(RoundedCornerShape(12.dp)).clickable { onPick(Screen.Config) }) {
+                    GlowIcon(Icons.Outlined.Settings, Luluco.AreaAjustes, 26.dp, strong = current == Screen.Config)
+                }
             }
             groups.forEach { g ->
-                if (g.title != null) Eyebrow(g.title, Modifier.padding(start = 14.dp, top = 10.dp, bottom = 2.dp), color = Luluco.TextFaint)
+                if (g.title != null) Eyebrow(g.title, Modifier.padding(start = 12.dp, top = 6.dp), color = Luluco.TextFaint)
                 g.tabs.forEach { t ->
                     val selected = current == t.screen
                     Row(
                         Modifier.fillMaxWidth().testTag("menu_${t.label}").clip(RoundedCornerShape(12.dp))
-                            .background(if (selected) Luluco.SolidHigh else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 10.dp, vertical = 5.dp),
+                            .background(if (selected) Luluco.SolidHigh else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 8.dp, vertical = 1.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        GlowIcon(t.icon, t.color, 32.dp, strong = selected)
+                        GlowIcon(t.icon, t.color, 26.dp, strong = selected)
                         Spacer(Modifier.width(12.dp))
                         Text(t.label, fontSize = 15.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = if (selected) Luluco.Cream else Luluco.TextSoft, maxLines = 1)
                     }

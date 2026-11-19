@@ -164,7 +164,7 @@ fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color
 /** Icone de contorno dentro de um quadrado contornado na cor da area, com brilho leve atras (sem blur real: o Fire e API 22). */
 @Composable
 fun GlowIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, size: Dp = 32.dp, strong: Boolean = false) {
-    Box(Modifier.size(size + 10.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size + 12.dp), contentAlignment = Alignment.Center) {
         androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
             drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(color.copy(alpha = if (strong) 0.38f else 0.22f), Color.Transparent)), radius = this.size.minDimension / 2)
         }
