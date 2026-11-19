@@ -306,6 +306,19 @@ class SmokeTest {
             shot("compras")
             step { menu("Calculadoras") }
             shot("calculadoras")
+            step { menu("Calendário") }
+            shot("calendario_tela")
+            step { menu("Saúde e quarentena") }
+            shot("saude")
+            step { compose.onNodeWithText("Cobre (Cupramine) + Prazipro", ignoreCase = true).performClick() }
+            shot("quarentena")
+            step { androidx.test.espresso.Espresso.pressBack() }
+            step { menu("Equipamentos e produtos") }
+            step { compose.onNodeWithText("Produtos", ignoreCase = true).performClick() }
+            shot("produtos")
+            step { menu("Registrar") }
+            step { compose.onNodeWithText("Nova medição", ignoreCase = true).performClick() }
+            shot("roletas")
             // modo noite: liga para qualquer hora e espera 1 minuto sem toque
             app.graph.settings.update { it.copy(nightStartHour = 0, nightEndHour = 0, vitrineMinutes = 0) }
             step { menu("Painel") }
