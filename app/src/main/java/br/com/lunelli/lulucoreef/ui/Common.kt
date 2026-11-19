@@ -4,6 +4,11 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -79,18 +84,17 @@ fun statusLabel(s: Status) = when (s) {
 /** Card v0.4: grafite um tom acima do fundo, borda fina; com borderColor ganha um leve tom da cor. */
 @Composable
 fun Panel(modifier: Modifier = Modifier, borderColor: Color? = null, padding: Dp = 16.dp, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(14.dp)
     Column(
         modifier.clip(shape).background(Luluco.Card)
-            .then(if (borderColor != null) Modifier.background(tint(borderColor, 0.06f)) else Modifier)
-            .border(1.dp, borderColor?.copy(alpha = 0.55f) ?: Luluco.CardBorder, shape).padding(padding),
+            .border(1.dp, borderColor?.copy(alpha = 0.40f) ?: Luluco.CardBorder, shape).padding(padding),
         content = content,
     )
 }
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier = modifier, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
+    Text(text.uppercase(), modifier = modifier, fontSize = 12.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.SemiBold, color = Luluco.TextSoft)
 }
 
 @Composable
@@ -102,20 +106,24 @@ fun Muted(text: String, modifier: Modifier = Modifier, maxLines: Int = Int.MAX_V
 @Composable
 fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, color: Color = Luluco.Pool, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
+    // so o verde-agua vira botao de destaque (contornado e levemente tingido); qualquer outra cor vira neutro
+    val primary = color == Luluco.Pool || color == Luluco.Ok
+    val shape = RoundedCornerShape(12.dp)
     Button(
-        onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 60.dp).pressSpring(source),
-        shape = RoundedCornerShape(14.dp), interactionSource = source,
-        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = onColor(color),
-            disabledContainerColor = Luluco.SolidHigh.copy(alpha = 0.6f), disabledContentColor = Luluco.TextSoft),
-    ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2) }
+        onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 52.dp).pressSpring(source)
+            .border(1.dp, if (primary) Luluco.Pool.copy(alpha = 0.55f) else Luluco.CardBorder, shape),
+        shape = shape, interactionSource = source,
+        colors = ButtonDefaults.buttonColors(containerColor = if (primary) tint(Luluco.Pool, 0.12f) else Luluco.Solid, contentColor = if (primary) Luluco.PoolText else Luluco.Cream,
+            disabledContainerColor = Luluco.Solid, disabledContentColor = Luluco.TextFaint),
+    ) { Text(text, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 2) }
 }
 
 @Composable
 fun Chip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
-    val bg = if (selected) tint(Luluco.Pool, 0.16f) else Luluco.Card
-    val bd = if (selected) Luluco.Pool.copy(alpha = 0.7f) else Luluco.CardBorder
-    val fg = if (selected) Luluco.PoolText else Luluco.Cream
+    val bg = if (selected) Luluco.Cream else Luluco.Card
+    val bd = if (selected) Luluco.Cream else Luluco.CardBorder
+    val fg = if (selected) Luluco.Navy else Luluco.TextSoft
     Box(
         modifier.clip(shape).background(bg).border(1.dp, bd, shape).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center,
@@ -134,8 +142,11 @@ fun ChipRow(options: List<Pair<String, String>>, selected: String?, modifier: Mo
 @Composable
 fun Badge(text: String, color: Color) {
     val shape = RoundedCornerShape(50)
-    Box(Modifier.clip(shape).background(tint(color, 0.16f)).border(1.dp, color.copy(alpha = 0.45f), shape).padding(horizontal = 10.dp, vertical = 3.dp)) {
-        Text(text.uppercase(), color = lift(color), fontSize = 11.sp, letterSpacing = 0.6.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    // selo minimo: ponto de cor + texto pequeno, sem caixa
+    Row(Modifier.padding(horizontal = 2.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(6.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(6.dp))
+        Text(text.uppercase(), color = lift(color), fontSize = 11.sp, letterSpacing = 0.8.sp, fontWeight = FontWeight.Medium, maxLines = 1)
     }
 }
 
@@ -145,8 +156,8 @@ fun lift(c: Color): Color = Color(c.red + (1 - c.red) * 0.25f, c.green + (1 - c.
 /** Quadradinho colorido com icone: identidade de cada area do app. */
 @Composable
 fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, size: Dp = 40.dp) {
-    Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.3f)).background(tint(color, 0.18f)), contentAlignment = Alignment.Center) {
-        androidx.compose.material3.Icon(icon, contentDescription = null, tint = lift(color), modifier = Modifier.size(size * 0.55f))
+    Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(tint(color, 0.10f)), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Icon(icon, contentDescription = null, tint = color.copy(alpha = 0.85f), modifier = Modifier.size(size * 0.5f))
     }
 }
 

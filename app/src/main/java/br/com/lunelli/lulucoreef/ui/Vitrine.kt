@@ -10,6 +10,14 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -89,158 +97,95 @@ fun VitrineScreen(vm: MainViewModel) {
     val score = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone).score
     val foto = tank?.fotoVitrinePath
 
-    Box(Modifier.fillMaxSize()) {
+    val shown = Params.ALL.filter { it in settings.shownParams }
+    val lastTpa = changes.filter { it.feitaEm <= now }.maxByOrNull { it.feitaEm }
+    val doneToday = today.count { it.state == OccState.FEITO }
+    val next = remember(routines, logs, now / 60_000) { upcoming(routines, logs, now, zone, limit = 3) }
+    val zdt = Instant.ofEpochMilli(now).atZone(zone)
+    val productById = remember(products) { products.associateBy { it.id } }
+
+    // Descanso minimalista: fundo liso, uma unica onda em fita atravessando a tela, texto solto e linhas finas.
+    Box(Modifier.fillMaxSize().background(Luluco.Navy)) {
         if (foto != null) {
-            // foto em baixa resolucao esticada = desfoque leve, sem custo; degrade azul da marca por cima
             Photo(foto, Modifier.fillMaxSize(), maxPx = 120)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Luluco.DeepTop.copy(alpha = 0.70f), Luluco.DeepBottom.copy(alpha = 0.82f)))))
-        } else {
-            WaterBackground(Modifier.fillMaxSize(), strength = 1.3f)
+            Box(Modifier.fillMaxSize().background(Luluco.Navy.copy(alpha = 0.88f)))
         }
+        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.55f).align(Alignment.Center), alpha = 0.9f)
 
-        val shown = Params.ALL.filter { it in settings.shownParams }
-        val worstNow = worst
-        val compact = shown.size > 4 || today.size > 3 || worstNow != null
-        val lastTpa = changes.filter { it.feitaEm <= now }.maxByOrNull { it.feitaEm }
-        val (doneToday, totalToday) = today.count { it.state == OccState.FEITO } to today.size
-        val next = remember(routines, logs, now / 60_000) { upcoming(routines, logs, now, zone, limit = 3) }
-        val zdt = Instant.ofEpochMilli(now).atZone(zone)
-        val productById = remember(products) { products.associateBy { it.id } }
+        Row(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 32.dp)) {
+            // esquerda: hora, data, saude e o que vem
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(900)) + slideInVertically(tween(900)) { it / 8 }) togetherWith (fadeOut(tween(600)) + slideOutVertically(tween(900)) { -it / 8 }) }, label = "relogio") { t ->
+                    Text(t, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 112.sp, lineHeight = 112.sp, letterSpacing = (-5).sp, color = Luluco.Cream, maxLines = 1)
+                }
+                Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
+                Spacer(Modifier.weight(1f))
+                if (worst != null) {
+                    Row(Modifier.padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(worst.severity)))
+                        Spacer(Modifier.width(10.dp))
+                        Text(worst.fato, fontSize = 15.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(36.dp)) {
+                    VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score))
+                    VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
+                        if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else null)
+                    shown.forEach { p ->
+                        val last = tests.latestOf(p)
+                        val r = ranges[p]
+                        val st = if (last == null || r == null) Status.SEM_MEDICAO else statusOf(last.valor, r)
+                        VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st))
+                    }
+                }
+            }
+            // direita: hoje e proximos, em lista com linhas finas
+            Column(Modifier.width(300.dp).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
+                Eyebrow(if (today.isEmpty()) "Hoje" else "Hoje  ·  $doneToday/${today.size}")
+                Spacer(Modifier.height(8.dp))
+                if (today.isEmpty()) Text("Nada para hoje.", fontSize = 15.sp, color = Luluco.TextSoft)
+                today.forEachIndexed { i, o ->
+                    if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                    val p = o.routine.productId?.let { productById[it] }
+                    val dose = if (o.routine.tipo == "dosagem" && p != null) formatDose(doseFor(p, vm.volume), p.doseUnidade) else null
+                    VRow(if (o.state == OccState.FEITO) "feito" else if (o.state == OccState.PULADO) "pulou" else fmtTime(o.effectiveDueAt),
+                        o.routine.titulo, dose, done = !o.open, late = o.isDue(now))
+                }
+                if (next.isNotEmpty()) {
+                    Spacer(Modifier.height(22.dp))
+                    Eyebrow("Próximos")
+                    Spacer(Modifier.height(8.dp))
+                    next.forEachIndexed { i, item ->
+                        if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                        VRow(whenText(item.dueAt, now, zone), item.routine.titulo, null, done = false, late = item.late, wide = true)
+                    }
+                }
+            }
+        }
+    }
+}
 
-        // Hora, dia da semana e data: texto solto, sem bloco em volta
-        val clock: @Composable (Modifier) -> Unit = { m ->
-            Column(m.padding(horizontal = 8.dp)) {
-                AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(600)) + slideInVertically(tween(600)) { it / 6 }) togetherWith (fadeOut(tween(400)) + slideOutVertically(tween(600)) { -it / 6 }) }, label = "relogio") { t ->
-                    Text(t, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 96.sp, lineHeight = 100.sp, letterSpacing = (-3).sp, color = Luluco.Cream, maxLines = 1)
-                }
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(zdt.format(DateTimeFormatter.ofPattern("EEEE", PtBr)).uppercase(), fontSize = 15.sp, letterSpacing = 2.sp, fontWeight = FontWeight.SemiBold, color = Luluco.PoolText)
-                    Spacer(Modifier.width(10.dp))
-                    Text(zdt.format(DateTimeFormatter.ofPattern("d 'de' MMMM", PtBr)), fontSize = 17.sp, color = Luluco.Cream, modifier = Modifier.padding(bottom = 3.dp))
-                }
-            }
+@Composable
+private fun VStat(label: String, value: String, unit: String?, dot: Color?) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (dot != null) { Box(Modifier.size(6.dp).clip(CircleShape).background(dot)); Spacer(Modifier.width(6.dp)) }
+            Eyebrow(label)
         }
-        // Hoje: a lista completa do dia, com o que ja foi feito
-        val hoje: @Composable (Modifier) -> Unit = { m ->
-            VBlock(m, borderColor = if (today.any { it.isDue(now) }) Luluco.Coral else Luluco.CardBorder, pad = 14.dp) {
-                Text(if (today.isEmpty()) "Hoje" else "Hoje · $doneToday de $totalToday feitas", fontFamily = Display, fontSize = 20.sp, color = Luluco.PoolText)
-                if (today.isEmpty()) Text("Nenhuma rotina para hoje.", fontSize = 16.sp, color = Luluco.TextSoft)
-                val perRow = if (today.size > 3) 2 else 1
-                today.chunked(perRow).forEach { rowItems ->
-                    Row(Modifier.padding(top = 5.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        rowItems.forEach { o ->
-                            val p = o.routine.productId?.let { productById[it] }
-                            val dose = if (o.routine.tipo == "dosagem" && p != null) " " + formatDose(doseFor(p, vm.volume), p.doseUnidade) else ""
-                            val color = when {
-                                o.state == OccState.FEITO -> Luluco.Ok
-                                o.state == OccState.PULADO -> Luluco.Neutral
-                                o.isDue(now) -> Luluco.CoralText
-                                else -> Luluco.Cream
-                            }
-                            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                                Text(if (o.state == OccState.FEITO) "feito" else if (o.state == OccState.PULADO) "pulou" else fmtTime(o.effectiveDueAt), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = color, modifier = Modifier.width(48.dp), maxLines = 1)
-                                Text(o.routine.titulo + dose, fontSize = 16.sp, color = if (o.open) Luluco.Cream else Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        if (rowItems.size < perRow) Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, fontFamily = Display, fontWeight = FontWeight.Normal, fontSize = 30.sp, letterSpacing = (-1).sp, color = Luluco.Cream, maxLines = 1)
+            if (unit != null) Text(" $unit", fontSize = 13.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 5.dp))
         }
+    }
+}
 
-        // Saude em anel + resumo do dia
-        val ring: @Composable (Modifier) -> Unit = { m ->
-            VBlock(m) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    HealthRing(score, 104.dp)
-                    Spacer(Modifier.width(16.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Column {
-                            Text("Última TPA", fontSize = 15.sp, color = Luluco.TextSoft)
-                            Text(lastTpa?.let { "há ${(now - it.feitaEm) / DAY_MS} dias · ${numShort(it.litros)} L" } ?: "nenhuma registrada",
-                                fontFamily = Display, fontSize = 22.sp, color = if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else Luluco.Cream, maxLines = 1)
-                        }
-                        Column {
-                            Text("Rotinas de hoje", fontSize = 15.sp, color = Luluco.TextSoft)
-                            Text(if (totalToday == 0) "nenhuma" else "$doneToday de $totalToday feitas", fontFamily = Display, fontSize = 22.sp, color = Luluco.Cream, maxLines = 1)
-                        }
-                    }
-                }
-            }
-        }
-        // Proximos passos: o que esta chegando
-        val steps: @Composable (Modifier) -> Unit = { m ->
-            VBlock(m, pad = 14.dp) {
-                Text("Próximos passos", fontFamily = Display, fontSize = 20.sp, color = Luluco.PoolText)
-                if (next.isEmpty()) Text("Nada agendado nos próximos dias.", fontSize = 17.sp, color = Luluco.TextSoft)
-                next.forEach { item ->
-                    Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(whenText(item.dueAt, now, zone), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (item.late) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.width(132.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(item.routine.titulo, fontSize = 16.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-        }
-        val param: @Composable (Modifier, String) -> Unit = { m, p ->
-            val last = tests.latestOf(p)
-            val r = ranges[p]
-            val st = if (last == null || r == null) Status.SEM_MEDICAO else statusOf(last.valor, r)
-            val series = remember(tests, now / 3_600_000) { tests.filter { it.parametro == p && now - it.medidoEm <= 30 * DAY_MS }.sortedBy { it.medidoEm }.map { it.medidoEm to it.valor } }
-            VBlock(m, borderColor = if (st == Status.CRITICO || st == Status.ATENCAO) statusColor(st) else Luluco.CardBorder, pad = if (compact) 12.dp else 18.dp) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(Params.label(p), fontSize = 17.sp, color = Luluco.Cream, modifier = Modifier.weight(1f), maxLines = 1)
-                    Badge(statusLabel(st), statusColor(st))
-                }
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(last?.let { Params.format(p, it.valor) } ?: "-", fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = if (compact) 34.sp else 46.sp, color = statusColor(st), maxLines = 1)
-                    Spacer(Modifier.width(6.dp))
-                    Text(Params.unit(p), fontSize = 15.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = if (compact) 5.dp else 9.dp))
-                }
-                Sparkline(series, now - 30 * DAY_MS, now, statusColor(st), Modifier.fillMaxWidth().height(if (compact) 22.dp else 34.dp), band = r?.let { it.idealMin to it.idealMax })
-            }
-        }
-        val alert: @Composable (Modifier) -> Unit = { m ->
-            if (worst != null) VBlock(m, borderColor = statusColor(worst.severity), pad = 12.dp) {
-                Text(statusLabel(worst.severity) + ": " + worst.fato, fontSize = 16.sp, color = statusColor(worst.severity), maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-        }
-
-        BoxWithConstraints(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(26.dp)) {
-            val gap = 14.dp
-            if (maxWidth > maxHeight) {
-                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(gap)) {
-                        clock(Modifier.fillMaxWidth())
-                        ring(Modifier.fillMaxWidth())
-                        steps(Modifier.fillMaxWidth())
-                    }
-                    Column(Modifier.weight(1.25f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(gap)) {
-                        shown.chunked(2).forEach { pair ->
-                            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                                pair.forEach { p -> key(p) { param(Modifier.weight(1f).fillMaxHeight(), p) } }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
-                            }
-                        }
-                        hoje(Modifier.fillMaxWidth())
-                        if (worst != null) alert(Modifier.fillMaxWidth())
-                    }
-                }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-                    clock(Modifier.fillMaxWidth())
-                    ring(Modifier.fillMaxWidth())
-                    shown.chunked(2).forEach { pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
-                            pair.forEach { p -> key(p) { param(Modifier.weight(1f), p) } }
-                            if (pair.size == 1) Spacer(Modifier.weight(1f))
-                        }
-                    }
-                    hoje(Modifier.fillMaxWidth())
-                    alert(Modifier.fillMaxWidth())
-                    steps(Modifier.fillMaxWidth())
-                }
-            }
-        }
+@Composable
+private fun VRow(time: String, title: String, detail: String?, done: Boolean, late: Boolean, wide: Boolean = false) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(time, fontSize = 14.sp, color = if (late && !done) Luluco.CoralText else Luluco.TextSoft, modifier = Modifier.width(if (wide) 118.dp else 56.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, fontSize = 15.sp, color = if (done) Luluco.TextFaint else Luluco.Cream, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+            textDecoration = if (done) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
+        if (detail != null) Text(detail, fontSize = 13.sp, color = Luluco.TextSoft, maxLines = 1)
     }
 }
 
@@ -259,23 +204,11 @@ fun NightScreen(vm: MainViewModel) {
         onDispose { setBrightness(activity, WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE) }
     }
     val next = remember(routines, logs, now / 600_000) { upcoming(routines, logs, now, vm.zone, limit = 1).firstOrNull() }
-    val time = rememberWaterTime()
     val clock = remember(now / 60_000) { java.time.Instant.ofEpochMilli(now).atZone(vm.zone).format(DateTimeFormatter.ofPattern("HH:mm")) }
-    Box(Modifier.fillMaxSize().background(Color(0xFF05070A))) {
-        // orbita lenta: um arco fino girando em volta do relogio, e um ponto que respira
-        androidx.compose.foundation.Canvas(Modifier.size(360.dp).align(Alignment.Center)) {
-            val t = time()
-            val r = size.minDimension / 2 - 6f
-            drawCircle(Luluco.Pool.copy(alpha = 0.06f), r, style = androidx.compose.ui.graphics.drawscope.Stroke(2f))
-            drawArc(Luluco.Pool.copy(alpha = 0.32f), (t * 6f) % 360f, 70f, false,
-                topLeft = androidx.compose.ui.geometry.Offset(6f, 6f), size = androidx.compose.ui.geometry.Size(r * 2, r * 2),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(3f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-            drawArc(Luluco.Violet.copy(alpha = 0.22f), (200f - t * 3.5f) % 360f, 40f, false,
-                topLeft = androidx.compose.ui.geometry.Offset(26f, 26f), size = androidx.compose.ui.geometry.Size(r * 2 - 40f, r * 2 - 40f),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(2f, cap = androidx.compose.ui.graphics.StrokeCap.Round))
-        }
+    Box(Modifier.fillMaxSize().background(Color(0xFF050608))) {
+        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(clock, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 88.sp, letterSpacing = (-3).sp, color = Luluco.Cream.copy(alpha = 0.55f))
+            Text(clock, fontFamily = Display, fontWeight = FontWeight.Light, fontSize = 96.sp, letterSpacing = (-4).sp, color = Luluco.Cream.copy(alpha = 0.5f))
             Eyebrow("modo noite", color = Luluco.TextSoft.copy(alpha = 0.6f))
             if (next != null) {
                 Spacer(Modifier.height(14.dp))

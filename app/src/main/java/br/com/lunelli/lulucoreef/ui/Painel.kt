@@ -3,6 +3,10 @@ package br.com.lunelli.lulucoreef.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -114,7 +118,12 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { dayOffset = -1 }.padding(vertical = 4.dp))
                     }
                     if (dayList.isEmpty()) Panel(Modifier.fillMaxWidth()) { Muted("Nenhuma rotina neste dia.") }
-                    dayList.forEach { o -> TodayItem(vm, nav, o, productById[o.routine.productId], volume, now, selDate) }
+                    else Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+                        dayList.forEachIndexed { i, o ->
+                            if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                            TodayItem(vm, nav, o, productById[o.routine.productId], volume, now, selDate)
+                        }
+                    }
                 }
             }
             val metricas: @Composable (Modifier) -> Unit = { m ->
@@ -122,16 +131,21 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                     SectionTitle("Métricas principais")
                     val shown = Params.ALL.filter { it in settings.shownParams }
                     if (shown.isEmpty()) Panel(Modifier.fillMaxWidth()) { Muted("Nenhum parâmetro escolhido. Ajuste em Ajustes > O que aparece nas telas.") }
-                    shown.chunked(2).forEach { pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            pair.forEach { p ->
-                                key(p) {
-                                    val last = reliableTests.latestOf(p)
-                                    val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
-                                    MetricCard(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).clickable { nav.go(Screen.TestForm(only = p)) }, p, last?.valor, last?.medidoEm, ranges[p], exit, now)
+                    // um so card, dividido por linhas finas (sem um bloco por parametro)
+                    if (shown.isNotEmpty()) Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+                        shown.chunked(2).forEachIndexed { ri, pair ->
+                            if (ri > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                            Row(Modifier.height(IntrinsicSize.Min)) {
+                                pair.forEachIndexed { ci, p ->
+                                    if (ci > 0) VerticalDivider(color = Luluco.Divider, thickness = 1.dp)
+                                    key(p) {
+                                        val last = reliableTests.latestOf(p)
+                                        val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
+                                        MetricCard(Modifier.weight(1f).clickable { nav.go(Screen.TestForm(only = p)) }, p, last?.valor, last?.medidoEm, ranges[p], exit, now)
+                                    }
                                 }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
-                            if (pair.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
@@ -148,9 +162,9 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
 
             Row(Modifier.cascade(3), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 BigButton("Nova medição", Modifier.weight(1f)) { nav.go(Screen.TestForm()) }
-                BigButton("Registrar TPA", Modifier.weight(1f)) { nav.go(Screen.TpaForm()) }
-                BigButton("Adicionar habitante", Modifier.weight(1f), color = Luluco.Royal) { nav.go(Screen.LivestockForm()) }
-                BigButton("Nova nota", Modifier.weight(1f), color = Luluco.Royal) { nav.go(Screen.EventForm()) }
+                BigButton("Registrar TPA", Modifier.weight(1f), color = Luluco.Solid) { nav.go(Screen.TpaForm()) }
+                BigButton("Adicionar habitante", Modifier.weight(1f), color = Luluco.Solid) { nav.go(Screen.LivestockForm()) }
+                BigButton("Nova nota", Modifier.weight(1f), color = Luluco.Solid) { nav.go(Screen.EventForm()) }
             }
 
             if (!settings.inventoryNoticeSeen && toReview > 0) {
@@ -207,18 +221,18 @@ private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, h
             Photo(foto, Modifier.fillMaxSize(), maxPx = 1024)
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Luluco.Card, Luluco.Card.copy(alpha = 0.92f), Luluco.Card.copy(alpha = 0.55f)))))
         }
-        // brilho da cor da nota atras do anel, como no ReefFlow
-        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(ring.copy(alpha = 0.22f), androidx.compose.ui.graphics.Color.Transparent), center = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, 0f), radius = 520f)))
+        // brilho bem discreto da cor da nota atras do anel
+        Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(ring.copy(alpha = 0.08f), androidx.compose.ui.graphics.Color.Transparent), center = androidx.compose.ui.geometry.Offset(Float.POSITIVE_INFINITY, 0f), radius = 520f)))
         Row(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             MenuButton()
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Eyebrow(date)
-                Text("$greeting, Lucas", fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 30.sp, letterSpacing = (-0.5).sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("$greeting, Lucas", fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, letterSpacing = (-0.6).sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("$nome  ·  ${numShort(volume)} L  ·  $count habitantes", color = Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
             Box(Modifier.clip(CircleShape).clickable(onClick = onScore).padding(4.dp)) {
-                HealthRing(health.score, 112.dp)
+                HealthRing(health.score, 104.dp, stroke = 5.dp)
             }
         }
     }
@@ -277,11 +291,11 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
         o.routine.tipo == "dosagem" && product != null -> formatDose(doseFor(product, volume), product.doseUnidade)
         else -> o.routine.instrucao.orEmpty()
     }
-    Panel(Modifier.fillMaxWidth(), borderColor = if (due) Luluco.Coral else null, padding = 12.dp) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(fmtTime(o.dueAt), fontFamily = Display, fontSize = 20.sp, color = if (due) Luluco.CoralText else Luluco.PoolText, modifier = Modifier.width(66.dp))
+            Text(fmtTime(o.dueAt), fontSize = 17.sp, fontWeight = FontWeight.Medium, color = if (due) Luluco.CoralText else if (o.open) Luluco.Cream else Luluco.TextFaint, modifier = Modifier.width(62.dp))
             Column(Modifier.weight(1f)) {
-                Text(o.routine.titulo, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(o.routine.titulo, fontWeight = FontWeight.Medium, color = if (o.open) Luluco.Cream else Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (detail.isNotEmpty()) Muted(detail, maxLines = 2)
                 if (o.dueAt.toLocalDate(vm.zone) != day) Muted("vencida em ${fmtDay(o.dueAt)}")
             }
@@ -297,13 +311,13 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
             TextButton(onClick = { vm.undo(o) }) { Text(if (o.state == OccState.FEITO) "Desfazer (não fiz)" else "Desfazer") }
         }
         if (o.open) {
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.padding(start = 62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 BigButton("Feito", Modifier.weight(1.1f), color = Luluco.Pool) {
                     if (o.routine.tipo == "tpa") nav.go(Screen.TpaForm(occurrence = o)) else vm.markDone(o)
                 }
-                if (isToday) BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.SolidHigh) { vm.snooze(o) }
-                BigButton("Pular", Modifier.weight(0.8f), color = Luluco.SolidHigh) { vm.skip(o) }
+                if (isToday) BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.Solid) { vm.snooze(o) }
+                BigButton("Pular", Modifier.weight(0.8f), color = Luluco.Solid) { vm.skip(o) }
             }
         }
     }
@@ -316,19 +330,20 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
         range == null -> Status.SEM_MEDICAO
         else -> statusOf(value, range)
     }
-    Panel(modifier, padding = 12.dp) {
+    Column(modifier.padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(Params.label(param), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 1)
+            Eyebrow(Params.label(param), Modifier.weight(1f))
             Badge(statusLabel(status), statusColor(status))
         }
+        Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Display, fontSize = 38.sp, color = statusColor(status))
+            Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 36.sp, letterSpacing = (-1).sp, color = Luluco.Cream)
             Spacer(Modifier.width(6.dp))
             Text(Params.unit(param), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
         }
         if (range != null) RangeBar(value, range, statusColor(status))
         Muted(if (at != null) "${fmtDateTime(at)} (${fmtAgo(at, now)})" else "sem medição", maxLines = 1)
-        if (daysToExit != null) Text("Projeção: sai da faixa em ~${maxOf(1, daysToExit.roundToInt())} dias", color = Luluco.CoralText, fontSize = 13.sp)
+        if (daysToExit != null) Text("sai da faixa em ~${maxOf(1, daysToExit.roundToInt())} dias", color = Luluco.CoralText, fontSize = 12.sp)
     }
 }
 
@@ -339,17 +354,15 @@ private fun RangeBar(value: Double?, r: ParamRange, markerColor: Color) {
     val lo = r.alertaMin - pad
     val hi = r.alertaMax + pad
     fun frac(v: Double) = ((v - lo) / (hi - lo)).coerceIn(0.0, 1.0).toFloat()
-    Canvas(Modifier.fillMaxWidth().height(18.dp).padding(vertical = 4.dp)) {
+    Canvas(Modifier.fillMaxWidth().height(16.dp).padding(vertical = 6.dp)) {
         val h = size.height
         val radius = CornerRadius(h / 2, h / 2)
-        drawRoundRect(Luluco.Critical.copy(alpha = 0.45f), size = size, cornerRadius = radius)
-        drawRect(Luluco.Coral.copy(alpha = 0.75f), topLeft = Offset(frac(r.alertaMin) * size.width, 0f), size = Size((frac(r.alertaMax) - frac(r.alertaMin)) * size.width, h))
-        drawRect(Luluco.Ok.copy(alpha = 0.8f), topLeft = Offset(frac(r.idealMin) * size.width, 0f), size = Size((frac(r.idealMax) - frac(r.idealMin)) * size.width, h))
+        drawRoundRect(Color.White.copy(alpha = 0.06f), size = size, cornerRadius = radius)
+        drawRoundRect(Color.White.copy(alpha = 0.16f), topLeft = Offset(frac(r.idealMin) * size.width, 0f), size = Size((frac(r.idealMax) - frac(r.idealMin)) * size.width, h), cornerRadius = radius)
         if (value != null) {
             val x = frac(value) * size.width
-            drawCircle(Luluco.Abyss, radius = h * 0.95f, center = Offset(x, h / 2))
-            drawCircle(Luluco.Cream, radius = h * 0.7f, center = Offset(x, h / 2))
-            drawCircle(markerColor, radius = h * 0.4f, center = Offset(x, h / 2))
+            drawCircle(Luluco.Card, radius = h * 1.6f, center = Offset(x, h / 2))
+            drawCircle(markerColor, radius = h * 1.05f, center = Offset(x, h / 2))
         }
     }
 }
@@ -368,8 +381,8 @@ fun AlertCard(a: Alert) {
 
 @Composable
 private fun Stat(modifier: Modifier, value: String, label: String) {
-    Panel(modifier, padding = 12.dp) {
-        Text(value, fontFamily = Display, fontSize = 30.sp, color = Luluco.Cream)
+    Panel(modifier, padding = 14.dp) {
+        Text(value, fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 28.sp, letterSpacing = (-0.8).sp, color = Luluco.Cream)
         Muted(label, maxLines = 2)
     }
 }

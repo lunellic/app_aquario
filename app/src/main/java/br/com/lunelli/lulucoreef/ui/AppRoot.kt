@@ -267,9 +267,9 @@ private fun Drawer(vm: MainViewModel, open: Boolean, current: Screen, onPick: (S
                         .background(if (selected) Luluco.SolidHigh else Color.Transparent).clickable { onPick(t.screen) }.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconTile(t.icon, t.color, 34.dp)
+                    IconTile(t.icon, if (selected) Luluco.Pool else Luluco.TextSoft, 34.dp)
                     Spacer(Modifier.width(14.dp))
-                    Text(t.label, fontSize = 17.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, color = Luluco.Cream)
+                    Text(t.label, fontSize = 16.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = if (selected) Luluco.Cream else Luluco.TextSoft)
                 }
             }
         }

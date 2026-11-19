@@ -21,37 +21,35 @@ import br.com.lunelli.lulucoreef.R
  * Os nomes antigos foram mantidos para nao mexer em todas as telas; os valores mudaram.
  */
 object Luluco {
-    // destaque principal (acoes, selecao, progresso)
-    val Pool = Color(0xFF19C3A3)      // verde-agua
-    val PoolText = Color(0xFF34D8B8)
-    val Royal = Color(0xFF2F6FDB)     // azul (acao secundaria e inicio do degrade)
-    // atencao e alerta
-    val Coral = Color(0xFFF2643D)     // coral para borda/selo de "atrasado"
-    val CoralText = Color(0xFFFBBF24) // ambar legivel para texto de atencao
-    val Ok = Color(0xFF22C55E)
-    val Critical = Color(0xFFEF4444)
-    val Neutral = Color(0xFF64748B)
-
-    // categorias (icones em quadradinhos coloridos)
-    val Violet = Color(0xFF8B5CF6)
-    val Blue = Color(0xFF3B82F6)
-    val Amber = Color(0xFFF59E0B)
-    val Pink = Color(0xFFEC4899)
-    val Cyan = Color(0xFF06B6D4)
-
-    // fundo e superficies
-    val DeepTop = Color(0xFF0A0E13)
-    val DeepBottom = Color(0xFF0C1118)
-    val Navy = Color(0xFF0A0E13)
-    val Card = Color(0xFF11171F)
-    val CardBorder = Color(0xFF1F2833)
-    val Solid = Color(0xFF151C26)
-    val SolidHigh = Color(0xFF1C2531)
-
+    // um unico destaque, contido (verde-agua frio); o resto e cinza
+    val Pool = Color(0xFF2CC5A8)
+    val PoolText = Color(0xFF5ED6BF)
+    val Royal = Color(0xFF4C8DF6)
+    // estado
+    val Coral = Color(0xFFE8734A)
+    val CoralText = Color(0xFFF0A267)
+    val Ok = Color(0xFF34C77B)
+    val Critical = Color(0xFFE5534B)
+    val Neutral = Color(0xFF6B7684)
+    // categorias (usadas com parcimonia)
+    val Violet = Color(0xFF8B7CF6)
+    val Blue = Color(0xFF4C8DF6)
+    val Amber = Color(0xFFE5A23C)
+    val Pink = Color(0xFFE06C9F)
+    val Cyan = Color(0xFF38BDF8)
+    // fundo e superficies: preto azulado e um degrau acima
+    val DeepTop = Color(0xFF0B0E13)
+    val DeepBottom = Color(0xFF0B0E13)
+    val Navy = Color(0xFF0B0E13)
+    val Card = Color(0xFF12161C)
+    val CardBorder = Color(0xFF1E242C)
+    val Solid = Color(0xFF161B22)
+    val SolidHigh = Color(0xFF1C222A)
+    val Divider = Color(0xFF1E242C)
     // texto
-    val Cream = Color(0xFFEEF2F6)
-    val TextSoft = Color(0xFF8C99AA)
-
+    val Cream = Color(0xFFECEFF3)
+    val TextSoft = Color(0xFF8B95A3)
+    val TextFaint = Color(0xFF5B6573)
     val Abyss = Navy
     val Deep = Solid
     val DeepHigh = SolidHigh
@@ -63,13 +61,13 @@ fun onColor(bg: Color): Color = if (bg.luminance() > 0.22f) Luluco.Navy else Lul
 /** Fundo em tom da cor (quadradinho de icone, selo, chip). */
 fun tint(c: Color, a: Float = 0.16f): Color = c.copy(alpha = a)
 
-/** Plus Jakarta Sans (licenca OFL, embutida): geometrica e moderna. Display = pesos fortes para numeros e titulos. */
+/** Inter (licenca OFL, embutida): a fonte mais proxima da SF Pro usada no app de referencia. */
 val Jakarta = FontFamily(
-    Font(R.font.jakarta_light, FontWeight.Light),
-    Font(R.font.jakarta_regular, FontWeight.Normal),
-    Font(R.font.jakarta_medium, FontWeight.Medium),
-    Font(R.font.jakarta_semibold, FontWeight.SemiBold),
-    Font(R.font.jakarta_bold, FontWeight.Bold),
+    Font(R.font.inter_light, FontWeight.Light),
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
 )
 val Display = Jakarta
 val Manrope = Jakarta
@@ -102,8 +100,8 @@ private val OceanColors = darkColorScheme(
     scrim = Color(0xCC05080C),
 )
 
-private fun body(size: Int, weight: FontWeight = FontWeight.Normal) = TextStyle(fontFamily = Jakarta, fontWeight = weight, fontSize = size.sp, lineHeight = (size * 1.4).sp)
-private fun title(size: Int) = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Bold, fontSize = size.sp, lineHeight = (size * 1.2).sp, letterSpacing = (-0.2).sp)
+private fun body(size: Int, weight: FontWeight = FontWeight.Normal) = TextStyle(fontFamily = Jakarta, fontWeight = weight, fontSize = size.sp, lineHeight = (size * 1.4).sp, letterSpacing = (-0.1).sp, fontFeatureSettings = "tnum, cv11")
+private fun title(size: Int) = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.SemiBold, fontSize = size.sp, lineHeight = (size * 1.2).sp, letterSpacing = (-0.4).sp, fontFeatureSettings = "tnum, cv11")
 
 private val LulucoType = Typography(
     displayLarge = title(56), displayMedium = title(44), displaySmall = title(36),

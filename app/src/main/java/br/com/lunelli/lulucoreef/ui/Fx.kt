@@ -66,26 +66,45 @@ fun rememberWaterTime(enabled: Boolean = LocalWaterFx.current): () -> Float {
     return { t.floatValue }
 }
 
-/**
- * Fundo v0.4: grafite escuro com tres manchas de luz (verde-agua, azul e violeta) que derivam
- * bem devagar, como uma aurora discreta. Sem textura e sem shader (o Fire e API 22).
- */
+/** Fundo: preto azulado liso, com um clarão quase imperceptivel no topo. */
 @Composable
 fun WaterBackground(modifier: Modifier = Modifier, strength: Float = 1f) {
-    val time = rememberWaterTime()
+    Canvas(modifier) {
+        drawRect(Luluco.Navy)
+        drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.025f * strength), Color.Transparent), endY = size.height * 0.5f))
+    }
+}
+
+/**
+ * Uma unica onda em fita, feita de muitas linhas finas que se torcem devagar em loop infinito
+ * (inspirada na animacao do Dolby Atmos). Sem shader: so Path e gradiente linear, roda no Fire.
+ */
+@Composable
+fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26) {
+    val time = rememberWaterTime(true)
+    val paths = remember(lines) { List(lines) { androidx.compose.ui.graphics.Path() } }
     Canvas(modifier) {
         val t = time()
-        drawRect(Brush.verticalGradient(listOf(Luluco.DeepTop, Luluco.DeepBottom)))
         val w = size.width
         val h = size.height
-        val big = maxOf(w, h)
-        fun glow(color: Color, a: Float, cx: Float, cy: Float, r: Float) {
-            val c = Offset(cx, cy)
-            drawCircle(Brush.radialGradient(listOf(color.copy(alpha = a * strength), Color.Transparent), c, r), r, c)
+        val cy = h / 2
+        val amp = h * 0.30f
+        val brush = Brush.horizontalGradient(listOf(Luluco.Pool.copy(alpha = 0f), Luluco.Pool.copy(alpha = 0.55f * alpha), Luluco.Royal.copy(alpha = 0.55f * alpha), Luluco.Violet.copy(alpha = 0f)))
+        val steps = 72
+        for (i in 0 until lines) {
+            val f = i / (lines - 1f)
+            val p = paths[i]
+            p.reset()
+            for (s in 0..steps) {
+                val x = w * s / steps
+                val u = x / w * 6.2832f
+                // fita: duas bordas defasadas; cada linha interpola entre elas e a torcao gira com o tempo
+                val twist = cos(u * 0.9f - t * 0.35f + f * 3.1416f)
+                val y = cy + amp * sin(u * 0.75f + t * 0.22f) * (0.55f + 0.45f * sin(t * 0.07f + u * 0.3f)) + amp * 0.42f * twist * (f - 0.5f) * 2f
+                if (s == 0) p.moveTo(x, y) else p.lineTo(x, y)
+            }
+            drawPath(p, brush, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.4f))
         }
-        glow(Luluco.Pool, 0.13f, w * (0.18f + 0.10f * sin(t * 0.045f)), h * (0.10f + 0.08f * cos(t * 0.038f)), big * 0.55f)
-        glow(Luluco.Royal, 0.12f, w * (0.88f + 0.08f * cos(t * 0.031f)), h * (0.35f + 0.12f * sin(t * 0.027f)), big * 0.50f)
-        glow(Luluco.Violet, 0.07f, w * (0.45f + 0.15f * sin(t * 0.022f + 1.3f)), h * (1.0f + 0.06f * cos(t * 0.035f)), big * 0.45f)
     }
 }
 
@@ -146,7 +165,7 @@ fun animatedParam(param: String, value: Double): String {
 
 /** Anel da nota de saude enchendo, com o numero contando no centro. */
 @Composable
-fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp = size / 9, label: String? = "Saúde") {
+fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp = size / 18, label: String? = "Saúde") {
     val a = remember { Animatable(0f) }
     LaunchedEffect(score) { a.animateTo((score ?: 0) / 100f, tween(1100, easing = FastOutSlowInEasing)) }
     val color = scoreColor(score)
@@ -155,11 +174,11 @@ fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp 
             val sw = stroke.toPx()
             val inset = sw / 2
             val arcSize = Size(this.size.width - sw, this.size.height - sw)
-            drawArc(Color.White.copy(alpha = 0.07f), -90f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(sw))
+            drawArc(Color.White.copy(alpha = 0.06f), -90f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(sw))
             if (score != null) drawArc(color, -90f, 360f * a.value, false, Offset(inset, inset), arcSize, style = Stroke(sw, cap = StrokeCap.Round))
         }
         androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (score == null) "-" else (a.value * 100).roundToInt().toString(), fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.34f).sp, color = color)
+            Text(if (score == null) "-" else (a.value * 100).roundToInt().toString(), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = (size.value * 0.32f).sp, letterSpacing = (-1).sp, color = Luluco.Cream)
             if (label != null) Text(label.uppercase(), fontSize = (size.value * 0.095f).coerceAtLeast(10f).sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = Luluco.TextSoft)
         }
     }
