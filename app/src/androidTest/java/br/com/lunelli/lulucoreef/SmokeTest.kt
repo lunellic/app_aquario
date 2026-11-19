@@ -75,8 +75,8 @@ class SmokeTest {
 
     @Test fun semSessaoMostraLogin() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            compose.onNodeWithText("Entrar").assertIsDisplayed()
-            compose.onNodeWithText("E-mail").assertIsDisplayed()
+            compose.onNodeWithText("Entrar", ignoreCase = true).assertIsDisplayed()
+            compose.onNodeWithText("E-mail", ignoreCase = true).assertIsDisplayed()
         }
     }
 
@@ -101,12 +101,12 @@ class SmokeTest {
             compose.waitForIdle()
 
             // Painel: rotina do dia com a dose para 100 L
-            compose.onAllNodesWithText("Hoje").onFirst().assertIsDisplayed()
-            compose.onNodeWithText("1/4 de colher").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Revise o inventário").performScrollTo().assertIsDisplayed()
+            compose.onAllNodesWithText("Hoje", ignoreCase = true).onFirst().assertIsDisplayed()
+            compose.onNodeWithText("1/4 de colher", ignoreCase = true).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Revise o inventário", ignoreCase = true).performScrollTo().assertIsDisplayed()
 
             // Feito gera a dose no historico
-            compose.onNodeWithText("Feito").performScrollTo().performClick()
+            compose.onNodeWithText("Feito", ignoreCase = true).performScrollTo().performClick()
             compose.waitUntil(10_000) { runBlocking { app.graph.db.dosings().all().first().size == 1 } }
             runBlocking {
                 val doses = app.graph.db.dosings().all().first()
@@ -116,49 +116,49 @@ class SmokeTest {
             }
 
             // Registrar teste de KH
-            compose.onNodeWithText("Nova medição").performScrollTo().performClick()
-            compose.onNodeWithText("KH").performTextInput("8,2")
-            compose.onNodeWithText("Salvar").performScrollTo().performClick()
+            compose.onNodeWithText("Nova medição", ignoreCase = true).performScrollTo().performClick()
+            compose.onNodeWithText("KH", ignoreCase = true).performTextInput("8,2")
+            compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
             compose.waitUntil(10_000) { runBlocking { app.graph.db.waterTests().all().first().size == 1 } }
 
             // Historico unificado
             menu("Histórico")
-            compose.onNodeWithText("KH: 8,2 dKH").assertIsDisplayed()
-            compose.onNodeWithText("Goni Supreme: 1/4 de colher").assertIsDisplayed()
+            compose.onNodeWithText("KH: 8,2 dKH", ignoreCase = true).assertIsDisplayed()
+            compose.onNodeWithText("Goni Supreme: 1/4 de colher", ignoreCase = true).assertIsDisplayed()
 
             // Meu Aquario
             menu("Meu Aquário")
-            compose.onAllNodesWithText("2x Palhaço").onFirst().assertExists()
-            compose.onAllNodesWithText("CONFIRMAR").onFirst().assertIsDisplayed()
-            compose.onNodeWithText("Duncan").performClick()
-            compose.onNodeWithText("Editar").assertIsDisplayed()
-            compose.onNodeWithText("Gerar ficha (IA)").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Voltar").performScrollTo().performClick()
+            compose.onAllNodesWithText("2x Palhaço", ignoreCase = true).onFirst().assertExists()
+            compose.onAllNodesWithText("CONFIRMAR", ignoreCase = true).onFirst().assertIsDisplayed()
+            compose.onNodeWithText("Duncan", ignoreCase = true).performClick()
+            compose.onNodeWithText("Editar", ignoreCase = true).assertIsDisplayed()
+            compose.onNodeWithText("Gerar ficha (IA)", ignoreCase = true).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick()
 
             // Graficos
             menu("Gráficos")
-            compose.onNodeWithText("Parâmetros").assertIsDisplayed()
-            compose.onNodeWithText("KH (dKH)").assertIsDisplayed()
+            compose.onNodeWithText("Parâmetros", ignoreCase = true).assertIsDisplayed()
+            compose.onNodeWithText("KH (dKH)", ignoreCase = true).assertIsDisplayed()
 
             // Saude: abre caso e cai na ficha do caso
             menu("Saúde")
-            compose.onNodeWithText("Novo caso").performClick()
-            compose.onNodeWithText("Título (ex.: Duncan fechado)").performTextInput("Duncan fechado")
-            compose.onNodeWithText("Salvar").performScrollTo().performClick()
-            compose.onNodeWithText("Nova entrada").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("Voltar").performScrollTo().performClick()
-            compose.onNodeWithText("Casos abertos (1)").assertIsDisplayed()
+            compose.onNodeWithText("Novo caso", ignoreCase = true).performClick()
+            compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
+            compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
+            compose.onNodeWithText("Nova entrada", ignoreCase = true).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick()
+            compose.onNodeWithText("Casos abertos (1)", ignoreCase = true).assertIsDisplayed()
 
             // Rotinas, Equipamentos e Ajustes abrem sem quebrar
             menu("Rotinas")
-            compose.onNodeWithText("Produtos e Rotinas").assertIsDisplayed()
+            compose.onNodeWithText("Produtos e Rotinas", ignoreCase = true).assertIsDisplayed()
             menu("Equipamentos")
-            compose.onNodeWithText("Nenhum equipamento cadastrado.").assertIsDisplayed()
+            compose.onNodeWithText("Nenhum equipamento cadastrado.", ignoreCase = true).assertIsDisplayed()
             menu("Assistente")
-            compose.onNodeWithText("Analisar meu aquário").assertIsDisplayed()
+            compose.onNodeWithText("Analisar meu aquário", ignoreCase = true).assertIsDisplayed()
             menu("Ajustes")
-            compose.onNodeWithText("Configurações").assertIsDisplayed()
-            compose.onNodeWithText("teste@example.com").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Configurações", ignoreCase = true).assertIsDisplayed()
+            compose.onNodeWithText("teste@example.com", ignoreCase = true).performScrollTo().assertIsDisplayed()
 
             // Sem rede a sessao continua valida (nao volta para o login)
             assertTrue(app.graph.session.loggedIn.value)
@@ -252,7 +252,7 @@ class SmokeTest {
             Thread.sleep(2500)
             shot("painel")
             // calendario do Painel: toca num dia e ve a lista
-            step { compose.onNodeWithText("Adicionar atividade neste dia").performScrollTo() }
+            step { compose.onNodeWithText("Adicionar atividade neste dia", ignoreCase = true).performScrollTo() }
             shot("calendario")
             step { compose.onNodeWithContentDescription("Menu").performScrollTo().performClick() }
             shot("menu")
@@ -261,24 +261,24 @@ class SmokeTest {
             step { menu("Meu Aquário") }
             shot("aquario")
             step { menu("Painel") }
-            step { compose.onNodeWithText("Nova medição").performScrollTo().performClick() }
+            step { compose.onNodeWithText("Nova medição", ignoreCase = true).performScrollTo().performClick() }
             shot("teste")
-            step { compose.onNodeWithText("Voltar").performScrollTo().performClick() }
+            step { compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick() }
             // vitrine entra sozinha depois de 1 minuto sem toque
             // (no teste o relogio das corrotinas e virtual: espera o tempo real e depois avanca o relogio para o app notar)
             Thread.sleep(63_000)
             compose.mainClock.advanceTimeBy(11_000)
             shot("vitrine")
             // toque acorda o Painel; relatorios
-            step { compose.onNodeWithText("Próximos passos").performClick() }
+            step { compose.onNodeWithText("Próximos passos", ignoreCase = true).performClick() }
             // atividade de uma vez so, criada a partir do calendario
-            step { compose.onNodeWithText("Adicionar atividade neste dia").performScrollTo().performClick() }
-            step { compose.onNodeWithText("Título").performTextInput("Muda de coral") }
-            step { compose.onNodeWithText("Salvar").performScrollTo().performClick() }
+            step { compose.onNodeWithText("Adicionar atividade neste dia", ignoreCase = true).performScrollTo().performClick() }
+            step { compose.onNodeWithText("Título", ignoreCase = true).performTextInput("Muda de coral") }
+            step { compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick() }
             step { compose.waitUntil(10_000) { runBlocking { app.graph.db.routines().all().first().any { it.recorrencia == "unica" && it.proximaEm != null } } } }
-            step { compose.onAllNodesWithText("Muda de coral").onFirst().performScrollTo().assertIsDisplayed() }
+            step { compose.onAllNodesWithText("Muda de coral", ignoreCase = true).onFirst().performScrollTo().assertIsDisplayed() }
             step { menu("Relatórios") }
-            step { compose.onNodeWithText("Enviar para meu e-mail").assertIsDisplayed() }
+            step { compose.onNodeWithText("Enviar para meu e-mail", ignoreCase = true).assertIsDisplayed() }
             shot("relatorios")
             // modo noite: liga para qualquer hora e espera 1 minuto sem toque
             app.graph.settings.update { it.copy(nightStartHour = 0, nightEndHour = 0, vitrineMinutes = 0) }
