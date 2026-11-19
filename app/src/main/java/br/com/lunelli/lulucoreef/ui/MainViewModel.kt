@@ -168,7 +168,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Compra parcelada no cartao: uma entrada por fatura, todas com o mesmo grupo. */
     fun saveInstallments(base: FinanceEntry, n: Int) {
         val grupo = br.com.lunelli.lulucoreef.data.newId()
-        val parte = Math.round(base.valor / n * 100) / 100.0
+        val parte = Math.floor(base.valor / n * 100) / 100.0 // como o cartao: parcelas iguais e a sobra dos centavos na ultima
         val start = java.time.Instant.ofEpochMilli(base.lancadoEm).atZone(zone)
         for (i in 0 until n) {
             val v = if (i == n - 1) Math.round((base.valor - parte * (n - 1)) * 100) / 100.0 else parte
@@ -177,9 +177,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Marca o item como comprado e lanca a despesa; desmarcar apaga a despesa ligada a ele. */
-    fun buy(item: ShoppingItem, valor: Double, quando: Long) {
+    fun buy(item: ShoppingItem, valor: Double, quando: Long, forma: String = "pix", parcelas: Int = 1) {
         save(item.copy(compradoEm = quando, valorPago = valor))
-        save(FinanceEntry(lancadoEm = quando, tipo = "despesa", categoria = item.categoria, descricao = item.nome, valor = valor, aquario = item.aquario, shoppingItemId = item.id))
+        val e = FinanceEntry(lancadoEm = quando, tipo = "despesa", categoria = item.categoria, descricao = item.nome, valor = valor, aquario = item.aquario, shoppingItemId = item.id, forma = forma)
+        if (forma == "cartao" && parcelas > 1) saveInstallments(e, parcelas) else save(e)
     }
     fun unbuy(item: ShoppingItem) {
         save(item.copy(compradoEm = null, valorPago = null))

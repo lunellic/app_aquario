@@ -288,6 +288,8 @@ private fun Compras(vm: MainViewModel, nav: Nav) {
     comprando?.let { item ->
         var valor by remember(item.id) { mutableStateOf(item.valorMedio?.let { numShort(it) } ?: "") }
         var quando by remember(item.id) { mutableLongStateOf(System.currentTimeMillis()) }
+        var forma by remember(item.id) { mutableStateOf("pix") }
+        var parc by remember(item.id) { mutableIntStateOf(1) }
         AlertDialog(
             onDismissRequest = { comprando = null },
             title = { Text("Comprei: ${item.nome}") },
@@ -295,10 +297,11 @@ private fun Compras(vm: MainViewModel, nav: Nav) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     NumInput("Valor pago", valor, Modifier.fillMaxWidth(), suffix = "R$") { valor = it }
                     DateTimeField("Quando", quando) { quando = it }
-                    Muted("Vira uma despesa de ${catLabel(item.categoria)} no mês.")
+                    PagamentoPicker(forma, parc, parseMoney(valor), { forma = it }, { parc = it })
+                    Muted("Vira uma despesa de ${catLabel(item.categoria)}.")
                 }
             },
-            confirmButton = { TextButton(enabled = parseMoney(valor) != null, onClick = { vm.buy(item, parseMoney(valor)!!, quando); comprando = null }) { Text("Lançar") } },
+            confirmButton = { TextButton(enabled = parseMoney(valor) != null, onClick = { vm.buy(item, parseMoney(valor)!!, quando, forma, if (forma == "cartao") parc else 1); comprando = null }) { Text("Lançar") } },
             dismissButton = { TextButton(onClick = { comprando = null }) { Text("Cancelar") } },
         )
     }
@@ -333,14 +336,8 @@ fun FinanceForm(vm: MainViewModel, nav: Nav, id: String?, tipoInicial: String? =
             DateTimeField("Data", quando) { quando = it }
         }
         if (tipo == "despesa") {
-            SectionTitle("Pagou com")
-            ChipRow(listOf("pix" to "Pix (sai da caixinha)", "cartao" to "Cartão de crédito"), forma) { forma = it }
-            if (forma == "cartao" && edit == null) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    NumInput("Parcelas", parcelas, Modifier.width(140.dp), suffix = "x") { parcelas = it }
-                    parseMoney(valor)?.let { v -> if (nParc > 1) Muted("$nParc parcelas de ${money(v / nParc)}, uma por fatura. Dá para apagar uma parcela depois.") }
-                }
-            }
+            if (edit == null) PagamentoPicker(forma, parcelas.toIntOrNull() ?: 1, parseMoney(valor), { forma = it }, { parcelas = it.toString() })
+            else ChipRow(listOf("pix" to "Pix (sai da caixinha)", "cartao" to "Cartão de crédito"), forma) { forma = it }
             if (edit?.parcelaTexto() != null) Muted("Esta é a ${edit.parcelaTexto()}. Salvar ou apagar mexe só nesta parcela.")
         }
         if (!caixa) {
@@ -400,5 +397,21 @@ fun ShoppingForm(vm: MainViewModel, nav: Nav, id: String?) {
     if (confirmDelete && edit != null) {
         ConfirmDialog("Apagar item", "Sai da lista de compras.", "Apagar",
             onConfirm = { vm.delete(edit); confirmDelete = false; nav.back() }, onDismiss = { confirmDelete = false })
+    }
+}
+
+/** Pix ou credito; no credito aparece a roleta de parcelas (1 a 24). */
+@Composable
+fun PagamentoPicker(forma: String, parcelas: Int, total: Double?, onForma: (String) -> Unit, onParcelas: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Eyebrow("Pagou com")
+        ChipRow(listOf("pix" to "Pix (sai da caixinha)", "cartao" to "Crédito"), forma) { onForma(it) }
+        if (forma == "cartao") {
+            val labels = remember { (1..24).map { if (it == 1) "à vista" else "${it}x" } }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                WheelPicker(labels, parcelas.coerceIn(1, 24) - 1, { onParcelas(it + 1) }, Modifier.width(120.dp))
+                total?.let { v -> Muted(if (parcelas > 1) "$parcelas parcelas de ${money(v / parcelas)}, uma por fatura." else "Uma parcela só, na fatura do ciclo.") }
+            }
+        }
     }
 }

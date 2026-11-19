@@ -111,14 +111,19 @@ fun VitrineScreen(vm: MainViewModel) {
             Photo(foto, Modifier.fillMaxSize(), maxPx = 120)
             Box(Modifier.fillMaxSize().background(Luluco.Navy.copy(alpha = 0.88f)))
         }
-        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.9f, fadeAt = 0.8f)
+        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.56f).align(Alignment.Center), alpha = 1f, fadeAt = 0.8f, stroke = 2.6f)
 
         Column(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 32.dp)) {
         Row(Modifier.weight(1f)) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(fmtTime(now), transitionSpec = { (fadeIn(tween(900)) + slideInVertically(tween(900)) { it / 8 }) togetherWith (fadeOut(tween(600)) + slideOutVertically(tween(900)) { -it / 8 }) }, label = "relogio") { t ->
-                    Text(t, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, lineHeight = 128.sp, letterSpacing = (-3).sp, color = Luluco.Cream, maxLines = 1)
+                    // Bold da SF e o peso maximo que temos; tres copias lado a lado (cor opaca) engrossam o traco sem borrar
+                    Box {
+                        listOf(-1.2f, 0f, 1.2f).forEach { dx ->
+                            Text(t, Modifier.offset(x = dx.dp), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, lineHeight = 128.sp, letterSpacing = (-2).sp, color = Luluco.Cream, maxLines = 1)
+                        }
+                    }
                 }
                 Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                 Spacer(Modifier.weight(1f))

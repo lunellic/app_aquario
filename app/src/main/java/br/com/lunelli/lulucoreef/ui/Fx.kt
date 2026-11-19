@@ -80,7 +80,7 @@ fun WaterBackground(modifier: Modifier = Modifier, strength: Float = 1f) {
  * (inspirada na animacao do Dolby Atmos). Sem shader: so Path e gradiente linear, roda no Fire.
  */
 @Composable
-fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26, fadeAt: Float = 1f) {
+fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26, fadeAt: Float = 1f, stroke: Float = 1.4f) {
     val time = rememberWaterTime(true)
     val paths = remember(lines) { List(lines) { androidx.compose.ui.graphics.Path() } }
     Canvas(modifier) {
@@ -108,7 +108,7 @@ fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26,
                 val y = cy + amp * sin(u * 0.75f + t * 0.22f) * (0.55f + 0.45f * sin(t * 0.07f + u * 0.3f)) + amp * 0.42f * twist * (f - 0.5f) * 2f
                 if (s == 0) p.moveTo(x, y) else p.lineTo(x, y)
             }
-            drawPath(p, brush, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.4f))
+            drawPath(p, brush, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
         }
     }
 }

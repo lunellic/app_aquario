@@ -55,6 +55,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -235,8 +237,12 @@ private fun MainScaffold(vm: MainViewModel, nav: Nav) {
     var lastBack by remember { mutableLongStateOf(0L) }
     val ctx = LocalContext.current
     val focus = LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val sink = remember { androidx.compose.ui.focus.FocusRequester() }
+    // tira o foco dos campos sem deixar o sistema escolher outro campo (no Fire isso abria o teclado sozinho)
+    val parkFocus = { keyboard?.hide(); runCatching { sink.requestFocus() }; Unit }
     DisposableEffect(nav, focus) {
-        nav.onLeave = { focus.clearFocus(force = true) }
+        nav.onLeave = { parkFocus() }
         onDispose { nav.onLeave = {} }
     }
     // Voltar: fecha o menu, volta a tela, vai ao Painel; no Painel so sai com dois toques em ate 2 s (modo quiosque).
@@ -252,10 +258,10 @@ private fun MainScaffold(vm: MainViewModel, nav: Nav) {
             }
         }
     }
-    CompositionLocalProvider(LocalOpenMenu provides { focus.clearFocus(force = true); menuOpen = true }) {
+    CompositionLocalProvider(LocalOpenMenu provides { parkFocus(); menuOpen = true }) {
         Box(Modifier.fillMaxSize()) {
-            Box(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)) { ScreenContent(vm, nav) }
-            Drawer(vm, menuOpen, nav.stack.first(), onPick = { menuOpen = false; nav.top(it) }, onClose = { menuOpen = false })
+            Box(Modifier.fillMaxSize().focusRequester(sink).focusable().padding(horizontal = 18.dp, vertical = 14.dp)) { ScreenContent(vm, nav) }
+            Drawer(vm, menuOpen, nav.stack.first(), onPick = { parkFocus(); menuOpen = false; nav.top(it) }, onClose = { parkFocus(); menuOpen = false })
         }
     }
 }
