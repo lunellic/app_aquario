@@ -214,8 +214,6 @@ fun NightScreen(vm: MainViewModel) {
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             Box {
                 Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Color(0xFF8D939B))
-                Text(clock, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = 128.sp, letterSpacing = (-3).sp, color = Color(0xFF8D939B),
-                    style = androidx.compose.ui.text.TextStyle(drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 5f, join = androidx.compose.ui.graphics.StrokeJoin.Round)))
             }
             if (next != null) {
                 Spacer(Modifier.height(14.dp))
