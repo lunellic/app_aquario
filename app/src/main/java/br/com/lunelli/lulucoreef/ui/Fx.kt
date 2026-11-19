@@ -283,46 +283,29 @@ fun shortDate(d: java.time.LocalDate): String {
  * Cada digito vira sozinho quando muda. [dim] escurece tudo para o modo noite.
  */
 @Composable
-fun GlassClock(time: String, date: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f) {
+fun GlassClock(time: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f) {
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
-        // 4 digitos + dois pontos ocupam ~1,3 em na Barlow Condensed SemiBold com os digitos encostados
-        val fs = minOf(maxFont, (maxWidth.value - 40f) / 1.32f)
+        // so os numeros (sem painel atras): 4 digitos + dois pontos ocupam ~1,3 em na Barlow Condensed
+        val fs = minOf(maxFont, maxWidth.value / 1.32f)
         val size = fs.sp
-        val glassShape = androidx.compose.foundation.shape.RoundedCornerShape((fs * 0.13f).dp)
-        val pillShape = androidx.compose.foundation.shape.RoundedCornerShape(50)
-        val rim = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.30f * dim), Color.White.copy(alpha = 0.06f * dim)))
-        val glass = Brush.verticalGradient(listOf(Color(0xFF3B3E43).copy(alpha = 0.92f), Color(0xFF1C1E21).copy(alpha = 0.92f)))
-        androidx.compose.foundation.layout.Column(Modifier.graphicsLayer { alpha = dim }) {
-            // data numa pilula de vidro
-            androidx.compose.foundation.layout.Box(
-                Modifier.fillMaxWidthCompat().clip(pillShape).background(glass).border(1.5.dp, rim, pillShape).padding(vertical = (fs * 0.025f).coerceIn(6f, 12f).dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(date, fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = (fs * 0.10f).coerceIn(18f, 30f).sp, color = Color(0xFFF2F3F5))
-            }
-            androidx.compose.foundation.layout.Spacer(Modifier.height((fs * 0.03f).dp))
-            // painel de vidro com os numeros
-            androidx.compose.foundation.layout.Box(
-                Modifier.fillMaxWidthCompat().clip(glassShape).background(glass).border(1.5.dp, rim, glassShape)
-                    .padding(horizontal = (fs * 0.035f).dp, vertical = (fs * 0.035f).dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((-fs * 0.035f).dp)) {
-                    time.forEachIndexed { i, ch ->
-                        androidx.compose.runtime.key(i) {
-                            if (ch == ':') GlassColon(fs)
-                            else androidx.compose.animation.AnimatedContent(
-                                targetState = ch,
-                                transitionSpec = {
-                                    (androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it } +
-                                        androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400))) togetherWith
-                                        (androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } +
-                                            androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(320)))
-                                },
-                                label = "vidro$i",
-                            ) { c -> GlassDigit(c, size, fs) }
-                        }
-                    }
+        androidx.compose.foundation.layout.Row(
+            Modifier.graphicsLayer { alpha = dim },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((-fs * 0.035f).dp),
+        ) {
+            time.forEachIndexed { i, ch ->
+                androidx.compose.runtime.key(i) {
+                    if (ch == ':') GlassColon(fs)
+                    else androidx.compose.animation.AnimatedContent(
+                        targetState = ch,
+                        transitionSpec = {
+                            (androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it } +
+                                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400))) togetherWith
+                                (androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } +
+                                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(320)))
+                        },
+                        label = "vidro$i",
+                    ) { c -> GlassDigit(c, size, fs) }
                 }
             }
         }

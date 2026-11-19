@@ -117,7 +117,9 @@ fun VitrineScreen(vm: MainViewModel) {
         Row(Modifier.weight(1f)) {
             // esquerda: hora, data, saude e o que vem
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                GlassClock(fmtTime(now), shortDate(zdt.toLocalDate()), Modifier.fillMaxWidth(0.94f), maxFont = 300f)
+                GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.8f), maxFont = 190f)
+                Spacer(Modifier.height(8.dp))
+                Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                 Spacer(Modifier.weight(1f))
                 // todos os avisos ativos (ate 4), um por linha
                 Column(Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -208,7 +210,6 @@ fun NightScreen(vm: MainViewModel) {
         setBrightness(activity, 0.12f)
         onDispose { setBrightness(activity, WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE) }
     }
-    val next = remember(routines, logs, now / 600_000) { upcoming(routines, logs, now, vm.zone, limit = 1).firstOrNull() }
     val clock = remember(now / 60_000) { java.time.Instant.ofEpochMilli(now).atZone(vm.zone).format(DateTimeFormatter.ofPattern("HH:mm")) }
     val amanha = remember(routines, logs, now / 600_000) {
         val d = now.toLocalDate(vm.zone).plusDays(1)
@@ -225,11 +226,10 @@ fun NightScreen(vm: MainViewModel) {
         }
         AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            GlassClock(clock, shortDate(java.time.Instant.ofEpochMilli(now).atZone(vm.zone).toLocalDate()), Modifier.width(520.dp), maxFont = 300f, dim = 0.6f)
-            if (next != null) {
-                Spacer(Modifier.height(14.dp))
-                Text("${whenText(next.dueAt, now, vm.zone)} · ${next.routine.titulo}", fontSize = 17.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))
-            }
+            GlassClock(clock, Modifier.width(520.dp), maxFont = 300f, dim = 0.6f)
+            Spacer(Modifier.height(14.dp))
+            Text(java.time.Instant.ofEpochMilli(now).atZone(vm.zone).format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr)).replaceFirstChar { it.uppercase() },
+                fontSize = 18.sp, color = Luluco.TextSoft.copy(alpha = 0.6f))
         }
         // amanha, bem discreto, no canto de baixo
         if (amanha.second.isNotEmpty()) Column(Modifier.align(Alignment.BottomStart).padding(start = 40.dp, bottom = 32.dp)) {
