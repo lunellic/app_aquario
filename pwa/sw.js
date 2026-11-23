@@ -3,7 +3,7 @@
  * Os dados nunca entram no cache: parametro e rotina desatualizados sao pior que tela vazia, e o
  * PWA serve justamente para ver como esta agora. Sem rede ele abre e avisa que nao carregou.
  */
-const CACHE = 'luluco-casca-v4';
+const CACHE = 'luluco-casca-v5';
 const CASCA = ['./', './index.html', './style.css', './ui.js', './app.js', './graficos.js', './agenda.js', './financas.js', './relatorios.js', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', (e) => {

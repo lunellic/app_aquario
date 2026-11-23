@@ -395,6 +395,8 @@ function aListaDeCompras(caixa) {
       c.appendChild(el('div', 'titulo feito', it.nome));
       i.appendChild(c);
       if (it.valor_pago) i.appendChild(el('div', 'valor-linha', dinheiro(it.valor_pago)));
+      // Comprado tambem abre: era a unica lista do app onde a linha nao tinha volta.
+      i.onclick = () => folhaItem(it);
       l2.appendChild(i);
     });
     caixa.appendChild(l2);
@@ -437,6 +439,19 @@ function folhaItem(existente) {
       } catch (err) { toast(err.message, true); } finally { ocupado(false); }
     };
     c.appendChild(b);
+
+    // Apagar item da lista. Existia no tablet e nao existia aqui: no celular so dava para
+    // editar ou marcar como comprado, e marcar algo que nunca foi comprado como comprado
+    // sujaria o historico de gasto so para tirar a linha da tela.
+    if (existente) {
+      const del = el('button', null, 'Apagar');
+      del.onclick = async () => {
+        ocupado(true);
+        try { await apagar('shopping_items', existente.id); await recarregar(); fecharFolha(); toast('Apagado.'); }
+        catch (err) { toast(err.message, true); } finally { ocupado(false); }
+      };
+      c.appendChild(del);
+    }
   });
 }
 
