@@ -13,7 +13,8 @@ import kotlin.math.roundToInt
 data class ScoreItem(val label: String, val points: Double)
 
 /** score nulo = sem dados suficientes; `missing` diz o que falta registrar. */
-data class HealthScore(val score: Int?, val items: List<ScoreItem>, val missing: List<String>)
+/** `critico` = algum parametro esta na zona critica agora, independente de quanto deu a nota. */
+data class HealthScore(val score: Int?, val items: List<ScoreItem>, val missing: List<String>, val critico: Boolean = false)
 
 /** Nota de saude 0-100 (spec 10): comeca em 100 e desconta por regra fixa e explicavel. */
 fun healthScore(
@@ -23,6 +24,7 @@ fun healthScore(
     val tests = allTests.reliable()
     val items = ArrayList<ScoreItem>()
     val missing = ArrayList<String>()
+    var critico = false
 
     fun param(p: String, factor: Double, staleCounts: Boolean) {
         val last = tests.latestOf(p)
@@ -38,7 +40,10 @@ fun healthScore(
         val r = ranges[p] ?: return
         when (statusOf(last.valor, r)) {
             Status.ATENCAO -> items += ScoreItem("${Params.label(p)} em atenção (${Params.format(p, last.valor)})", -8 * factor)
-            Status.CRITICO -> items += ScoreItem("${Params.label(p)} crítico (${Params.format(p, last.valor)})", -15 * factor)
+            Status.CRITICO -> {
+                items += ScoreItem("${Params.label(p)} crítico (${Params.format(p, last.valor)})", -15 * factor)
+                critico = true
+            }
             else -> {}
         }
     }
@@ -70,7 +75,7 @@ fun healthScore(
 
     // cada desconto e arredondado para ponto inteiro: nada de nota quebrada
     val rounded = items.map { it.copy(points = -Math.round(-it.points).toDouble()) }
-    if (missing.isNotEmpty()) return HealthScore(null, rounded, missing)
+    if (missing.isNotEmpty()) return HealthScore(null, rounded, missing, critico)
     val score = (100 + rounded.sumOf { it.points }).roundToInt().coerceIn(0, 100)
-    return HealthScore(score, rounded, missing)
+    return HealthScore(score, rounded, missing, critico)
 }

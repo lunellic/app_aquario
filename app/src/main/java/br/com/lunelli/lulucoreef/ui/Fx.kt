@@ -196,11 +196,11 @@ fun animatedParam(param: String, value: Double): String {
 
 /** Anel da nota de saude enchendo, com o numero contando no centro. */
 @Composable
-fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp = size / 18, label: String? = "Saúde") {
+fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp = size / 18, label: String? = "Saúde", critico: Boolean = false) {
     val anim = LocalAnim.current
     val a = remember { Animatable(if (anim) 0f else (score ?: 0) / 100f) }
     LaunchedEffect(score, anim) { if (anim) a.animateTo((score ?: 0) / 100f, tween(1100, easing = FastOutSlowInEasing)) else a.snapTo((score ?: 0) / 100f) }
-    val color = scoreColor(score)
+    val color = scoreColor(score, critico)
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
             val sw = stroke.toPx()
@@ -216,8 +216,14 @@ fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp 
     }
 }
 
-fun scoreColor(score: Int?): Color = when {
+/**
+ * Cor do anel da nota. A nota e um total: 85 com um unico parametro critico ainda da 85, e pela
+ * regra do numero o anel ficaria verde. Verde se le como "esta tudo bem", e nao esta: com calcio
+ * critico nada esta bem. Por isso, havendo parametro critico, o anel nao passa de laranja.
+ */
+fun scoreColor(score: Int?, critico: Boolean = false): Color = when {
     score == null -> Luluco.Neutral
+    critico -> if (score >= 65) Luluco.CoralText else Luluco.Critical
     score >= 85 -> Luluco.Ok
     score >= 65 -> Luluco.CoralText
     else -> Luluco.Critical

@@ -274,9 +274,9 @@ function haQuanto(ms) {
 function desenharCabecalho() {
   const caixa = $('#saude');
   caixa.innerHTML = '';
-  const { nota, itens, falta } = notaDeSaude();
+  const { nota, itens, falta, critico } = notaDeSaude();
   const card = el('div', 'card-saude');
-  card.appendChild(anelSaude(nota));
+  card.appendChild(anelSaude(nota, null, critico));
   const lado = el('div', 'saude-lado');
   const h = new Date().getHours();
   lado.appendChild(el('div', 'saude-ola', h < 12 ? 'Bom dia, Lucas' : h < 18 ? 'Boa tarde, Lucas' : 'Boa noite, Lucas'));
@@ -635,7 +635,20 @@ function abrirAba(nome) {
     $(`#aba-${a}`).classList.toggle('hidden', a !== nome);
   });
   document.querySelectorAll('#abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === nome));
+  moverPilula();
   window.scrollTo(0, 0);
+}
+
+/**
+ * A pilula de vidro desliza ate a aba escolhida, em vez de so acender o texto.
+ * Anima transform, que o navegador resolve na GPU, entao nao custa quadro nenhum de layout.
+ */
+function moverPilula() {
+  const b = document.querySelector('#abas button.ativo');
+  const pil = $('#pilula');
+  if (!b || !pil) return;
+  pil.style.width = `${b.offsetWidth - 10}px`;
+  pil.style.transform = `translateX(${b.offsetLeft + 5}px)`;
 }
 
 async function iniciar() {
@@ -693,6 +706,11 @@ function ligar() {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && sessao) recarregar().catch(() => {});
   });
+
+  // a pilula so sabe onde parar depois que a barra tem largura
+  requestAnimationFrame(moverPilula);
+  window.addEventListener('resize', moverPilula);
+  window.addEventListener('orientationchange', () => setTimeout(moverPilula, 120));
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   iniciar();

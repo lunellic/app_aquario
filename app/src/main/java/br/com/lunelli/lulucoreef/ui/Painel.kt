@@ -220,7 +220,7 @@ private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, h
     val greeting = when (zdt.hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
     val date = zdt.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr)).replaceFirstChar { it.uppercase() }
     val shape = RoundedCornerShape(20.dp)
-    val ring = scoreColor(health.score)
+    val ring = scoreColor(health.score, health.critico)
     Box(modifier.fillMaxWidth().height(148.dp).clip(shape).background(Luluco.Card).border(1.dp, Luluco.CardBorder, shape)) {
         if (foto != null) {
             Photo(foto, Modifier.fillMaxSize(), maxPx = 1024)
@@ -237,7 +237,7 @@ private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, h
                 Text("$nome  ·  ${numShort(volume)} L  ·  $count habitantes", color = Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
             Box(Modifier.clip(CircleShape).clickable(onClick = onScore).padding(4.dp)) {
-                HealthRing(health.score, 104.dp, stroke = 5.dp)
+                HealthRing(health.score, 104.dp, stroke = 5.dp, critico = health.critico)
             }
         }
     }

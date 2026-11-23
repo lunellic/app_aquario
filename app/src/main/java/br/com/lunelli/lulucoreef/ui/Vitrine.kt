@@ -86,7 +86,8 @@ fun VitrineScreen(vm: MainViewModel) {
 
     val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone, now)
     val alertas = allAlerts(allTests, ranges, changes, today, cases, entries, now).take(4)
-    val score = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone).score
+    val saude = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone)
+    val score = saude.score
     val foto = tank?.fotoVitrinePath
 
     val shown = Params.ALL.filter { it in settings.shownParams }
@@ -169,7 +170,7 @@ fun VitrineScreen(vm: MainViewModel) {
             }
             // rodape enxuto: o que nao e parametro
             Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(44.dp)) {
-                VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score))
+                VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score, saude.critico))
                 VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
                     if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else null)
             }

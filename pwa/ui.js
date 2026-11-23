@@ -82,11 +82,11 @@ function areaDaRotina(tipo) {
  * Anel da nota de saude, como no Painel do tablet: o arco enche ate a nota e a cor diz em que pe
  * o aquario esta. Sem nota (falta medir algo), fica o tracinho e o anel vazio.
  */
-function anelSaude(nota, tamanho) {
+function anelSaude(nota, tamanho, temCritico) {
   const t = tamanho || 86;
   const r = t / 2 - 5;
   const volta = 2 * Math.PI * r;
-  const cor = corDaNota(nota);
+  const cor = corDaNota(nota, temCritico);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${t} ${t}`);
   svg.setAttribute('width', t);
@@ -113,8 +113,14 @@ function anelSaude(nota, tamanho) {
   return caixa;
 }
 
-function corDaNota(n) {
+/**
+ * Cor do anel. A nota e um total: 85 com um unico parametro critico ainda da 85, e pela regra do
+ * numero o anel ficaria verde. Verde se le como "esta tudo bem", e nao esta: com calcio critico
+ * nada esta bem. Por isso, havendo parametro critico, o anel nao passa de laranja.
+ */
+function corDaNota(n, temCritico) {
   if (n == null) return 'var(--fraco)';
+  if (temCritico) return n >= 65 ? 'var(--aviso)' : 'var(--critico)';
   if (n >= 85) return 'var(--ok)';
   if (n >= 65) return 'var(--aviso)';
   return 'var(--critico)';
@@ -176,6 +182,7 @@ function notaDeSaude() {
   const agora = Date.now();
   const itens = [];
   const falta = [];
+  let critico = false;
   const principais = ['kh', 'ca', 'mg', 'salinidade'];
 
   const avaliar = (p, peso, contaFalta) => {
@@ -187,7 +194,7 @@ function notaDeSaude() {
     if (!r) return;
     const st = statusDe(Number(u.valor), r);
     if (st === 'aviso') itens.push({ txt: `${ROTULOS[p]} em atenção`, pts: -8 * peso });
-    if (st === 'critico') itens.push({ txt: `${ROTULOS[p]} crítico`, pts: -15 * peso });
+    if (st === 'critico') { itens.push({ txt: `${ROTULOS[p]} crítico`, pts: -15 * peso }); critico = true; }
   };
   principais.forEach((p) => avaliar(p, 1, true));
   ['no3', 'po4'].forEach((p) => {
@@ -207,7 +214,7 @@ function notaDeSaude() {
   if (abertos > 0) itens.push({ txt: `${abertos} caso${abertos > 1 ? 's' : ''} de saúde aberto${abertos > 1 ? 's' : ''}`, pts: -Math.min(15, 5 * abertos) });
 
   const arredondados = itens.map((i) => ({ ...i, pts: -Math.round(-i.pts) }));
-  if (falta.length) return { nota: null, itens: arredondados, falta };
+  if (falta.length) return { nota: null, itens: arredondados, falta, critico };
   const nota = Math.max(0, Math.min(100, Math.round(100 + arredondados.reduce((a, i) => a + i.pts, 0))));
-  return { nota, itens: arredondados, falta };
+  return { nota, itens: arredondados, falta, critico };
 }

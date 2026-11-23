@@ -401,6 +401,20 @@ class ReportAndUpcomingTest {
     }
 }
 
+/** Cor do anel: a nota e um total, mas parametro critico nunca pode aparecer em verde. */
+class CorDaNotaTest {
+    @org.junit.Test fun criticoNaoFicaVerde() {
+        // 85 e verde pela regra do numero
+        assertEquals(br.com.lunelli.lulucoreef.ui.Luluco.Ok, br.com.lunelli.lulucoreef.ui.scoreColor(85))
+        // com parametro critico, a mesma nota 85 fica laranja
+        assertEquals(br.com.lunelli.lulucoreef.ui.Luluco.CoralText, br.com.lunelli.lulucoreef.ui.scoreColor(85, critico = true))
+        // nota baixa com critico segue vermelha
+        assertEquals(br.com.lunelli.lulucoreef.ui.Luluco.Critical, br.com.lunelli.lulucoreef.ui.scoreColor(50, critico = true))
+        // sem nota, neutro
+        assertEquals(br.com.lunelli.lulucoreef.ui.Luluco.Neutral, br.com.lunelli.lulucoreef.ui.scoreColor(null, critico = true))
+    }
+}
+
 /** Alarmes do tablet: quando o proximo toque cai. */
 class AlarmTest {
     private val zone = java.time.ZoneId.of("America/Sao_Paulo")

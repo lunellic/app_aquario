@@ -7,14 +7,14 @@
  */
 'use strict';
 
-const M_ABAS = [['jornal', 'Jornal'], ['relatorio', 'Relatório']];
+const M_ABAS = [['agenda', 'Agenda'], ['jornal', 'Jornal'], ['relatorio', 'Relatório']];
 const SECOES = [
   ['resumo', 'Resumo'], ['testes', 'Testes'], ['consumo', 'Consumo'], ['tpas', 'TPAs'],
   ['produtos', 'Produtos usados'], ['rotinas', 'Rotinas e manutenção'], ['notas', 'Notas e saúde'],
 ];
 const R_PERIODOS = [['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias'], ['365', '1 ano']];
 
-let mAba = 'jornal';
+let mAba = 'agenda';
 let rPeriodo = '30';
 let rSecoes = SECOES.map((s) => s[0]);
 
@@ -22,7 +22,8 @@ function desenharMais() {
   chips($('#m-abas'), M_ABAS, mAba, (v) => { mAba = v; desenharMais(); });
   const caixa = $('#mais');
   caixa.innerHTML = '';
-  if (mAba === 'jornal') oJornal(caixa);
+  if (mAba === 'agenda') desenharAgenda(caixa);
+  else if (mAba === 'jornal') oJornal(caixa);
   else oRelatorio(caixa);
 }
 
