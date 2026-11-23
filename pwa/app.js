@@ -270,6 +270,31 @@ function haQuanto(ms) {
   return ddmm(ms);
 }
 
+/** Cabecalho do Painel: anel da nota, saudacao e o que mais pesa contra a nota agora. */
+function desenharCabecalho() {
+  const caixa = $('#saude');
+  caixa.innerHTML = '';
+  const { nota, itens, falta } = notaDeSaude();
+  const card = el('div', 'card-saude');
+  card.appendChild(anelSaude(nota));
+  const lado = el('div', 'saude-lado');
+  const h = new Date().getHours();
+  lado.appendChild(el('div', 'saude-ola', h < 12 ? 'Bom dia, Lucas' : h < 18 ? 'Boa tarde, Lucas' : 'Boa noite, Lucas'));
+  const piores = itens.slice().sort((a, b) => a.pts - b.pts).slice(0, 2);
+  if (falta.length) lado.appendChild(el('div', 'saude-sub', `Sem nota enquanto faltar: ${falta.join(', ')}.`));
+  else if (!piores.length) lado.appendChild(el('div', 'saude-sub', 'Nada descontando a nota agora.'));
+  else piores.forEach((i) => {
+    const l = el('div', 'saude-linha');
+    const pt = el('span', 'ponto');
+    pt.style.background = i.pts <= -12 ? 'var(--critico)' : 'var(--aviso)';
+    l.appendChild(pt);
+    l.appendChild(el('span', null, `${i.txt} (${i.pts})`));
+    lado.appendChild(l);
+  });
+  card.appendChild(lado);
+  caixa.appendChild(card);
+}
+
 function desenharParams() {
   const caixa = $('#params');
   caixa.innerHTML = '';
@@ -300,6 +325,14 @@ function desenharParams() {
       pe.appendChild(el('span', null, (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '= ') + formatar(p, Math.abs(d))));
     }
     c.appendChild(pe);
+
+    // minigrafico: o detalhe que mostra sem ler numero que o parametro andou fora da faixa
+    const serie = dados.testes
+      .filter((t) => t.parametro === p)
+      .map((t) => ({ em: new Date(t.medido_em).getTime(), v: Number(t.valor), duvida: !!t.baixa_confianca }))
+      .sort((a, b) => a.em - b.em)
+      .slice(-12);
+    if (serie.length >= 2) c.appendChild(minigrafico(serie, r));
 
     if (r) {
       const pad = (Number(r.alerta_max) - Number(r.alerta_min)) * 0.25;
@@ -341,35 +374,32 @@ function desenharHoje() {
     const resolvido = st === 'feito' || st === 'pulado';
     const atrasada = !resolvido && agora >= o.due;
     const item = el('div', 'item');
+    const [ic, cor] = areaDaRotina(o.rotina.tipo);
+    item.appendChild(selo(ic, resolvido ? '#5B6573' : cor));
 
-    item.appendChild(el('div', 'hora', o.arrastada ? ddmm(o.due) : hhmm(o.due)));
-
+    // Numa tela de 390 px nao cabe icone, coluna de hora, titulo, selo e botao: o titulo quebrava
+    // em duas linhas. A hora e o estado descem para a linha de baixo, que ja existe.
     const corpo = el('div', 'corpo');
-    const t = el('div', `titulo${resolvido ? ' feito' : ''}`, o.rotina.titulo);
-    corpo.appendChild(t);
+    corpo.appendChild(el('div', `titulo${resolvido ? ' feito' : ''}`, o.rotina.titulo));
+    const sub = el('div', 'sub');
     const partes = [];
+    if (st === 'feito') partes.push('feito');
+    else if (st === 'pulado') partes.push('pulado');
+    else if (o.arrastada) partes.push(`atrasada desde ${ddmm(o.due)}`);
+    else if (atrasada) partes.push(`atrasada · ${hhmm(o.due)}`);
+    else partes.push(hhmm(o.due));
     const prod = o.rotina.product_id ? porId[o.rotina.product_id] : null;
     if (o.rotina.tipo === 'dosagem' && prod) {
       const q = doseDe(prod, volume());
       if (q != null) partes.push(`${(Math.round(q * 100) / 100).toString().replace('.', ',')} ${prod.dose_unidade || ''}`.trim());
-    }
-    if (o.arrastada) partes.push(`vencida em ${ddmm(o.due)}`);
-    else if (o.rotina.instrucao) partes.push(o.rotina.instrucao);
-    if (partes.length) corpo.appendChild(el('div', 'sub', partes.join(' · ')));
+    } else if (o.rotina.instrucao) partes.push(o.rotina.instrucao);
+    sub.textContent = partes.join(' · ');
+    if (!resolvido && (atrasada || o.arrastada)) sub.style.color = 'var(--aviso)';
+    if (st === 'feito') sub.style.color = 'var(--ok)';
+    corpo.appendChild(sub);
     item.appendChild(corpo);
 
-    if (st === 'feito') {
-      const s = el('span', 'selo', 'feito');
-      s.style.color = 'var(--ok)';
-      item.appendChild(s);
-    } else if (st === 'pulado') {
-      item.appendChild(el('span', 'selo', 'pulado'));
-    } else {
-      if (atrasada) {
-        const s = el('span', 'selo', 'atrasada');
-        s.style.color = 'var(--aviso)';
-        item.appendChild(s);
-      }
+    if (!resolvido) {
       const b = el('button', 'mini', 'Feito');
       b.onclick = () => marcar(o, 'feito');
       item.appendChild(b);
@@ -413,8 +443,9 @@ function desenharResumo() {
   const caixa = $('#resumo');
   caixa.innerHTML = '';
   const tpa = dados.tpas[0];
-  const linha = (titulo, sub) => {
+  const linha = (titulo, sub, ic, cor) => {
     const i = el('div', 'item');
+    if (ic) i.appendChild(selo(ic, cor, 30));
     const c = el('div', 'corpo');
     c.appendChild(el('div', 'titulo', titulo));
     if (sub) c.appendChild(el('div', 'sub', sub));
@@ -423,12 +454,12 @@ function desenharResumo() {
   };
   if (tpa) {
     const dias = Math.floor((Date.now() - new Date(tpa.feita_em)) / DIA_MS);
-    linha(`Última TPA há ${dias} dia${dias === 1 ? '' : 's'}`, `${tpa.litros} L · ${ddmm(tpa.feita_em)}`);
-  } else linha('Nenhuma TPA registrada');
+    linha(`Última TPA há ${dias} dia${dias === 1 ? '' : 's'}`, `${tpa.litros} L · ${ddmm(tpa.feita_em)}`, 'tpa', AREA.tpa);
+  } else linha('Nenhuma TPA registrada', null, 'tpa', AREA.tpa);
   const d = dados.doses[0];
   if (d) {
     const p = dados.produtos.find((x) => x.id === d.product_id);
-    linha(`Última dose: ${p ? p.nome : 'produto'}`, `${d.quantidade} ${d.unidade || ''} · ${haQuanto(d.dosado_em)}`);
+    linha(`Última dose: ${p ? p.nome : 'produto'}`, `${d.quantidade} ${d.unidade || ''} · ${haQuanto(d.dosado_em)}`, 'dose', AREA.dose);
   }
 }
 
@@ -477,6 +508,7 @@ function desenharTudo() {
   const d = new Date();
   $('#hoje-data').textContent = d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   $('#tanque').textContent = (dados.tanque && dados.tanque.nome) || 'Luluco Reef';
+  desenharCabecalho();
   desenharParams();
   desenharHoje();
   desenharResumo();
@@ -638,7 +670,16 @@ function ligar() {
     }
   });
 
-  document.querySelectorAll('#abas button').forEach((b) => { b.onclick = () => abrirAba(b.dataset.aba); });
+  document.querySelectorAll('#abas button').forEach((b) => {
+    const nome = b.dataset.aba;
+    const rotulo = b.textContent;
+    b.textContent = '';
+    b.appendChild(icone(nome, 'currentColor', 21));
+    b.appendChild(el('span', null, rotulo));
+    b.onclick = () => abrirAba(nome);
+  });
+  $('#recarregar').appendChild(icone('recarregar', 'currentColor', 20));
+  $('#recarregar').textContent = '';
   $('#recarregar').onclick = async () => { ocupado(true); try { await recarregar(); toast('Atualizado.'); } catch (e) { toast(e.message, true); } finally { ocupado(false); } };
   $('#salvar-teste').onclick = salvarTeste;
   $('#salvar-tpa').onclick = salvarTpa;

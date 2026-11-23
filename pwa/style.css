@@ -260,3 +260,46 @@ pre.relatorio {
 .folha-topo strong { font-size: 17px; }
 #folha-conteudo { display: grid; gap: 12px; }
 .eixo-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--fraco); margin-top: 4px; }
+
+/* ---------------------------------------------------------------- vocabulario visual */
+
+/* quadradinho com o icone da area: o que dava identidade a cada linha no tablet */
+.selo-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  flex: none;
+}
+
+/* anel da nota de saude */
+.card-saude {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+.anel-caixa { position: relative; flex: none; display: grid; place-items: center; }
+.anel { display: block; }
+.anel-dentro { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.anel-nota { font-size: 26px; font-weight: 600; letter-spacing: -1px; line-height: 1; }
+.anel-rotulo { font-size: 9px; letter-spacing: 1.2px; color: var(--suave); font-weight: 600; margin-top: 3px; }
+.saude-lado { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.saude-ola { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+.saude-sub { font-size: 13px; color: var(--suave); }
+.saude-linha { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--suave); }
+.saude-linha .ponto { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+
+/* minigrafico dentro do card do parametro */
+svg.mini { width: 100%; height: 30px; display: block; margin-top: 8px; overflow: visible; }
+
+/* abas com icone */
+nav#abas button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; }
+nav#abas button svg { opacity: 0.9; }
+
+button.ghost { display: inline-flex; align-items: center; justify-content: center; }
+button.cheio { width: 100%; }

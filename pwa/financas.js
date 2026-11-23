@@ -115,7 +115,7 @@ function resumoDoCiclo(caixa) {
     caixa.appendChild(g2);
   }
 
-  const novo = el('button', 'primary', 'Novo lançamento');
+  const novo = el('button', 'primary cheio', 'Novo lançamento');
   novo.onclick = () => folhaLancamento(null);
   caixa.appendChild(novo);
 
@@ -152,15 +152,27 @@ function resumoDoCiclo(caixa) {
 function linhaLancamento(e) {
   const quitado = podeQuitar(e) && e.pago;
   const i = el('div', 'item');
-  i.appendChild(el('div', 'hora', ddmm(new Date(e.lancado_em).getTime())));
+  const entrada = e.tipo === 'receita' || e.tipo === 'aporte';
+  i.appendChild(selo(entrada ? 'financas' : 'dose', quitado ? '#5B6573' : entrada ? AREA.financas : AREA.calc, 30));
+  // data, estado e forma vao todos para a linha de baixo: na largura do iPhone o titulo quebrava
+  // em tres linhas quando cada um queria a propria coluna
   const c = el('div', 'corpo');
   c.appendChild(el('div', `titulo${quitado ? ' feito' : ''}`, e.descricao || catRotulo(e.categoria)));
-  c.appendChild(el('div', 'sub', [catRotulo(e.categoria), aquarioRotulo(e.aquario), formaTexto(e), parcelaTexto(e)].filter(Boolean).join(' · ')));
+  const estado = quitado ? 'paga' : emAberto(e) ? 'a pagar' : null;
+  // so a palavra do estado leva cor: a linha inteira laranja fica gritando
+  const sub = el('div', 'sub');
+  sub.appendChild(el('span', null, ddmm(new Date(e.lancado_em).getTime())));
+  if (estado) {
+    sub.appendChild(el('span', null, ' · '));
+    const marca = el('span', null, estado);
+    marca.style.color = estado === 'paga' ? 'var(--ok)' : 'var(--aviso)';
+    sub.appendChild(marca);
+  }
+  sub.appendChild(el('span', null, ' · ' + [formaTexto(e), parcelaTexto(e)].filter(Boolean).join(' · ')));
+  c.appendChild(sub);
   i.appendChild(c);
-  if (quitado) { const s = el('span', 'selo', 'paga'); s.style.color = 'var(--ok)'; i.appendChild(s); }
-  else if (emAberto(e)) { const s = el('span', 'selo', 'a pagar'); s.style.color = 'var(--aviso)'; i.appendChild(s); }
-  const v = el('div', 'valor-linha', (e.tipo === 'receita' || e.tipo === 'aporte' ? '+ ' : '- ') + dinheiro(e.valor));
-  if (e.tipo === 'receita' || e.tipo === 'aporte') v.style.color = 'var(--ok)';
+  const v = el('div', 'valor-linha', (entrada ? '+ ' : '- ') + dinheiro(e.valor));
+  if (entrada) v.style.color = 'var(--ok)';
   else if (quitado) v.style.color = 'var(--fraco)';
   i.appendChild(v);
   i.onclick = () => (podeQuitar(e) ? folhaQuitar(e) : folhaLancamento(e));
@@ -340,10 +352,10 @@ function aCaixinha(caixa) {
   linhas.slice(0, 80).forEach(([e, saldo]) => {
     const d = caixaDelta(e);
     const i = el('div', 'item');
-    i.appendChild(el('div', 'hora', ddmm(new Date(e.lancado_em).getTime())));
+    i.appendChild(selo('financas', d > 0 ? AREA.financas : AREA.calc, 30));
     const c = el('div', 'corpo');
     c.appendChild(el('div', 'titulo', e.descricao || formaTexto(e)));
-    c.appendChild(el('div', 'sub', `saldo depois: ${dinheiro(saldo)}`));
+    c.appendChild(el('div', 'sub', `${ddmm(new Date(e.lancado_em).getTime())} · saldo depois: ${dinheiro(saldo)}`));
     i.appendChild(c);
     const v = el('div', 'valor-linha', (d > 0 ? '+ ' : '- ') + dinheiro(Math.abs(d)));
     v.style.color = d > 0 ? 'var(--ok)' : 'var(--creme)';
@@ -357,7 +369,7 @@ function aListaDeCompras(caixa) {
   const abertos = dados.compras.filter((i) => !i.comprado_em);
   const comprados = dados.compras.filter((i) => i.comprado_em).slice(0, 20);
 
-  const novo = el('button', 'primary', 'Novo item');
+  const novo = el('button', 'primary cheio', 'Novo item');
   novo.onclick = () => folhaItem(null);
   caixa.appendChild(novo);
 
@@ -366,6 +378,7 @@ function aListaDeCompras(caixa) {
   if (!abertos.length) lista.appendChild(el('div', 'vazio', 'Lista vazia.'));
   abertos.forEach((it) => {
     const i = el('div', 'item');
+    i.appendChild(selo('mais', AREA.equip, 30));
     const c = el('div', 'corpo');
     c.appendChild(el('div', 'titulo', it.nome));
     c.appendChild(el('div', 'sub', [catRotulo(it.categoria), aquarioRotulo(it.aquario), it.valor_medio ? `~${dinheiro(it.valor_medio)}` : null].filter(Boolean).join(' · ')));

@@ -32,21 +32,21 @@ function oJornal(caixa) {
     em: new Date(t.medido_em).getTime(),
     titulo: `${ROTULOS[t.parametro] || t.parametro}: ${formatar(t.parametro, Number(t.valor))} ${UNIDADES[t.parametro] || ''}`.trim(),
     sub: t.baixa_confianca ? 'teste de água · leitura duvidosa' : 'teste de água',
-    cor: 'var(--blue, #4C8DF6)',
+    cor: AREA.teste, ic: 'teste',
   }));
-  dados.tpas.forEach((t) => itens.push({ em: new Date(t.feita_em).getTime(), titulo: `TPA de ${t.litros} L`, sub: t.observacao || 'troca de água', cor: '#38BDF8' }));
+  dados.tpas.forEach((t) => itens.push({ em: new Date(t.feita_em).getTime(), titulo: `TPA de ${t.litros} L`, sub: t.observacao || 'troca de água', cor: AREA.tpa, ic: 'tpa' }));
   dados.doses.forEach((d) => {
     const p = dados.produtos.find((x) => x.id === d.product_id);
-    itens.push({ em: new Date(d.dosado_em).getTime(), titulo: `${p ? p.nome : 'Dose'}: ${d.quantidade} ${d.unidade || ''}`.trim(), sub: 'dosagem', cor: '#E5A23C' });
+    itens.push({ em: new Date(d.dosado_em).getTime(), titulo: `${p ? p.nome : 'Dose'}: ${d.quantidade} ${d.unidade || ''}`.trim(), sub: 'dosagem', cor: AREA.dose, ic: 'dose' });
   });
-  dados.notas.forEach((n) => itens.push({ em: new Date(n.ocorrido_em).getTime(), titulo: n.texto || 'Nota', sub: 'nota no jornal', cor: '#E06C9F' }));
+  dados.notas.forEach((n) => itens.push({ em: new Date(n.ocorrido_em).getTime(), titulo: n.texto || 'Nota', sub: 'nota no jornal', cor: AREA.jornal, ic: 'nota' }));
   dados.financas.forEach((e) => itens.push({
     em: new Date(e.lancado_em).getTime(),
     titulo: `${e.descricao || catRotulo(e.categoria)}: ${dinheiro(e.valor)}`,
     sub: ['finanças', formaTexto(e), parcelaTexto(e)].filter(Boolean).join(' · '),
-    cor: '#2CC5A8',
+    cor: AREA.financas, ic: 'financas',
   }));
-  dados.casos.forEach((c) => itens.push({ em: new Date(c.aberto_em).getTime(), titulo: c.titulo, sub: `saúde · ${c.tipo}`, cor: '#E5534B' }));
+  dados.casos.forEach((c) => itens.push({ em: new Date(c.aberto_em).getTime(), titulo: c.titulo, sub: `saúde · ${c.tipo}`, cor: AREA.saude, ic: 'saude' }));
 
   // o jornal e o que ja aconteceu: parcela de cartao com data futura nao entra
   const agora = Date.now();
@@ -56,9 +56,7 @@ function oJornal(caixa) {
   if (!passado.length) lista.appendChild(el('div', 'vazio', 'Nada registrado ainda.'));
   passado.slice(0, 200).forEach((i) => {
     const item = el('div', 'item');
-    const risco = el('span', 'risco');
-    risco.style.background = i.cor;
-    item.appendChild(risco);
+    item.appendChild(selo(i.ic || 'nota', i.cor, 30));
     item.appendChild(el('div', 'hora', ddmm(i.em)));
     const c = el('div', 'corpo');
     c.appendChild(el('div', 'titulo', i.titulo));
