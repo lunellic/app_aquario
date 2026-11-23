@@ -87,13 +87,8 @@ const apagar = (tabela, id) => atualizar(tabela, id, { deleted_at: new Date().to
 
 // ---------------------------------------------------------------- regras (espelho do app do tablet)
 
-function statusDe(valor, r) {
-  if (valor == null || !r) return 'sem';
-  if (valor < r.alerta_min || valor > r.alerta_max) return 'critico';
-  if (valor < r.ideal_min || valor > r.ideal_max) return 'aviso';
-  return 'ideal';
-}
-const CORES = { ideal: 'var(--ok)', aviso: 'var(--aviso)', critico: 'var(--critico)', sem: 'var(--fraco)' };
+// a regra de zona mora em ui.js (zonaDe); aqui so o apelido antigo, para nao reescrever a tela toda
+const statusDe = (valor, r) => zonaDe(valor, r);
 
 function formatar(p, v) {
   if (v == null) return '-';
@@ -307,10 +302,10 @@ function desenharParams() {
     const c = el('div', 'param');
 
     const topo = el('div', 'topo');
-    const ponto = el('span', 'ponto');
-    ponto.style.background = CORES[st];
-    topo.appendChild(ponto);
     topo.appendChild(el('span', 'eyebrow', ROTULOS[p]));
+    topo.appendChild(el('span', 'espaco'));
+    // a zona vira pilula tingida, no lugar do pontinho que so quem sabia entendia
+    topo.appendChild(pilula(ROTULO_ZONA[st], ZONA[st]));
     c.appendChild(topo);
 
     const v = el('div', 'valor');
@@ -322,7 +317,7 @@ function desenharParams() {
     pe.appendChild(el('span', null, ult ? haQuanto(ult.medido_em) : 'sem medição'));
     if (ult && ant) {
       const d = Number(ult.valor) - Number(ant.valor);
-      pe.appendChild(el('span', null, (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '= ') + formatar(p, Math.abs(d))));
+      pe.appendChild(pilulaDelta(formatar(p, Math.abs(d)), d));
     }
     c.appendChild(pe);
 
@@ -351,7 +346,7 @@ function desenharParams() {
       if (ult) {
         const m = el('div', 'marca');
         m.style.left = `${fr(Number(ult.valor))}%`;
-        m.style.background = CORES[st];
+        m.style.background = ZONA[st];
         faixa.appendChild(m);
       }
       c.appendChild(faixa);
@@ -381,22 +376,18 @@ function desenharHoje() {
     // em duas linhas. A hora e o estado descem para a linha de baixo, que ja existe.
     const corpo = el('div', 'corpo');
     corpo.appendChild(el('div', `titulo${resolvido ? ' feito' : ''}`, o.rotina.titulo));
-    const sub = el('div', 'sub');
-    const partes = [];
-    if (st === 'feito') partes.push('feito');
-    else if (st === 'pulado') partes.push('pulado');
-    else if (o.arrastada) partes.push(`atrasada desde ${ddmm(o.due)}`);
-    else if (atrasada) partes.push(`atrasada · ${hhmm(o.due)}`);
-    else partes.push(hhmm(o.due));
+    const partes = [hhmm(o.due)];
     const prod = o.rotina.product_id ? porId[o.rotina.product_id] : null;
     if (o.rotina.tipo === 'dosagem' && prod) {
       const q = doseDe(prod, volume());
       if (q != null) partes.push(`${(Math.round(q * 100) / 100).toString().replace('.', ',')} ${prod.dose_unidade || ''}`.trim());
     } else if (o.rotina.instrucao) partes.push(o.rotina.instrucao);
-    sub.textContent = partes.join(' · ');
-    if (!resolvido && (atrasada || o.arrastada)) sub.style.color = 'var(--aviso)';
-    if (st === 'feito') sub.style.color = 'var(--ok)';
-    corpo.appendChild(sub);
+    corpo.appendChild(el('div', 'sub', partes.join(' · ')));
+    // o estado sai do texto e vira pilula
+    if (st === 'feito') corpo.appendChild(pilula('feito', ZONA.ideal));
+    else if (st === 'pulado') corpo.appendChild(pilula('pulado', '#8B95A3'));
+    else if (o.arrastada) corpo.appendChild(pilula(`atrasada desde ${ddmm(o.due)}`, ZONA.atencao));
+    else if (atrasada) corpo.appendChild(pilula('atrasada', ZONA.atencao));
     item.appendChild(corpo);
 
     if (!resolvido) {

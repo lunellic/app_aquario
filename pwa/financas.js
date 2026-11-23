@@ -59,7 +59,7 @@ const parcelaTexto = (e) => (e.parcela && e.parcelas > 1 ? `parcela ${e.parcela}
 const formaTexto = (e) => (e.tipo === 'aporte' ? 'Depósito' : e.tipo === 'retirada' ? 'Retirada' : e.forma === 'cartao' ? 'Cartão' : 'Pix');
 
 function desenharFinancas() {
-  chips($('#f-abas'), F_ABAS, fAba, (v) => { fAba = v; desenharFinancas(); });
+  segmentado($('#f-abas'), F_ABAS, fAba, (v) => { fAba = v; desenharFinancas(); });
   const caixa = $('#financas');
   caixa.innerHTML = '';
   if (fAba === 'resumo') resumoDoCiclo(caixa);
@@ -158,18 +158,12 @@ function linhaLancamento(e) {
   // em tres linhas quando cada um queria a propria coluna
   const c = el('div', 'corpo');
   c.appendChild(el('div', `titulo${quitado ? ' feito' : ''}`, e.descricao || catRotulo(e.categoria)));
-  const estado = quitado ? 'paga' : emAberto(e) ? 'a pagar' : null;
-  // so a palavra do estado leva cor: a linha inteira laranja fica gritando
   const sub = el('div', 'sub');
-  sub.appendChild(el('span', null, ddmm(new Date(e.lancado_em).getTime())));
-  if (estado) {
-    sub.appendChild(el('span', null, ' · '));
-    const marca = el('span', null, estado);
-    marca.style.color = estado === 'paga' ? 'var(--ok)' : 'var(--aviso)';
-    sub.appendChild(marca);
-  }
-  sub.appendChild(el('span', null, ' · ' + [formaTexto(e), parcelaTexto(e)].filter(Boolean).join(' · ')));
+  sub.appendChild(el('span', null, [ddmm(new Date(e.lancado_em).getTime()), formaTexto(e), parcelaTexto(e)].filter(Boolean).join(' · ')));
   c.appendChild(sub);
+  // o estado sai do meio do texto e vira pilula, como no Gluco
+  if (quitado) c.appendChild(pilula('paga', ZONA.ideal));
+  else if (emAberto(e)) c.appendChild(pilula('a pagar', ZONA.atencao));
   i.appendChild(c);
   const v = el('div', 'valor-linha', (entrada ? '+ ' : '- ') + dinheiro(e.valor));
   if (entrada) v.style.color = 'var(--ok)';

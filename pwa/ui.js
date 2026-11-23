@@ -11,7 +11,132 @@
  */
 'use strict';
 
-/** Cor de cada area, igual ao Theme.kt do tablet. */
+/**
+ * Paleta, nomeada por funcao e nao por cor.
+ *
+ * A ideia vem do Gluco, que chama as proprias cores de Ink, Data, In range, Elevated. O nome diz
+ * onde a cor pode aparecer, e isso sobrevive a troca de tom: se um dia o verde virar outro verde,
+ * quem escreveu "dentro da faixa" continua certo, quem escreveu "verde" nao.
+ *
+ * ZONA e o unico grupo que carrega julgamento: diz em que pe o numero esta. Nenhuma outra parte do
+ * app pode usar esses tons, senao verde deixa de significar "esta bom".
+ */
+const ZONA = {
+  ideal: '#34C77B',     // dentro da faixa ideal
+  atencao: '#E8A33C',   // fora do ideal, dentro do tolerado
+  critico: '#E5534B',   // fora do tolerado
+  semDado: '#5B6573',   // sem medicao
+};
+const ROTULO_ZONA = { ideal: 'na faixa', atencao: 'atenção', critico: 'crítico', semDado: 'sem medição' };
+
+/**
+ * Em que zona o valor caiu. Esta e a unica funcao que decide isso no PWA inteiro: antes a mesma
+ * regra estava escrita duas vezes, em app.js e em graficos.js, e duas copias de uma regra sao duas
+ * chances de ela mudar so num lugar.
+ */
+function zonaDe(v, r) {
+  if (v == null || !r) return 'semDado';
+  if (v < Number(r.alerta_min) || v > Number(r.alerta_max)) return 'critico';
+  if (v < Number(r.ideal_min) || v > Number(r.ideal_max)) return 'atencao';
+  return 'ideal';
+}
+const corDaZona = (v, r) => ZONA[zonaDe(v, r)];
+
+/**
+ * Pilula de estado: pontinho na cor + texto, sobre um fundo tingido da mesma cor.
+ *
+ * Substitui o texto cinza que dizia "atrasada" ou "a pagar". A cor so aparece onde ha estado, que
+ * e a regra do Gluco: In range, Elevated, Spike, cada um com o proprio fundo tingido.
+ */
+function pilula(texto, cor, comPonto) {
+  const p = el('span', 'pilula');
+  p.style.background = cor + '1F';
+  p.style.color = cor;
+  if (comPonto !== false) {
+    const d = el('span', 'pilula-ponto');
+    d.style.background = cor;
+    p.appendChild(d);
+  }
+  p.appendChild(el('span', null, texto));
+  return p;
+}
+
+/**
+ * Variacao com seta.
+ *
+ * Em parametro de agua a seta e NEUTRA de proposito. Subir nao e bom nem ruim: KH indo de 9,0 para
+ * 9,5 e uma subida que piora, porque sai do ideal. Quem diz se esta bom e a zona, e pintar a seta
+ * de verde seria o mesmo verde dizendo duas coisas diferentes. So em dinheiro a direcao tem sinal
+ * proprio (entrou e bom, saiu e ruim), e ai `comSinal` liga a cor.
+ */
+function pilulaDelta(texto, sinal, comSinal) {
+  const seta = sinal > 0 ? '↗ ' : sinal < 0 ? '↘ ' : '= ';
+  if (!comSinal) return pilula(seta + texto, '#8B95A3', false);
+  return pilula(seta + texto, sinal > 0 ? ZONA.ideal : sinal < 0 ? ZONA.critico : '#8B95A3', false);
+}
+
+/**
+ * Leituras por faixa, no espirito do "Time in ranges" do Gluco.
+ *
+ * Diferenca importante: o Gluco le glicose de 5 em 5 minutos, entao ele pode dizer "19h41 por dia
+ * no alvo". Aqui a medicao e de dois em dois dias. Dizer "tempo" seria inventar o que aconteceu
+ * entre uma medicao e outra. Entao a conta e de LEITURAS, nao de tempo, e o rotulo diz isso.
+ * So entram leituras confiaveis, pelo mesmo motivo de sempre.
+ */
+function leiturasPorFaixa(param, dias) {
+  const r = dados.ranges[param];
+  const desde = Date.now() - dias * DIA_MS;
+  const vals = dados.testes
+    .filter((t) => t.parametro === param && !t.baixa_confianca && new Date(t.medido_em).getTime() >= desde)
+    .map((t) => Number(t.valor));
+  const conta = { ideal: 0, atencao: 0, critico: 0 };
+  vals.forEach((v) => { conta[zonaDe(v, r)] += 1; });
+  return { ...conta, total: vals.length, range: r };
+}
+
+/** A barra empilhada das faixas, com a legenda ao lado. */
+function barraDeFaixas(param, dias) {
+  const f = leiturasPorFaixa(param, dias);
+  const caixa = el('div', 'faixas');
+  if (!f.total || !f.range) {
+    caixa.appendChild(el('div', 'muted', 'Sem leituras confiáveis no período.'));
+    return caixa;
+  }
+  // a barra segue a mesma ordem da legenda ao lado, de cima para baixo: senao o olho tem que
+  // inverter a leitura entre uma e outra
+  const barra = el('div', 'faixas-barra');
+  ['ideal', 'atencao', 'critico'].forEach((z) => {
+    if (!f[z]) return;
+    const seg = el('div', 'faixas-seg');
+    seg.style.height = `${(f[z] / f.total) * 100}%`;
+    seg.style.background = ZONA[z];
+    barra.appendChild(seg);
+  });
+  caixa.appendChild(barra);
+
+  const leg = el('div', 'faixas-leg');
+  const r = f.range;
+  const limites = {
+    ideal: `${formatar(param, Number(r.ideal_min))} a ${formatar(param, Number(r.ideal_max))}`,
+    atencao: `${formatar(param, Number(r.alerta_min))} a ${formatar(param, Number(r.alerta_max))}`,
+    critico: `fora de ${formatar(param, Number(r.alerta_min))} a ${formatar(param, Number(r.alerta_max))}`,
+  };
+  ['ideal', 'atencao', 'critico'].forEach((z) => {
+    const l = el('div', 'faixas-item');
+    const pt = el('span', 'faixas-ponto');
+    pt.style.background = ZONA[z];
+    l.appendChild(pt);
+    const txt = el('div');
+    txt.appendChild(el('div', 'faixas-nome', `${ROTULO_ZONA[z]} · ${Math.round((f[z] / f.total) * 100)}%`));
+    txt.appendChild(el('div', 'faixas-sub', `${f[z]} de ${f.total} leituras · ${limites[z]}`));
+    l.appendChild(txt);
+    leg.appendChild(l);
+  });
+  caixa.appendChild(leg);
+  return caixa;
+}
+
+/** Cor de cada area, igual ao Theme.kt do tablet. Nunca diz se esta bom: para isso e a ZONA. */
 const AREA = {
   painel: '#2CC5A8', teste: '#4C8DF6', tpa: '#38BDF8', dose: '#E5A23C', jornal: '#E06C9F',
   animal: '#34C77B', saude: '#E5534B', equip: '#94A3B8', grafico: '#8B7CF6',
@@ -83,41 +208,80 @@ function areaDaRotina(tipo) {
  * o aquario esta. Sem nota (falta medir algo), fica o tracinho e o anel vazio.
  */
 function anelSaude(nota, tamanho, temCritico) {
-  const t = tamanho || 86;
-  const r = t / 2 - 5;
-  const volta = 2 * Math.PI * r;
+  const t = tamanho || 92;
   const cor = corDaNota(nota, temCritico);
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${t} ${t}`);
   svg.setAttribute('width', t);
   svg.setAttribute('height', t);
   svg.classList.add('anel');
-  const base = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  Object.entries({ cx: t / 2, cy: t / 2, r, fill: 'none', stroke: 'rgba(255,255,255,0.07)', 'stroke-width': 5 })
-    .forEach(([k, v]) => base.setAttribute(k, v));
-  svg.appendChild(base);
-  if (nota != null) {
-    const arco = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+
+  // mostrador de tracos em vez de arco cheio, como o "Daily balance" do Gluco: o traco marca o
+  // passo da escala, entao da para ler quanto falta sem ler o numero
+  const TRACOS = 44;
+  const raio = t / 2 - 6;
+  const acesos = nota == null ? 0 : Math.round((nota / 100) * TRACOS);
+  for (let i = 0; i < TRACOS; i++) {
+    const ang = (i / TRACOS) * 2 * Math.PI - Math.PI / 2;
+    const r1 = raio - 5;
+    const r2 = raio;
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     Object.entries({
-      cx: t / 2, cy: t / 2, r, fill: 'none', stroke: cor, 'stroke-width': 5, 'stroke-linecap': 'round',
-      'stroke-dasharray': `${(volta * nota) / 100} ${volta}`, transform: `rotate(-90 ${t / 2} ${t / 2})`,
-    }).forEach(([k, v]) => arco.setAttribute(k, v));
-    svg.appendChild(arco);
+      x1: t / 2 + Math.cos(ang) * r1, y1: t / 2 + Math.sin(ang) * r1,
+      x2: t / 2 + Math.cos(ang) * r2, y2: t / 2 + Math.sin(ang) * r2,
+      stroke: i < acesos ? cor : 'rgba(255,255,255,0.09)',
+      'stroke-width': 2.4, 'stroke-linecap': 'round',
+    }).forEach(([k, v]) => l.setAttribute(k, v));
+    svg.appendChild(l);
   }
+
   const caixa = el('div', 'anel-caixa');
   caixa.appendChild(svg);
   const dentro = el('div', 'anel-dentro');
-  dentro.appendChild(el('div', 'anel-nota', nota == null ? '-' : String(nota)));
+  const n = el('div', 'anel-nota', nota == null ? '-' : String(nota));
+  n.style.color = cor;
+  dentro.appendChild(n);
   dentro.appendChild(el('div', 'anel-rotulo', 'SAÚDE'));
   caixa.appendChild(dentro);
   return caixa;
 }
 
 /**
- * Cor do anel. A nota e um total: 85 com um unico parametro critico ainda da 85, e pela regra do
- * numero o anel ficaria verde. Verde se le como "esta tudo bem", e nao esta: com calcio critico
- * nada esta bem. Por isso, havendo parametro critico, o anel nao passa de laranja.
+ * Mosaico de numero: selo redondo com o icone, numero grande e rotulo pequeno.
+ * E o formato do Gluco ("84% Time in Range"), que le melhor que numero solto com legenda embaixo.
  */
+function mosaico(icone_, cor, valor, unidade, rotulo, extra) {
+  const c = el('div', 'mosaico');
+  const sel = el('span', 'mosaico-selo');
+  sel.style.background = cor + '1A';
+  sel.appendChild(icone(icone_, cor, 18));
+  c.appendChild(sel);
+  const lado = el('div', 'mosaico-txt');
+  const linha = el('div', 'mosaico-valor');
+  linha.appendChild(el('span', null, valor));
+  if (unidade) linha.appendChild(el('span', 'mosaico-un', ' ' + unidade));
+  lado.appendChild(linha);
+  lado.appendChild(el('div', 'mosaico-rot', rotulo));
+  if (extra) lado.appendChild(extra);
+  c.appendChild(lado);
+  return c;
+}
+
+/**
+ * Controle segmentado: as opcoes dentro de uma capsula, a escolhida preenchida.
+ * Substitui os chips soltos nos periodos, como os 3H / 6H / 12H / 24H do Gluco.
+ */
+function segmentado(alvo, opcoes, selecionado, aoEscolher) {
+  alvo.innerHTML = '';
+  alvo.classList.add('seg');
+  opcoes.forEach(([valor, rotulo]) => {
+    const b = el('button', `seg-item${valor === selecionado ? ' ativo' : ''}`, rotulo);
+    b.onclick = () => aoEscolher(valor);
+    alvo.appendChild(b);
+  });
+  return alvo;
+}
+
 function corDaNota(n, temCritico) {
   if (n == null) return 'var(--fraco)';
   if (temCritico) return n >= 65 ? 'var(--aviso)' : 'var(--critico)';

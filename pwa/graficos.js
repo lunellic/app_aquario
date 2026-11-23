@@ -19,6 +19,28 @@ function serieDe(p, dias) {
     .sort((a, b) => a.em - b.em);
 }
 
+/**
+ * Curva suave por entre os pontos (Catmull-Rom virada em Bezier).
+ *
+ * O desenho passa exatamente por cada medicao, so chega nela em curva em vez de em bico. Isso
+ * importa: uma curva que "corrigisse" o caminho para ficar bonita estaria inventando medicao.
+ */
+function curvaSuave(pts) {
+  if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : '';
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const t = 0.2; // tensao baixa: suaviza sem estufar entre dois pontos distantes
+    const c1 = [p1[0] + (p2[0] - p0[0]) * t, p1[1] + (p2[1] - p0[1]) * t];
+    const c2 = [p2[0] - (p3[0] - p1[0]) * t, p2[1] - (p3[1] - p1[1]) * t];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
 const svgEl = (tag, attrs) => {
   const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
   Object.entries(attrs || {}).forEach(([k, v]) => e.setAttribute(k, v));
@@ -69,8 +91,25 @@ function desenharGrafico(series, dias, mostrarFaixa) {
       })));
     }
 
-    const d = s.pontos.map((q, i) => `${i ? 'L' : 'M'}${x(q.em).toFixed(1)},${y(q.v).toFixed(1)}`).join(' ');
-    svg.appendChild(svgEl('path', { d, fill: 'none', stroke: s.cor, 'stroke-width': '1.6', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke' }));
+    const xy = s.pontos.map((q) => [x(q.em), y(q.v)]);
+    const d = curvaSuave(xy);
+
+    // preenchimento em degrade embaixo da linha, como o Financia. Nao acrescenta informacao, mas e
+    // o que separa um grafico de planilha de um grafico de aplicativo.
+    if (mostrarFaixa) {
+      const idg = `g${Math.random().toString(36).slice(2, 8)}`;
+      const defs = svgEl('defs', {});
+      const lg = svgEl('linearGradient', { id: idg, x1: '0', y1: '0', x2: '0', y2: '1' });
+      lg.appendChild(svgEl('stop', { offset: '0', 'stop-color': s.cor, 'stop-opacity': '0.28' }));
+      lg.appendChild(svgEl('stop', { offset: '1', 'stop-color': s.cor, 'stop-opacity': '0' }));
+      defs.appendChild(lg);
+      svg.appendChild(defs);
+      const base = A - pad.b;
+      svg.appendChild(svgEl('path', { d: `${d} L${xy[xy.length - 1][0].toFixed(1)},${base} L${xy[0][0].toFixed(1)},${base} Z`, fill: `url(#${idg})`, stroke: 'none' }));
+    }
+
+    svgEl('path', {});
+    svg.appendChild(svgEl('path', { d, fill: 'none', stroke: s.cor, 'stroke-width': '1.8', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'vector-effect': 'non-scaling-stroke' }));
 
     s.pontos.forEach((q) => {
       const cor = mostrarFaixa && r ? corDaZona(q.v, r) : s.cor;
@@ -116,6 +155,8 @@ function desenharGrafico(series, dias, mostrarFaixa) {
 function ligarLeitura(caixa, svg, pontos) {
   if (!pontos.length) return;
   const bolha = el('div', 'bolha hidden');
+  const bico = el('div', 'bolha-bico hidden');
+  caixa.appendChild(bico);
   const risca = el('div', 'risca hidden');
   caixa.appendChild(risca);
   caixa.appendChild(bolha);
@@ -131,10 +172,13 @@ function ligarLeitura(caixa, svg, pontos) {
     bolha.style.transform = melhor.xp < 0.2 ? 'translateX(0)' : melhor.xp > 0.8 ? 'translateX(-100%)' : 'translateX(-50%)';
     bolha.style.color = melhor.cor;
     risca.style.left = `${melhor.xp * 100}%`;
+    bico.style.left = `${melhor.xp * 100}%`;
+    bico.style.borderTopColor = 'var(--solido)';
     bolha.classList.remove('hidden');
+    bico.classList.remove('hidden');
     risca.classList.remove('hidden');
   };
-  const esconder = () => { bolha.classList.add('hidden'); risca.classList.add('hidden'); };
+  const esconder = () => { [bolha, bico, risca].forEach((x) => x.classList.add('hidden')); };
 
   caixa.addEventListener('touchstart', (e) => { mostrar(e.touches[0].clientX); }, { passive: true });
   caixa.addEventListener('touchmove', (e) => { mostrar(e.touches[0].clientX); }, { passive: true });
@@ -153,18 +197,12 @@ function eixoDeTempo(dias) {
   return linha;
 }
 
-function corDaZona(v, r) {
-  if (v < Number(r.alerta_min) || v > Number(r.alerta_max)) return 'var(--critico)';
-  if (v < Number(r.ideal_min) || v > Number(r.ideal_max)) return 'var(--aviso)';
-  return 'var(--ok)';
-}
-
 const CORES_SERIE = ['#2CC5A8', '#4C8DF6', '#E5A23C', '#E06C9F', '#8B7CF6', '#38BDF8'];
 
 function desenharGraficos() {
   const dias = Number(gPeriodo);
 
-  chips($('#g-periodo'), G_PERIODOS, gPeriodo, (v) => { gPeriodo = v; desenharGraficos(); });
+  segmentado($('#g-periodo'), G_PERIODOS, gPeriodo, (v) => { gPeriodo = v; desenharGraficos(); });
 
   // comparacao: ate 6 parametros no mesmo desenho, cada um na propria escala
   const disponiveis = PARAMS.filter((p) => dados.testes.some((t) => t.parametro === p));
@@ -219,6 +257,8 @@ function desenharGraficos() {
       c.appendChild(desenharGrafico([{ p, pontos, cor: 'var(--suave)' }], dias, true));
       c.appendChild(eixoDeTempo(dias));
       c.appendChild(el('div', 'muted', 'Arraste o dedo sobre o gráfico para ler cada medição. Ponto vazado é leitura duvidosa.'));
+      c.appendChild(el('div', 'eyebrow', 'Leituras por faixa'));
+      c.appendChild(barraDeFaixas(p, dias));
     }
     caixa.appendChild(c);
   });

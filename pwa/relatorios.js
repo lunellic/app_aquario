@@ -19,7 +19,7 @@ let rPeriodo = '30';
 let rSecoes = SECOES.map((s) => s[0]);
 
 function desenharMais() {
-  chips($('#m-abas'), M_ABAS, mAba, (v) => { mAba = v; desenharMais(); });
+  segmentado($('#m-abas'), M_ABAS, mAba, (v) => { mAba = v; desenharMais(); });
   const caixa = $('#mais');
   caixa.innerHTML = '';
   if (mAba === 'agenda') desenharAgenda(caixa);
@@ -70,7 +70,7 @@ function oJornal(caixa) {
 
 function oRelatorio(caixa) {
   const periodo = el('div', 'chips');
-  chips(periodo, R_PERIODOS, rPeriodo, (v) => { rPeriodo = v; desenharMais(); });
+  segmentado(periodo, R_PERIODOS, rPeriodo, (v) => { rPeriodo = v; desenharMais(); });
   caixa.appendChild(el('h3', null, 'Período'));
   caixa.appendChild(periodo);
 
