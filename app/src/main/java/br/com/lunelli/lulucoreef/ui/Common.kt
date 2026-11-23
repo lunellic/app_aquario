@@ -86,15 +86,40 @@ fun fmtAgoShort(ms: Long, now: Long): String {
     }
 }
 
+/** A cor de um status e sempre a da zona: um verde so, significando uma coisa so. */
 fun statusColor(s: Status): Color = when (s) {
-    Status.IDEAL -> Luluco.Ok
-    Status.ATENCAO -> Luluco.CoralText
-    Status.CRITICO -> Luluco.Critical
-    Status.SEM_MEDICAO -> Luluco.Neutral
+    Status.IDEAL -> Luluco.ZoneIdeal
+    Status.ATENCAO -> Luluco.ZoneWarn
+    Status.CRITICO -> Luluco.ZoneCrit
+    Status.SEM_MEDICAO -> Luluco.ZoneNone
 }
 
 fun statusLabel(s: Status) = when (s) {
-    Status.IDEAL -> "Ideal"; Status.ATENCAO -> "Atenção"; Status.CRITICO -> "Crítico"; Status.SEM_MEDICAO -> "Sem medição"
+    Status.IDEAL -> "na faixa"; Status.ATENCAO -> "atenção"; Status.CRITICO -> "crítico"; Status.SEM_MEDICAO -> "sem medição"
+}
+
+/**
+ * Controle segmentado: as opcoes dentro de uma capsula, a escolhida preenchida.
+ * Substitui os chips soltos onde a escolha e de uma opcao entre poucas (periodo, aba interna).
+ */
+@Composable
+fun Segmented(options: List<Pair<String, String>>, selected: String?, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier.clip(shape).background(Luluco.Solid).border(1.dp, Luluco.CardBorder, shape).padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        options.forEach { (value, label) ->
+            val on = value == selected
+            Box(
+                Modifier.weight(1f).clip(shape).background(if (on) Luluco.Cream else Color.Transparent)
+                    .clickable { onSelect(value) }.padding(vertical = 9.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, color = if (on) Luluco.Navy else Luluco.TextSoft, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
+        }
+    }
 }
 
 /** Card v0.4: grafite um tom acima do fundo, borda fina; com borderColor ganha um leve tom da cor. */
@@ -155,15 +180,42 @@ fun ChipRow(options: List<Pair<String, String>>, selected: String?, modifier: Mo
     }
 }
 
+/**
+ * Pilula de estado: ponto na cor + texto, sobre um fundo tingido da mesma cor.
+ *
+ * Era um selo sem caixa, ponto e texto soltos. A caixa tingida e o que faz o estado se destacar do
+ * resto da linha sem precisar gritar, e a cor so aparece onde ha estado.
+ */
 @Composable
-fun Badge(text: String, color: Color) {
+fun Badge(text: String, color: Color, dot: Boolean = true) {
     val shape = RoundedCornerShape(50)
-    // selo minimo: ponto de cor + texto pequeno, sem caixa
-    Row(Modifier.padding(horizontal = 2.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(6.dp).clip(CircleShape).background(color))
-        Spacer(Modifier.width(6.dp))
-        Text(text.uppercase(), color = lift(color), fontSize = 11.sp, letterSpacing = 0.8.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+    Row(
+        Modifier.clip(shape).background(color.copy(alpha = 0.13f)).padding(horizontal = 9.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (dot) {
+            Box(Modifier.size(5.dp).clip(CircleShape).background(color))
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(text, color = lift(color), fontSize = 11.5.sp, letterSpacing = 0.3.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
+}
+
+/**
+ * Variacao com seta. Em parametro de agua a seta e NEUTRA de proposito: subir nao e bom nem ruim,
+ * porque KH indo de 9,0 para 9,5 e uma subida que piora. Quem julga e a zona. So em dinheiro a
+ * direcao tem sinal proprio, e ai `comSinal` liga a cor.
+ */
+@Composable
+fun DeltaBadge(text: String, sinal: Int, comSinal: Boolean = false) {
+    val seta = if (sinal > 0) "↗ " else if (sinal < 0) "↘ " else "= "
+    val cor = when {
+        !comSinal -> Luluco.Neutral
+        sinal > 0 -> Luluco.ZoneIdeal
+        sinal < 0 -> Luluco.ZoneCrit
+        else -> Luluco.Neutral
+    }
+    Badge(seta + text, cor, dot = false)
 }
 
 /** Cor um pouco mais clara para texto sobre fundo escuro. */

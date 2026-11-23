@@ -401,6 +401,48 @@ class ReportAndUpcomingTest {
     }
 }
 
+/** Leituras por faixa: conta leitura, nao tempo, porque a medicao aqui e esparsa. */
+class FaixasTest {
+    private val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    private fun ms(date: String) = java.time.LocalDate.parse(date).atTime(19, 0).atZone(zone).toInstant().toEpochMilli()
+    private val kh = br.com.lunelli.lulucoreef.data.ParamRange(parametro = "kh", idealMin = 7.5, idealMax = 9.0, alertaMin = 6.5, alertaMax = 10.0, unidade = "dKH")
+
+    private fun teste(dia: String, v: Double, duvida: Boolean = false) =
+        br.com.lunelli.lulucoreef.data.WaterTest(medidoEm = ms(dia), parametro = "kh", valor = v, unidade = "dKH", baixaConfianca = duvida)
+
+    @org.junit.Test fun contaPorZona() {
+        val lista = listOf(
+            teste("2026-11-02", 8.1), teste("2026-11-04", 8.3),   // ideal
+            teste("2026-11-06", 9.4),                              // atencao (acima do ideal, dentro do alerta)
+            teste("2026-11-08", 10.4),                             // critico (acima do alerta)
+            teste("2026-11-10", 7.2),                              // atencao (abaixo do ideal)
+            teste("2026-11-12", 8.0),                              // ideal
+        )
+        val f = br.com.lunelli.lulucoreef.domain.faixasDe(lista, "kh", kh, ms("2026-11-01"), ms("2026-11-30"))
+        assertEquals(3, f.ideal)
+        assertEquals(2, f.atencao)
+        assertEquals(1, f.critico)
+        assertEquals(6, f.total)
+        assertEquals(50, f.pct(f.ideal))
+    }
+
+    @org.junit.Test fun leituraDuvidosaFicaDeFora() {
+        val lista = listOf(teste("2026-11-02", 8.1), teste("2026-11-04", 20.0, duvida = true))
+        val f = br.com.lunelli.lulucoreef.domain.faixasDe(lista, "kh", kh, ms("2026-11-01"), ms("2026-11-30"))
+        assertEquals(1, f.total)
+        assertEquals(0, f.critico)
+    }
+
+    @org.junit.Test fun foraDoPeriodoNaoConta() {
+        val lista = listOf(teste("2026-10-02", 8.1), teste("2026-11-04", 8.3))
+        assertEquals(1, br.com.lunelli.lulucoreef.domain.faixasDe(lista, "kh", kh, ms("2026-11-01"), ms("2026-11-30")).total)
+    }
+
+    @org.junit.Test fun semFaixaNaoInventa() {
+        assertEquals(0, br.com.lunelli.lulucoreef.domain.faixasDe(listOf(teste("2026-11-02", 8.1)), "kh", null, 0, Long.MAX_VALUE).total)
+    }
+}
+
 /** Cor do anel: a nota e um total, mas parametro critico nunca pode aparecer em verde. */
 class CorDaNotaTest {
     @org.junit.Test fun criticoNaoFicaVerde() {

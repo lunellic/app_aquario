@@ -47,6 +47,10 @@ object Luluco {
     val SolidHigh = Color(0xFF1C222A)
     val Divider = Color(0xFF1E242C)
     // cor de cada area (menu e jornal)
+    // ------------------------------------------------------------------ areas
+    //
+    // Area so identifica de que parte do app o item e. Nunca diz se esta bom ou ruim: para isso sao
+    // as zonas acima.
     val AreaPainel = Color(0xFF2CC5A8)
     val AreaTeste = Color(0xFF4C8DF6)
     val AreaTpa = Color(0xFF38BDF8)
@@ -61,9 +65,23 @@ object Luluco {
     val AreaFinancas = Color(0xFF10B981)
     val AreaAjustes = Color(0xFF8B95A3)
     // faixas de parametro: ideal, fora do ideal (ok/atencao) e critico
-    val ZoneIdeal = Color(0xFF2F8F5B)
-    val ZoneWarn = Color(0xFFC0602A)
-    val ZoneCrit = Color(0xFFB3261E)
+    // ------------------------------------------------------------------ zonas
+    //
+    // Nomeadas por funcao, nao por cor. O nome diz onde a cor pode aparecer, e isso sobrevive a
+    // troca de tom: se um dia o verde virar outro verde, quem escreveu "dentro da faixa" continua
+    // certo, quem escreveu "verde" nao.
+    //
+    // Este e o unico grupo que carrega julgamento: diz em que pe o numero esta. Nenhuma outra parte
+    // do app usa estes tons, senao verde deixa de significar "esta bom".
+    //
+    // Os tons aqui sao os mesmos do PWA, para os dois nao divergirem.
+    val ZoneIdeal = Color(0xFF34C77B)
+    val ZoneWarn = Color(0xFFE8A33C)
+    val ZoneCrit = Color(0xFFE5534B)
+    val ZoneNone = Color(0xFF5B6573)
+
+    /** Versoes de fundo das zonas, para a pilula tingida. */
+    fun zoneBg(c: Color) = c.copy(alpha = 0.12f)
     // texto
     val Cream = Color(0xFFECEFF3)
     val TextSoft = Color(0xFF8B95A3)

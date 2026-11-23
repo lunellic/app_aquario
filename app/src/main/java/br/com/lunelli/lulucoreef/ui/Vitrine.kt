@@ -191,9 +191,9 @@ private fun VParam(modifier: Modifier, param: String, valor: Double?, medidoEm: 
     val delta = if (serie.size >= 2) serie[serie.size - 1].second - serie[serie.size - 2].second else null
     Column(modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(st)))
-            Spacer(Modifier.width(8.dp))
             Eyebrow(Params.label(param))
+            Spacer(Modifier.width(8.dp))
+            Badge(statusLabel(st), statusColor(st))
             Spacer(Modifier.weight(1f))
             if (medidoEm != null) Text(fmtAgoShort(medidoEm, now), fontSize = 12.sp, color = Luluco.TextFaint, maxLines = 1)
         }
@@ -203,7 +203,7 @@ private fun VParam(modifier: Modifier, param: String, valor: Double?, medidoEm: 
                 fontSize = 46.sp, letterSpacing = (-1.5).sp, color = Luluco.Cream, maxLines = 1)
             Params.unit(param)?.let { Text(" $it", fontSize = 15.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 8.dp)) }
             Spacer(Modifier.weight(1f))
-            if (delta != null) Text(deltaText(param, delta), fontSize = 13.sp, color = Luluco.TextSoft, maxLines = 1, modifier = Modifier.padding(bottom = 8.dp))
+            if (delta != null) Box(Modifier.padding(bottom = 6.dp)) { DeltaBadge(Params.format(param, kotlin.math.abs(delta)), if (delta > 0) 1 else if (delta < 0) -1 else 0) }
         }
         if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft,
             Modifier.fillMaxWidth().height(34.dp), band = range?.let { it.idealMin to it.idealMax },

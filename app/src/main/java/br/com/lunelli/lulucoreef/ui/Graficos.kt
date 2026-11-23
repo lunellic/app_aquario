@@ -1,7 +1,10 @@
 package br.com.lunelli.lulucoreef.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -9,7 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -22,6 +27,7 @@ import br.com.lunelli.lulucoreef.data.ParamRange
 import br.com.lunelli.lulucoreef.data.WaterTest
 import br.com.lunelli.lulucoreef.domain.DAY_MS
 import br.com.lunelli.lulucoreef.domain.Params
+import br.com.lunelli.lulucoreef.domain.faixasDe
 import br.com.lunelli.lulucoreef.domain.Trend
 import br.com.lunelli.lulucoreef.domain.num
 import br.com.lunelli.lulucoreef.domain.trendOf
@@ -47,7 +53,7 @@ fun GraficosScreen(vm: MainViewModel) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenHeader("Parâmetros")
-        ChipRow(PERIODS, period) { period = it }
+        Segmented(PERIODS, period, Modifier.fillMaxWidth()) { period = it }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Legend(Luluco.Ok.copy(alpha = 0.35f), "faixa ideal")
             Legend(Luluco.Pool, "TPA")
@@ -153,22 +159,42 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
                 fun x(t: Long) = ((t - from).toDouble() / (to - from)).toFloat() * size.width
                 fun y(v: Double) = (1f - ((v - lo) / (hi - lo)).toFloat()) * size.height
                 // faixa ideal
-                if (range != null) drawRect(Luluco.Ok.copy(alpha = 0.16f), topLeft = Offset(0f, y(range.idealMax)), size = Size(size.width, y(range.idealMin) - y(range.idealMax)))
+                if (range != null) {
+                    drawRect(Luluco.ZoneIdeal.copy(alpha = 0.10f), topLeft = Offset(0f, y(range.idealMax)), size = Size(size.width, y(range.idealMin) - y(range.idealMax)))
+                    // bordas marcadas: sem elas o bloco se confunde com o fundo do card
+                    listOf(range.idealMax, range.idealMin).forEach { v ->
+                        drawLine(Luluco.ZoneIdeal.copy(alpha = 0.45f), Offset(0f, y(v)), Offset(size.width, y(v)), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
+                    }
+                }
                 // moldura e "agora"
                 drawLine(grid, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
                 drawLine(grid, Offset(x(now), 0f), Offset(x(now), size.height), 1.dp.toPx())
                 // TPAs: linha vertical; doses: tracinho no eixo
                 tpas.forEach { drawLine(Luluco.Pool.copy(alpha = 0.7f), Offset(x(it), 0f), Offset(x(it), size.height), 1.5.dp.toPx()) }
                 doses.forEach { drawLine(Luluco.Cream.copy(alpha = 0.6f), Offset(x(it), size.height - 7.dp.toPx()), Offset(x(it), size.height), 1.5.dp.toPx()) }
-                // medicoes reais ligadas por linha
+                // Medicoes reais, ligadas por curva suave com preenchimento em degrade embaixo.
+                //
+                // A curva passa exatamente por cada medicao: ela so chega na proxima em curva em
+                // vez de em bico. Uma curva que "corrigisse" o caminho para ficar bonita estaria
+                // inventando medicao que nao houve.
                 val solid = pts.filter { !it.baixaConfianca }
-                for (i in 1 until solid.size) {
-                    drawLine(line, Offset(x(solid[i - 1].medidoEm), y(solid[i - 1].valor)), Offset(x(solid[i].medidoEm), y(solid[i].valor)), 2.dp.toPx(), cap = StrokeCap.Round)
+                val xy = solid.map { Offset(x(it.medidoEm), y(it.valor)) }
+                if (xy.size >= 2) {
+                    val caminho = curvaSuave(xy)
+                    val sob = androidx.compose.ui.graphics.Path().apply {
+                        addPath(caminho)
+                        lineTo(xy.last().x, size.height)
+                        lineTo(xy.first().x, size.height)
+                        close()
+                    }
+                    drawPath(sob, Brush.verticalGradient(listOf(line.copy(alpha = 0.26f), line.copy(alpha = 0f)), startY = 0f, endY = size.height))
+                    drawPath(caminho, line, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
                 }
                 pts.forEach {
                     val c = Offset(x(it.medidoEm), y(it.valor))
-                    // baixa confianca: ponto vazado, fora da linha e da projecao
-                    if (it.baixaConfianca) drawCircle(line, 4.dp.toPx(), c, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx())) else drawCircle(line, 4.dp.toPx(), c)
+                    // cada ponto na cor da zona em que caiu, e baixa confianca vazado
+                    val cor = if (range != null) zoneColor(it.valor, range) else line
+                    if (it.baixaConfianca) drawCircle(cor, 4.dp.toPx(), c, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx())) else drawCircle(cor, 4.dp.toPx(), c)
                 }
                 // projecao tracejada a partir de agora
                 if (trend != null) {
@@ -181,6 +207,75 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
             Row(Modifier.fillMaxWidth().height(14.dp)) {
                 Muted(fmtDay(from).take(5), Modifier.weight(1f))
                 Muted("hoje + projeção")
+            }
+            if (range != null) {
+                Spacer(Modifier.height(12.dp))
+                FaixasBar(p, pts, range, from, to)
+            }
+        }
+    }
+}
+
+/**
+ * Curva suave por entre os pontos (Catmull-Rom virada em Bezier), com tensao baixa.
+ * Passa exatamente por cada ponto; a tensao baixa evita que ela estufe entre dois pontos distantes.
+ */
+private fun curvaSuave(pts: List<Offset>): androidx.compose.ui.graphics.Path {
+    val path = androidx.compose.ui.graphics.Path()
+    if (pts.isEmpty()) return path
+    path.moveTo(pts[0].x, pts[0].y)
+    if (pts.size == 1) return path
+    val t = 0.2f
+    for (i in 0 until pts.size - 1) {
+        val p0 = pts.getOrElse(i - 1) { pts[i] }
+        val p1 = pts[i]
+        val p2 = pts[i + 1]
+        val p3 = pts.getOrElse(i + 2) { p2 }
+        path.cubicTo(
+            p1.x + (p2.x - p0.x) * t, p1.y + (p2.y - p0.y) * t,
+            p2.x - (p3.x - p1.x) * t, p2.y - (p3.y - p1.y) * t,
+            p2.x, p2.y,
+        )
+    }
+    return path
+}
+
+/**
+ * Leituras por faixa: barra empilhada com a legenda ao lado.
+ *
+ * Diz quanto das medicoes do periodo caiu em cada zona. Conta LEITURA, nao tempo: a medicao aqui e
+ * de dois em dois dias, e dizer "tempo" obrigaria a inventar o que houve entre uma e outra.
+ */
+@Composable
+private fun FaixasBar(param: String, pts: List<WaterTest>, range: ParamRange, from: Long, to: Long) {
+    val f = remember(pts, range, from, to) { faixasDe(pts, param, range, from, to) }
+    if (f.total == 0) {
+        Muted("Sem leituras confiáveis no período.")
+        return
+    }
+    Eyebrow("Leituras por faixa")
+    Spacer(Modifier.height(8.dp))
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        // a barra segue a mesma ordem da legenda ao lado: senao o olho inverte a leitura
+        Column(Modifier.width(10.dp).height(96.dp).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.05f))) {
+            listOf(Luluco.ZoneIdeal to f.ideal, Luluco.ZoneWarn to f.atencao, Luluco.ZoneCrit to f.critico).forEach { (cor, n) ->
+                if (n > 0) Box(Modifier.fillMaxWidth().weight(n.toFloat()).background(cor))
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            val limites = listOf(
+                Triple(Luluco.ZoneIdeal, f.ideal, "na faixa" to "${Params.format(param, range.idealMin)} a ${Params.format(param, range.idealMax)}"),
+                Triple(Luluco.ZoneWarn, f.atencao, "atenção" to "${Params.format(param, range.alertaMin)} a ${Params.format(param, range.alertaMax)}"),
+                Triple(Luluco.ZoneCrit, f.critico, "crítico" to "fora de ${Params.format(param, range.alertaMin)} a ${Params.format(param, range.alertaMax)}"),
+            )
+            limites.forEach { (cor, n, txt) ->
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Box(Modifier.padding(top = 5.dp).size(7.dp).clip(CircleShape).background(cor))
+                    Column {
+                        Text("${txt.first} · ${f.pct(n)}%", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
+                        Text("$n de ${f.total} leituras · ${txt.second}", fontSize = 11.5.sp, color = Luluco.TextFaint)
+                    }
+                }
             }
         }
     }

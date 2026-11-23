@@ -308,10 +308,10 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
             }
             when (o.state) {
                 // mostra a hora real em que foi marcado (com a data, se foi em outro dia)
-                OccState.FEITO -> Badge(o.log?.feitoEm?.let { f -> "feito " + (if (f.toLocalDate(vm.zone) != o.dueAt.toLocalDate(vm.zone)) fmtDateTime(f) else fmtTime(f)) } ?: "feito", Luluco.Ok)
+                OccState.FEITO -> Badge(o.log?.feitoEm?.let { f -> "feito " + (if (f.toLocalDate(vm.zone) != o.dueAt.toLocalDate(vm.zone)) fmtDateTime(f) else fmtTime(f)) } ?: "feito", Luluco.ZoneIdeal)
                 OccState.PULADO -> Badge("pulado", Luluco.Neutral)
-                OccState.ADIADO -> if (!due) Badge("adiado até ${fmtTime(o.effectiveDueAt)}", Luluco.Pool) else Badge("atrasada", Luluco.Coral)
-                OccState.PENDENTE -> if (due) Badge("atrasada", Luluco.Coral)
+                OccState.ADIADO -> if (!due) Badge("adiado até ${fmtTime(o.effectiveDueAt)}", Luluco.Pool) else Badge("atrasada", Luluco.ZoneWarn)
+                OccState.PENDENTE -> if (due) Badge("atrasada", Luluco.ZoneWarn)
             }
         }
 
@@ -347,7 +347,7 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
         }
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 36.sp, letterSpacing = (-1).sp, color = Luluco.Cream)
+            Text(value?.let { animatedParam(param, it) } ?: "-", fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 36.sp, letterSpacing = (-1).sp, color = Luluco.Cream)
             Spacer(Modifier.width(6.dp))
             Text(Params.unit(param), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
             Spacer(Modifier.weight(1f))
@@ -355,7 +355,7 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
             if (series.size >= 2) Column(horizontalAlignment = Alignment.End) {
                 Sparkline(series, series.first().first, series.last().first, Luluco.TextSoft, Modifier.width(78.dp).height(26.dp), band = range?.let { it.idealMin to it.idealMax }, colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
                 val d = series.last().second - series[series.size - 2].second
-                Text(deltaText(param, d), fontSize = 12.sp, color = Luluco.TextSoft, maxLines = 1)
+                DeltaBadge(Params.format(param, kotlin.math.abs(d)), if (d > 0) 1 else if (d < 0) -1 else 0)
             }
         }
         if (range != null) RangeBar(value, range, statusColor(status))
@@ -407,11 +407,6 @@ private fun Stat(modifier: Modifier, value: String, label: String) {
 }
 
 /** "▲ 0,05 desde a anterior" no formato do parametro. */
-fun deltaText(param: String, d: Double): String {
-    if (kotlin.math.abs(d) < 1e-9) return "= igual à anterior"
-    return (if (d > 0) "▲ " else "▼ ") + Params.format(param, kotlin.math.abs(d))
-}
-
 /** Cor da zona onde o valor cai: verde (ideal), laranja (fora do ideal), vermelho (critico). */
 fun zoneColor(v: Double, r: ParamRange): Color = when {
     v >= r.idealMin && v <= r.idealMax -> Luluco.ZoneIdeal

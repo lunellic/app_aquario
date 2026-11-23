@@ -90,7 +90,16 @@ fun rememberWaterTime(enabled: Boolean = LocalWaterFx.current): () -> Float {
 fun WaterBackground(modifier: Modifier = Modifier, strength: Float = 1f) {
     Canvas(modifier) {
         drawRect(Luluco.Navy)
-        drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.025f * strength), Color.Transparent), endY = size.height * 0.5f))
+        // Clarao ambiente no topo, bem apagado, na cor do acento. Ideia do Financia: da profundidade
+        // sem desenhar nada. Fica em 6% para nao virar mancha num tablet que fica aceso o dia todo.
+        drawRect(
+            Brush.radialGradient(
+                listOf(Luluco.Pool.copy(alpha = 0.06f * strength), Color.Transparent),
+                center = Offset(size.width / 2, 0f),
+                radius = size.width * 0.75f,
+            ),
+        )
+        drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.02f * strength), Color.Transparent), endY = size.height * 0.5f))
     }
 }
 
@@ -194,7 +203,12 @@ fun animatedParam(param: String, value: Double): String {
     return if (a.isRunning) num(a.value.toDouble(), Params.decimals(param)) else Params.format(param, value)
 }
 
-/** Anel da nota de saude enchendo, com o numero contando no centro. */
+/**
+ * Mostrador da nota de saude, em tracos.
+ *
+ * Era um arco cheio, que so dizia "mais ou menos cheio". O traco marca o passo da escala, entao da
+ * para ver quanto falta sem ler o numero. A ideia vem do mostrador do Gluco.
+ */
 @Composable
 fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp = size / 18, label: String? = "Saúde", critico: Boolean = false) {
     val anim = LocalAnim.current
@@ -202,15 +216,31 @@ fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp 
     LaunchedEffect(score, anim) { if (anim) a.animateTo((score ?: 0) / 100f, tween(1100, easing = FastOutSlowInEasing)) else a.snapTo((score ?: 0) / 100f) }
     val color = scoreColor(score, critico)
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
+        // Mostrador de tracos em vez de arco cheio: o traco marca o passo da escala, entao da para
+        // ver quanto falta sem ler o numero. O arco cheio so dizia "mais ou menos cheio".
         Canvas(Modifier.size(size)) {
-            val sw = stroke.toPx()
-            val inset = sw / 2
-            val arcSize = Size(this.size.width - sw, this.size.height - sw)
-            drawArc(Color.White.copy(alpha = 0.06f), -90f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(sw))
-            if (score != null) drawArc(color, -90f, 360f * a.value, false, Offset(inset, inset), arcSize, style = Stroke(sw, cap = StrokeCap.Round))
+            val tracos = 44
+            val raio = this.size.minDimension / 2 - stroke.toPx() * 1.2f
+            val centro = Offset(this.size.width / 2, this.size.height / 2)
+            val acesos = if (score == null) 0 else Math.round(a.value * tracos)
+            val w = stroke.toPx() * 0.52f
+            for (i in 0 until tracos) {
+                val ang = (i.toFloat() / tracos) * 2f * PI.toFloat() - PI.toFloat() / 2f
+                val r1 = raio - stroke.toPx() * 1.05f
+                val p1 = Offset(centro.x + cos(ang) * r1, centro.y + sin(ang) * r1)
+                val p2 = Offset(centro.x + cos(ang) * raio, centro.y + sin(ang) * raio)
+                drawLine(
+                    if (i < acesos) color else Color.White.copy(alpha = 0.09f),
+                    p1, p2, strokeWidth = w, cap = StrokeCap.Round,
+                )
+            }
         }
         androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(if (score == null) "-" else (a.value * 100).roundToInt().toString(), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = (size.value * 0.32f).sp, letterSpacing = (-1).sp, color = Luluco.Cream)
+            Text(
+                if (score == null) "-" else (a.value * 100).roundToInt().toString(),
+                fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.32f).sp,
+                letterSpacing = (-1).sp, color = color,
+            )
             if (label != null) Text(label.uppercase(), fontSize = (size.value * 0.095f).coerceAtLeast(10f).sp, letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold, color = Luluco.TextSoft)
         }
     }
