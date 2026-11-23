@@ -94,6 +94,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
 
+      # O Lucas instala no tablet pelo Drive, sem depender do computador. Sem o segredo
+      # configurado o passo nao falha o build: ele so nao envia nada.
+      - name: Subir o APK no Google Drive
+        if: github.ref == 'refs/heads/main'
+        run: |
+          pip install --quiet google-api-python-client google-auth
+          python3 tools/subir_no_drive.py luluco-reef.apk "$PASTA" \
+            "Build ${GITHUB_RUN_NUMBER} (commit ${GITHUB_SHA::7}), versao 0.0.${GITHUB_RUN_NUMBER}."
+        env:
+          GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
+          PASTA: 1vSSGaG1dIcZsWPFKW5OX2GPpzbkh7uqn
+
   # Teste de fumaça no Android 5.1 (API 22), o mesmo do Fire HD 8: TLS real com o Supabase e fluxo principal das telas.
   smoke:
     runs-on: ubuntu-latest
