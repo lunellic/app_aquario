@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -111,10 +112,14 @@ fun VitrineScreen(vm: MainViewModel) {
             Row(Modifier.weight(1f)) {
                 // esquerda: hora, data e, no espaco que antes ficava vazio, os ultimos testes em destaque
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.62f), maxFont = 128f)
+                    GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.62f), maxFont = 112f)
                     Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
-                    Spacer(Modifier.height(18.dp))
-                    if (shown.isNotEmpty()) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Spacer(Modifier.height(12.dp))
+                    // Os quatro parametros mais relogio mais avisos nao cabiam em 500 px de
+                    // altura: a segunda linha de numeros saia cortada ao meio. Alem de encolher
+                    // o conteudo, o bloco agora recorta no proprio limite, para um dado a mais
+                    // nunca voltar a invadir o bloco de baixo sem ninguem perceber.
+                    if (shown.isNotEmpty()) Column(Modifier.weight(1f).clipToBounds(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         shown.chunked(2).forEach { linha ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                                 linha.forEach { p ->
@@ -207,13 +212,13 @@ private fun VParam(modifier: Modifier, param: String, valor: Double?, medidoEm: 
         Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(valor?.let { Params.format(param, it) } ?: "-", fontFamily = Display, fontWeight = FontWeight.SemiBold,
-                fontSize = 46.sp, letterSpacing = (-1.5).sp, color = Luluco.Cream, maxLines = 1)
+                fontSize = 38.sp, letterSpacing = (-1.2).sp, color = Luluco.Cream, maxLines = 1)
             Params.unit(param)?.let { Text(" $it", fontSize = 15.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 8.dp)) }
             Spacer(Modifier.weight(1f))
             if (delta != null) Box(Modifier.padding(bottom = 6.dp)) { DeltaBadge(Params.format(param, kotlin.math.abs(delta)), if (delta > 0) 1 else if (delta < 0) -1 else 0) }
         }
         if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft,
-            Modifier.fillMaxWidth().height(34.dp), band = range?.let { it.idealMin to it.idealMax },
+            Modifier.fillMaxWidth().height(24.dp), band = range?.let { it.idealMin to it.idealMax },
             colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
         if (range != null) RangeBar(valor, range, statusColor(st))
     }
