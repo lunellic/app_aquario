@@ -154,8 +154,14 @@ class SmokeTest {
             compose.onNodeWithText("Nova observação ou tratamento", ignoreCase = true).performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
-            // 20 s: gravar o caso e navegar para a ficha passa pelo Room e pela sincronizacao, e no
-            // emulador API 22 sob carga 10 s era curto demais (este passo ja falhou por tempo antes)
+            // diagnostico: quantos casos entraram no banco e o que esta na tela agora
+            Thread.sleep(1500)
+            android.util.Log.i("LULUCO_DIAG", "casos no banco: " + runBlocking { app.graph.db.healthCases().all().first().size })
+            android.util.Log.i("LULUCO_DIAG", "tem 'Nova entrada': " + compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().size)
+            android.util.Log.i("LULUCO_DIAG", "tem 'Nao encontrado': " + compose.onAllNodesWithText("Não encontrado.", ignoreCase = true).fetchSemanticsNodes().size)
+            android.util.Log.i("LULUCO_DIAG", "tem 'Salvar': " + compose.onAllNodesWithText("Salvar", ignoreCase = true).fetchSemanticsNodes().size)
+            android.util.Log.i("LULUCO_DIAG", "tem 'Novo caso': " + compose.onAllNodesWithText("Novo caso de saúde", ignoreCase = true).fetchSemanticsNodes().size)
+            shot("diag_saude")
             compose.waitUntil(20_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Nova entrada", ignoreCase = true).performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick()
