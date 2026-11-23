@@ -450,12 +450,16 @@ private fun FinanceBlock(vm: MainViewModel, nav: Nav) {
     val gastos = doCiclo.filter { it.tipo == "despesa" }.sumOf { it.valor }
     val cartao = doCiclo.filter { it.tipo == "despesa" && it.forma == "cartao" }.sumOf { it.valor }
     val caixa = all.sumOf { caixaDelta(it) }
+    // Saldo zerado por nunca ter tido movimento e diferente de saldo zerado por ter gastado tudo.
+    // Compra no cartao nao mexe na caixinha, entao quem so compra no cartao ve R$ 0,00 e acha que o
+    // numero nao esta funcionando. Nesse caso o bloco diz o porque em vez de so mostrar o zero.
+    val caixaNunca = all.none { caixaDelta(it) != 0.0 }
     // em aberto conta todas as parcelas futuras, nao so as do ciclo: e o que ainda vai sair
     val aPagar = all.filter { it.emAberto() }.sumOf { it.valor }
     Panel(Modifier.fillMaxWidth().clickable { nav.top(Screen.Financas) }, padding = 0.dp) {
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.padding(start = 12.dp)) { GlowIcon(androidx.compose.material.icons.Icons.Outlined.ShoppingCart, Luluco.AreaFinancas, 30.dp) }
-            FinCell(Modifier.weight(1f), "Caixinha", caixa)
+            FinCell(Modifier.weight(1f), "Caixinha", caixa, nota = if (caixaNunca) "nenhum depósito ainda" else null)
             VerticalDivider(color = Luluco.Divider)
             FinCell(Modifier.weight(1f), "Gastos · " + cycleRange(ciclo, settings.cicloDia), gastos)
             VerticalDivider(color = Luluco.Divider)
@@ -467,9 +471,10 @@ private fun FinanceBlock(vm: MainViewModel, nav: Nav) {
 }
 
 @Composable
-private fun FinCell(modifier: Modifier, label: String, v: Double, color: Color? = null) {
+private fun FinCell(modifier: Modifier, label: String, v: Double, color: Color? = null, nota: String? = null) {
     Column(modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
         Eyebrow(label)
         Text(money(v), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 20.sp, letterSpacing = (-0.4).sp, color = color ?: Luluco.Cream, maxLines = 1)
+        if (nota != null) Text(nota, fontSize = 11.sp, color = Luluco.TextFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

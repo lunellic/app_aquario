@@ -3,6 +3,7 @@ package br.com.lunelli.lulucoreef.ui
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -114,6 +115,9 @@ sealed interface Screen {
     data class EquipmentForm(val id: String? = null) : Screen
     data class RoutineHistory(val id: String) : Screen
 }
+
+/** O que a tela esta mostrando: o app, o descanso ou o modo noite. */
+private enum class Modo { APP, DESCANSO, NOITE }
 
 class Nav {
     val stack = mutableStateListOf<Screen>(Screen.Painel)
@@ -238,12 +242,27 @@ private fun LoggedIn(vm: MainViewModel) {
             }
         },
     ) {
-        when {
-            night -> NightScreen(vm)
-            vitrine -> VitrineScreen(vm)
-            else -> {
-                WaterBackground(Modifier.fillMaxSize())
-                MainScaffold(vm, nav)
+        // Entrada e saida do descanso em transicao suave, nao um corte seco.
+        //
+        // Esta fica sempre ligada, mesmo com "Animacoes da interface" desligada em Ajustes: a troca
+        // entre telas do menu acontece a cada toque e por isso custa caro, mas esta acontece uma vez
+        // a cada tantos minutos, e sem ela o tablet ao lado do aquario pisca de uma tela para a outra.
+        Crossfade(
+            targetState = when {
+                night -> Modo.NOITE
+                vitrine -> Modo.DESCANSO
+                else -> Modo.APP
+            },
+            animationSpec = tween(700),
+            label = "descanso",
+        ) { modo ->
+            when (modo) {
+                Modo.NOITE -> NightScreen(vm)
+                Modo.DESCANSO -> VitrineScreen(vm)
+                Modo.APP -> {
+                    WaterBackground(Modifier.fillMaxSize())
+                    MainScaffold(vm, nav)
+                }
             }
         }
         // na vitrine e no modo noite, o botao voltar so acorda o Painel
