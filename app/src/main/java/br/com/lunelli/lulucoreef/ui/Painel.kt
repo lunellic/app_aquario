@@ -21,6 +21,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import br.com.lunelli.lulucoreef.BuildConfig
+import br.com.lunelli.lulucoreef.update.Atualizacao
+import br.com.lunelli.lulucoreef.update.VersaoRemota
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -103,6 +108,8 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
         val wide = maxWidth > 640.dp
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Header(Modifier.cascade(0), tank?.nome ?: "Luluco Reef", tank?.fotoVitrinePath, now, health, volume, livestock.filter { it.status == "ativo" }.sumOf { it.quantidade }) { showScore = true }
+
+            AvisoDeAtualizacao()
 
             val hoje: @Composable (Modifier) -> Unit = { m ->
                 Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -471,5 +478,57 @@ private fun FinCell(modifier: Modifier, label: String, v: Double, color: Color? 
         Eyebrow(label)
         Text(money(v), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 20.sp, letterSpacing = (-0.4).sp, color = color ?: Luluco.Cream, maxLines = 1)
         if (nota != null) Text(nota, fontSize = 11.sp, color = Luluco.TextFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * Aviso de versao nova, no alto do Painel. Baixa e abre o instalador sem sair do app: o tablet
+ * fica longe do computador e passar o APK por cabo a cada build nao se sustenta.
+ *
+ * Nao atualiza sozinho de proposito. Instalar troca o app que esta na frente, e isso no meio de
+ * uma dosagem ou de uma TPA seria pior do que ficar um dia na versao velha. Quem decide a hora e
+ * ele, com um toque.
+ */
+@Composable
+private fun AvisoDeAtualizacao() {
+    val ctx = LocalContext.current
+    val escopo = rememberCoroutineScope()
+    var versao by remember { mutableStateOf<VersaoRemota?>(null) }
+    var progresso by remember { mutableIntStateOf(-1) }
+    var erro by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) { versao = Atualizacao.checar(ctx)?.takeIf { it.nova } }
+
+    val v = versao ?: return
+    Panel(Modifier.fillMaxWidth().cascade(0)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(Luluco.ZoneIdeal))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Versão ${v.versao} disponível", fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
+                val detalhe = erro ?: when {
+                    progresso in 0..99 -> "Baixando… $progresso%"
+                    progresso == 100 -> "Baixado. Confirme a instalação na tela do sistema."
+                    v.notas.isNotBlank() -> v.notas
+                    else -> "Você está na ${BuildConfig.VERSION_NAME}."
+                }
+                Text(detalhe, fontSize = 13.sp, color = if (erro != null) Luluco.ZoneCrit else Luluco.TextSoft, maxLines = 2)
+            }
+            Spacer(Modifier.width(12.dp))
+            if (progresso < 0) Button(onClick = {
+                erro = null
+                progresso = 0
+                escopo.launch {
+                    try {
+                        val apk = Atualizacao.baixar(ctx) { progresso = it }
+                        progresso = 100
+                        Atualizacao.instalar(ctx, apk)
+                    } catch (e: Exception) {
+                        erro = "Não deu para baixar: ${e.message}"
+                        progresso = -1
+                    }
+                }
+            }) { Text("Atualizar") }
+        }
     }
 }
