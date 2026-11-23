@@ -283,7 +283,11 @@ class SmokeTest {
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-            Thread.sleep(2500)
+            // Espera o Painel aparecer de fato. Tempo fixo pegava a tela de abertura em
+            // maquina lenta, e um print da logomarca nao diz nada sobre a interface.
+            compose.waitUntil(30_000) {
+                compose.onAllNodesWithText("Métricas principais", ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
+            }
             shot("painel")
             // calendario do Painel: toca num dia e ve a lista
             step { compose.onNodeWithText("Adicionar atividade neste dia", ignoreCase = true).performScrollTo() }
