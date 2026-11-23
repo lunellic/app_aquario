@@ -131,7 +131,9 @@ jobs:
             gradle --no-daemon connectedDebugAndroidTest; status=$?
             # A captura vem antes do exit: build que quebrou e justamente o que a gente
             # quer ver na tela, nao o que a gente quer ficar sem print.
-            adb logcat -d -v raw -s LULUCO_SHOT:I > capturas.log
+            # tee e nao redirecionamento: o artefato e o jeito bom de pegar as telas, mas o
+            # log continua sendo o unico jeito de ver um print de onde nao da para baixar zip.
+            adb logcat -d -v raw -s LULUCO_SHOT:I | tee capturas.log
             if [ $status -ne 0 ]; then adb logcat -d -t 400 '*:E'; exit $status; fi
 
       - name: Montar as capturas de tela
