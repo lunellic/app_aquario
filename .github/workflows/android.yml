@@ -128,5 +128,21 @@ jobs:
           script: |
             adb logcat -G 16M
             adb shell settings put secure immersive_mode_confirmations confirmed
-            gradle --no-daemon connectedDebugAndroidTest || (adb logcat -d -t 400 '*:E' ; exit 1)
-            adb logcat -d -v raw -s LULUCO_SHOT:I
+            gradle --no-daemon connectedDebugAndroidTest; status=$?
+            # A captura vem antes do exit: build que quebrou e justamente o que a gente
+            # quer ver na tela, nao o que a gente quer ficar sem print.
+            adb logcat -d -v raw -s LULUCO_SHOT:I > capturas.log
+            if [ $status -ne 0 ]; then adb logcat -d -t 400 '*:E'; exit $status; fi
+
+      - name: Montar as capturas de tela
+        if: always()
+        run: test -f capturas.log && python3 tools/extrair_prints.py capturas.log capturas || echo "sem log de capturas"
+
+      - name: Guardar as capturas de tela
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-${{ github.run_number }}
+          path: capturas/
+          if-no-files-found: ignore
+          retention-days: 90
