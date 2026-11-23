@@ -1,8 +1,9 @@
 name: PWA iPhone
 
 # Publica a pasta pwa/ no GitHub Pages.
-# Para o primeiro deploy funcionar, em Settings > Pages o "Source" precisa estar em "GitHub Actions".
-# Depois disso o app fica em https://lunellic.github.io/app_aquario/ e atualiza sozinho a cada push.
+# O workflow tenta ligar o Pages sozinho (enablement). Se nao conseguir, basta ir em
+# Settings > Pages e deixar o "Source" em "GitHub Actions", e rodar este workflow outra vez.
+# O app fica em https://lunellic.github.io/app_aquario/ e atualiza a cada push na pasta pwa/.
 
 on:
   push:
@@ -51,7 +52,11 @@ jobs:
           node --check pwa/config.js
           node --check pwa/sw.js
 
+      # enablement liga o Pages pelo proprio workflow, se a conta permitir. Se der erro de permissao,
+      # o caminho e Settings > Pages > Source: GitHub Actions, e rodar o workflow de novo.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
