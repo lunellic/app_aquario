@@ -154,14 +154,9 @@ class SmokeTest {
             compose.onNodeWithText("Nova observação ou tratamento", ignoreCase = true).performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
-            // diagnostico: quantos casos entraram no banco e o que esta na tela agora
+            // Respiro antes de esperar a ficha. O waitUntil sozinho falhou duas vezes seguidas aqui e
+            // passou com esta pausa; a causa exata nao foi isolada, entao fica o respiro e o prazo folgado.
             Thread.sleep(1500)
-            android.util.Log.i("LULUCO_DIAG", "casos no banco: " + runBlocking { app.graph.db.healthCases().all().first().size })
-            android.util.Log.i("LULUCO_DIAG", "tem 'Nova entrada': " + compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().size)
-            android.util.Log.i("LULUCO_DIAG", "tem 'Nao encontrado': " + compose.onAllNodesWithText("Não encontrado.", ignoreCase = true).fetchSemanticsNodes().size)
-            android.util.Log.i("LULUCO_DIAG", "tem 'Salvar': " + compose.onAllNodesWithText("Salvar", ignoreCase = true).fetchSemanticsNodes().size)
-            android.util.Log.i("LULUCO_DIAG", "tem 'Novo caso': " + compose.onAllNodesWithText("Novo caso de saúde", ignoreCase = true).fetchSemanticsNodes().size)
-            shot("diag_saude")
             compose.waitUntil(20_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Nova entrada", ignoreCase = true).performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick()

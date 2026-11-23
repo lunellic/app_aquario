@@ -1,9 +1,9 @@
 name: PWA iPhone
 
 # Publica a pasta pwa/ no GitHub Pages.
-# O workflow tenta ligar o Pages sozinho (enablement). Se nao conseguir, basta ir em
-# Settings > Pages e deixar o "Source" em "GitHub Actions", e rodar este workflow outra vez.
-# O app fica em https://lunellic.github.io/app_aquario/ e atualiza a cada push na pasta pwa/.
+# UMA VEZ, a mao: Settings > Pages > Source: "GitHub Actions". Sem isso o passo configure-pages
+# falha com "Get Pages site failed", porque o token do Actions nao pode criar o site sozinho.
+# Depois disso o app fica em https://lunellic.github.io/app_aquario/ e atualiza a cada push em pwa/.
 
 on:
   push:
@@ -52,11 +52,9 @@ jobs:
           node --check pwa/config.js
           node --check pwa/sw.js
 
-      # enablement liga o Pages pelo proprio workflow, se a conta permitir. Se der erro de permissao,
-      # o caminho e Settings > Pages > Source: GitHub Actions, e rodar o workflow de novo.
+      # O token do Actions nao tem permissao para criar o site do Pages (tentado e recusado em 22/11).
+      # Entao o Pages precisa ser ligado uma vez a mao: Settings > Pages > Source: GitHub Actions.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:

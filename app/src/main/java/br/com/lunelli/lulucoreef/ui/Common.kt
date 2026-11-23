@@ -52,11 +52,15 @@ import java.util.Locale
 val PtBr = Locale("pt", "BR")
 private val dateTimeFmt = DateTimeFormatter.ofPattern("dd/MM/yy HH:mm", PtBr)
 private val dayFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy", PtBr)
+private val dayShortFmt = DateTimeFormatter.ofPattern("dd/MM", PtBr)
 private val timeFmt = DateTimeFormatter.ofPattern("HH:mm", PtBr)
 
 fun fmtDateTime(ms: Long): String = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(dateTimeFmt)
 fun fmtTime(ms: Long): String = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(timeFmt)
 fun fmtDay(ms: Long): String = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(dayFmt)
+
+/** So dia e mes, para caber em coluna estreita (ex.: a atrasada na lista do descanso). */
+fun fmtDayShort(ms: Long): String = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(dayShortFmt)
 fun fmtIsoDay(iso: String?): String = try { LocalDate.parse(iso).format(dayFmt) } catch (_: Exception) { "" }
 
 fun fmtAgo(ms: Long, now: Long): String {

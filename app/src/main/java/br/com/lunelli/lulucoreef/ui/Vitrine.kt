@@ -151,7 +151,7 @@ fun VitrineScreen(vm: MainViewModel) {
                         val quando = when {
                             o.state == OccState.FEITO -> "feito"
                             o.state == OccState.PULADO -> "pulou"
-                            o.carried -> fmtDay(o.dueAt)
+                            o.carried -> fmtDayShort(o.dueAt)
                             else -> fmtTime(o.effectiveDueAt)
                         }
                         VRow(quando, o.routine.titulo, dose, done = !o.open, late = o.isDue(now))
