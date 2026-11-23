@@ -154,7 +154,9 @@ class SmokeTest {
             compose.onNodeWithText("Nova observação ou tratamento", ignoreCase = true).performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
-            compose.waitUntil(10_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
+            // 20 s: gravar o caso e navegar para a ficha passa pelo Room e pela sincronizacao, e no
+            // emulador API 22 sob carga 10 s era curto demais (este passo ja falhou por tempo antes)
+            compose.waitUntil(20_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Nova entrada", ignoreCase = true).performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick()
             compose.onNodeWithText("Casos abertos (1)", ignoreCase = true).assertIsDisplayed()
