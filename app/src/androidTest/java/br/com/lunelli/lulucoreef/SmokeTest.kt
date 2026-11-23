@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onRoot
 import android.content.pm.ActivityInfo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -283,10 +284,11 @@ class SmokeTest {
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
-            // Espera o Painel aparecer de fato. Tempo fixo pegava a tela de abertura em
-            // maquina lenta, e um print da logomarca nao diz nada sobre a interface.
+            // Espera a tela de abertura SAIR. Esperar o Painel montar nao basta: ele ja esta
+            // montado embaixo enquanto a logo ainda cobre tudo, e o print saia com a logomarca.
             compose.waitUntil(30_000) {
-                compose.onAllNodesWithText("Métricas principais", ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
+                compose.onAllNodesWithTag("splash").fetchSemanticsNodes().isEmpty() &&
+                    compose.onAllNodesWithText("Métricas principais", ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
             }
             shot("painel")
             // calendario do Painel: toca num dia e ve a lista

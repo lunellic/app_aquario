@@ -137,9 +137,12 @@ function barraDeFaixas(param, dias) {
 }
 
 /** Cor de cada area, igual ao Theme.kt do tablet. Nunca diz se esta bom: para isso e a ZONA. */
+// Nenhuma cor de area pode ser igual a uma cor de zona, nem quase. Dose era o mesmo ambar
+// do "atencao", animal o mesmo verde do "na faixa" e saude o mesmo vermelho do "critico":
+// o olho lia alarme onde era so identidade de area. Tem que bater com o Theme.kt.
 const AREA = {
-  painel: '#2CC5A8', teste: '#4C8DF6', tpa: '#38BDF8', dose: '#E5A23C', jornal: '#E06C9F',
-  animal: '#34C77B', saude: '#E5534B', equip: '#94A3B8', grafico: '#8B7CF6',
+  painel: '#2CC5A8', teste: '#4C8DF6', tpa: '#38BDF8', dose: '#C2855A', jornal: '#E06C9F',
+  animal: '#8FD14F', saude: '#B07BE8', equip: '#94A3B8', grafico: '#8B7CF6',
   relatorio: '#6E7FF3', calc: '#EAB308', financas: '#10B981', ajustes: '#8B95A3',
 };
 

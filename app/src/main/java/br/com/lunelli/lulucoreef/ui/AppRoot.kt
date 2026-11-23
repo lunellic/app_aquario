@@ -187,7 +187,9 @@ private fun Splash() {
         visible = false
     }
     AnimatedVisibility(visible, enter = fadeIn(tween(0)), exit = fadeOut(tween(450))) {
-        Box(Modifier.fillMaxSize().background(Luluco.DeepTop), contentAlignment = Alignment.Center) {
+        // testTag para o teste de fumaca esperar a abertura sair antes de tirar o print:
+        // a tela de baixo ja esta montada enquanto a logo ainda cobre tudo.
+        Box(Modifier.fillMaxSize().testTag("splash").background(Luluco.DeepTop), contentAlignment = Alignment.Center) {
             Image(painterResource(R.drawable.logo_luluco), "Luluco Reef",
                 Modifier.size(260.dp).graphicsLayer { scaleX = scale.value; scaleY = scale.value }.clip(RoundedCornerShape(48.dp)))
         }

@@ -54,10 +54,10 @@ object Luluco {
     val AreaPainel = Color(0xFF2CC5A8)
     val AreaTeste = Color(0xFF4C8DF6)
     val AreaTpa = Color(0xFF38BDF8)
-    val AreaDose = Color(0xFFE5A23C)
+    val AreaDose = Color(0xFFC2855A)
     val AreaJornal = Color(0xFFE06C9F)
-    val AreaAnimal = Color(0xFF34C77B)
-    val AreaSaude = Color(0xFFE5534B)
+    val AreaAnimal = Color(0xFF8FD14F)
+    val AreaSaude = Color(0xFFB07BE8)
     val AreaEquip = Color(0xFF94A3B8)
     val AreaGrafico = Color(0xFF8B7CF6)
     val AreaRelatorio = Color(0xFF6E7FF3)
@@ -75,6 +75,9 @@ object Luluco {
     // do app usa estes tons, senao verde deixa de significar "esta bom".
     //
     // Os tons aqui sao os mesmos do PWA, para os dois nao divergirem.
+    // Nenhuma cor de area pode ser igual a uma cor de zona, nem quase. Dose era o mesmo
+    // ambar do "atencao", animal o mesmo verde do "na faixa" e saude o mesmo vermelho do
+    // "critico": os protocolos de quarentena pareciam alarme sendo so identidade de area.
     val ZoneIdeal = Color(0xFF34C77B)
     val ZoneWarn = Color(0xFFE8A33C)
     val ZoneCrit = Color(0xFFE5534B)

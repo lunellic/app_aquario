@@ -148,6 +148,7 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
     val line = Luluco.PoolText
     val grid = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
 
+    Column(Modifier.fillMaxWidth()) {
     Row(Modifier.fillMaxWidth().height(170.dp).padding(top = 8.dp)) {
         Column(Modifier.width(52.dp).fillMaxHeight().padding(bottom = 14.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Muted(num(hi, Params.decimals(p)))
@@ -208,11 +209,14 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
                 Muted(fmtDay(from).take(5), Modifier.weight(1f))
                 Muted("hoje + projeção")
             }
-            if (range != null) {
-                Spacer(Modifier.height(12.dp))
-                FaixasBar(p, pts, range, from, to)
-            }
         }
+    }
+    // A barra de faixas fica FORA da Row do grafico. Dentro dela ela dividia os 170 dp com
+    // o desenho, o grafico virava uma tira de 40 dp e a barra transbordava por cima.
+    if (range != null) {
+        Spacer(Modifier.height(10.dp))
+        FaixasBar(p, pts, range, from, to)
+    }
     }
 }
 
@@ -257,12 +261,12 @@ private fun FaixasBar(param: String, pts: List<WaterTest>, range: ParamRange, fr
     Spacer(Modifier.height(8.dp))
     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         // a barra segue a mesma ordem da legenda ao lado: senao o olho inverte a leitura
-        Column(Modifier.width(10.dp).height(96.dp).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.05f))) {
+        Column(Modifier.width(10.dp).height(52.dp).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.05f))) {
             listOf(Luluco.ZoneIdeal to f.ideal, Luluco.ZoneWarn to f.atencao, Luluco.ZoneCrit to f.critico).forEach { (cor, n) ->
                 if (n > 0) Box(Modifier.fillMaxWidth().weight(n.toFloat()).background(cor))
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val limites = listOf(
                 Triple(Luluco.ZoneIdeal, f.ideal, "na faixa" to "${Params.format(param, range.idealMin)} a ${Params.format(param, range.idealMax)}"),
                 Triple(Luluco.ZoneWarn, f.atencao, "atenção" to "${Params.format(param, range.alertaMin)} a ${Params.format(param, range.alertaMax)}"),

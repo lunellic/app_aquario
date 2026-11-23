@@ -128,15 +128,22 @@ fun VitrineScreen(vm: MainViewModel) {
                             }
                         }
                     } else Spacer(Modifier.weight(1f))
-                    // todos os avisos ativos (ate 4), um por linha
+                    // Dois avisos, e o resto vira contagem. Com quatro, o bloco crescia para
+                    // baixo e cobria a segunda linha de parametros: os numeros saiam cortados
+                    // pela metade. Aviso que esconde a medicao nao esta avisando nada.
                     if (alertas.isNotEmpty()) Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        alertas.forEach { a ->
+                        alertas.take(2).forEach { a ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(a.severity)))
                                 Spacer(Modifier.width(10.dp))
                                 Text(a.fato, fontSize = 15.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
+                        val resto = alertas.size - 2
+                        if (resto > 0) Text(
+                            if (resto == 1) "e mais 1 aviso" else "e mais $resto avisos",
+                            fontSize = 13.sp, color = Luluco.TextFaint, modifier = Modifier.padding(start = 17.dp),
+                        )
                     }
                 }
                 // direita: hoje e proximos, em lista com linhas finas
