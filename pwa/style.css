@@ -303,3 +303,43 @@ nav#abas button svg { opacity: 0.9; }
 
 button.ghost { display: inline-flex; align-items: center; justify-content: center; }
 button.cheio { width: 100%; }
+
+/* ---------------------------------------------------------------- numeros sobre o grafico */
+/* o SVG e esticado para acompanhar a largura, o que distorceria texto: todo numero e HTML por cima */
+.graf { position: relative; margin-top: 8px; }
+.graf .gsvg { margin-top: 0; }
+.y-marca, .y-faixa, .agora {
+  position: absolute;
+  font-size: 10.5px;
+  line-height: 1;
+  transform: translateY(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.y-marca { left: 0; color: var(--fraco); background: var(--card); padding: 1px 3px; border-radius: 3px; }
+.y-faixa { left: 0; color: var(--ok); opacity: 0.75; background: var(--card); padding: 1px 3px; border-radius: 3px; }
+.agora {
+  right: 0;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--card);
+  border: 1px solid var(--borda);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.risca { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--suave); opacity: 0.4; pointer-events: none; }
+/* dentro do grafico, nao acima: acima ela cobria o cabecalho do card */
+.bolha {
+  position: absolute;
+  top: 2px;
+  transform: translateX(-50%);
+  background: var(--solido);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}

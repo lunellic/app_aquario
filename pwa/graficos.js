@@ -26,17 +26,27 @@ const svgEl = (tag, attrs) => {
 };
 
 /**
- * Um grafico. `series` e uma lista de { p, pontos, cor }. Com mais de uma serie cada uma ganha a
- * propria escala, senao o calcio (400) esmagaria o KH (8) contra o chao.
+ * Um grafico, dentro de uma caixa posicionada.
+ *
+ * O desenho vai em SVG esticado (preserveAspectRatio none), o que serve para a linha mas distorce
+ * texto. Por isso todo numero e HTML posicionado por cima, em porcentagem: escala na esquerda,
+ * valor atual na ponta da linha e a bolha que segue o dedo.
+ *
+ * `series` e uma lista de { p, pontos, cor }. Com mais de uma serie cada uma ganha a propria
+ * escala, senao o calcio (400) esmagaria o KH (8) contra o chao.
  */
-function desenharSvg(series, dias, mostrarFaixa) {
+function desenharGrafico(series, dias, mostrarFaixa) {
   const L = 300;
   const A = 110;
-  const pad = { t: 8, b: 16, l: 4, r: 4 };
+  const pad = { t: 8, b: 10, l: 4, r: 4 };
+  const caixa = el('div', 'graf');
   const svg = svgEl('svg', { viewBox: `0 0 ${L} ${A}`, class: 'gsvg', preserveAspectRatio: 'none' });
   const ate = Date.now();
   const de = ate - dias * DIA_MS;
   const x = (t) => pad.l + ((t - de) / (ate - de)) * (L - pad.l - pad.r);
+  const pct = (v, total) => `${(v / total) * 100}%`;
+  // tudo que foi desenhado, para a leitura por toque achar o ponto mais proximo
+  const marcados = [];
 
   series.forEach((s) => {
     if (!s.pontos.length) return;
@@ -48,13 +58,11 @@ function desenharSvg(series, dias, mostrarFaixa) {
     lo -= folga; hi += folga;
     const y = (v) => pad.t + (1 - (v - lo) / (hi - lo)) * (A - pad.t - pad.b);
 
-    // faixa ideal ao fundo, so no grafico de um parametro so
     if (mostrarFaixa && r) {
       const y1 = y(Number(r.ideal_max));
       const y2 = y(Number(r.ideal_min));
       const larg = L - pad.l - pad.r;
       svg.appendChild(svgEl('rect', { x: pad.l, y: y1, width: larg, height: Math.max(1, y2 - y1), fill: 'var(--ok)', opacity: '0.07' }));
-      // as bordas da faixa marcadas: sem elas o bloco verde se confunde com o fundo do card
       [y1, y2].forEach((yy) => svg.appendChild(svgEl('line', {
         x1: pad.l, x2: pad.l + larg, y1: yy, y2: yy,
         stroke: 'var(--ok)', 'stroke-width': '1', 'stroke-dasharray': '3 4', opacity: '0.45', 'vector-effect': 'non-scaling-stroke',
@@ -70,9 +78,69 @@ function desenharSvg(series, dias, mostrarFaixa) {
         cx: x(q.em).toFixed(1), cy: y(q.v).toFixed(1), r: '2.6',
         fill: q.duvida ? 'var(--fundo)' : cor, stroke: cor, 'stroke-width': '1.4',
       }));
+      marcados.push({ ...q, p: s.p, cor, xp: x(q.em) / L, yp: y(q.v) / A });
     });
+
+    // escala: so faz sentido com uma serie so, porque cada serie tem a sua
+    if (series.length === 1) {
+      [[hi, pad.t], [lo, A - pad.b]].forEach(([valor, yy]) => {
+        const t = el('span', 'y-marca', formatar(s.p, valor));
+        t.style.top = pct(yy, A);
+        caixa.appendChild(t);
+      });
+      if (mostrarFaixa && r) {
+        const faixa = el('span', 'y-faixa', `ideal ${formatar(s.p, Number(r.ideal_min))} a ${formatar(s.p, Number(r.ideal_max))}`);
+        faixa.style.top = pct((y(Number(r.ideal_max)) + y(Number(r.ideal_min))) / 2, A);
+        caixa.appendChild(faixa);
+      }
+    }
+
+    // valor de agora, colado na ponta da linha: e a pergunta que ele faz olhando o grafico
+    const ultimo = s.pontos[s.pontos.length - 1];
+    const marca = el('span', 'agora', formatar(s.p, ultimo.v) + (series.length > 1 ? '' : ` ${UNIDADES[s.p] || ''}`));
+    marca.style.top = pct(y(ultimo.v), A);
+    marca.style.color = series.length > 1 ? s.cor : 'var(--creme)';
+    caixa.appendChild(marca);
   });
-  return svg;
+
+  caixa.insertBefore(svg, caixa.firstChild);
+  ligarLeitura(caixa, svg, marcados);
+  return caixa;
+}
+
+/**
+ * Leitura por toque: arrastar o dedo sobre o grafico mostra o valor e a data do ponto mais proximo.
+ * Num celular nao da para acertar um ponto de 3 px com o dedo, entao a busca e so pelo eixo do
+ * tempo e o ponto mais perto vence.
+ */
+function ligarLeitura(caixa, svg, pontos) {
+  if (!pontos.length) return;
+  const bolha = el('div', 'bolha hidden');
+  const risca = el('div', 'risca hidden');
+  caixa.appendChild(risca);
+  caixa.appendChild(bolha);
+
+  const mostrar = (clienteX) => {
+    const cx = caixa.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (clienteX - cx.left) / cx.width));
+    let melhor = pontos[0];
+    pontos.forEach((q) => { if (Math.abs(q.xp - frac) < Math.abs(melhor.xp - frac)) melhor = q; });
+    bolha.textContent = `${formatar(melhor.p, melhor.v)} ${UNIDADES[melhor.p] || ''} · ${ddmm(melhor.em)}`.trim();
+    // perto das bordas a bolha sairia da tela: ali ela encosta no canto em vez de centralizar
+    bolha.style.left = `${melhor.xp * 100}%`;
+    bolha.style.transform = melhor.xp < 0.2 ? 'translateX(0)' : melhor.xp > 0.8 ? 'translateX(-100%)' : 'translateX(-50%)';
+    bolha.style.color = melhor.cor;
+    risca.style.left = `${melhor.xp * 100}%`;
+    bolha.classList.remove('hidden');
+    risca.classList.remove('hidden');
+  };
+  const esconder = () => { bolha.classList.add('hidden'); risca.classList.add('hidden'); };
+
+  caixa.addEventListener('touchstart', (e) => { mostrar(e.touches[0].clientX); }, { passive: true });
+  caixa.addEventListener('touchmove', (e) => { mostrar(e.touches[0].clientX); }, { passive: true });
+  caixa.addEventListener('touchend', esconder, { passive: true });
+  caixa.addEventListener('mousemove', (e) => mostrar(e.clientX));
+  caixa.addEventListener('mouseleave', esconder);
 }
 
 /** Datas embaixo do grafico: comeco, meio e hoje. Sem isso um grafico de 1 ano nao diz quando. */
@@ -116,7 +184,7 @@ function desenharGraficos() {
     multi.appendChild(el('div', 'muted', 'Escolha os parâmetros acima.'));
   } else {
     const series = escolhidos.map((p, i) => ({ p, pontos: serieDe(p, dias), cor: CORES_SERIE[i % CORES_SERIE.length] }));
-    multi.appendChild(desenharSvg(series, dias, false));
+    multi.appendChild(desenharGrafico(series, dias, false));
     multi.appendChild(eixoDeTempo(dias));
     const leg = el('div', 'legenda');
     series.forEach((s) => {
@@ -148,9 +216,9 @@ function desenharGraficos() {
     c.appendChild(topo);
     if (pontos.length < 2) c.appendChild(el('div', 'muted', 'Menos de duas medições no período.'));
     else {
-      c.appendChild(desenharSvg([{ p, pontos, cor: 'var(--suave)' }], dias, true));
+      c.appendChild(desenharGrafico([{ p, pontos, cor: 'var(--suave)' }], dias, true));
       c.appendChild(eixoDeTempo(dias));
-      if (dados.ranges[p]) c.appendChild(el('div', 'muted', `Faixa ideal tracejada: ${formatar(p, Number(dados.ranges[p].ideal_min))} a ${formatar(p, Number(dados.ranges[p].ideal_max))}. Ponto vazado é leitura duvidosa.`));
+      c.appendChild(el('div', 'muted', 'Arraste o dedo sobre o gráfico para ler cada medição. Ponto vazado é leitura duvidosa.'));
     }
     caixa.appendChild(c);
   });
