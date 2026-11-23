@@ -59,15 +59,18 @@ fun TimerBlock(nav: Nav, compact: Boolean = true) {
     Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                GlowIcon(Icons.Outlined.Refresh, Luluco.AreaTpa, 30.dp)
+                IconeRedondo(Icons.Outlined.Refresh, Luluco.AreaTpa)
                 Spacer(Modifier.width(10.dp))
                 Eyebrow("Timer")
                 Spacer(Modifier.weight(1f))
                 if (compact) TextButton(onClick = { nav.top(Screen.Timers) }) { Text("Alarme") }
             }
-            // botoes fixos: um toque e ja esta contando
+            // Tres tempos no Painel, cinco na tela propria. Com seis botoes na coluna estreita do
+            // Painel cada um ficava com uns 50 px e o rotulo quebrava no meio: "5 mi", "1 0",
+            // "D efi". Botao ilegivel nao e atalho, e adivinhacao.
+            val presets = if (compact) listOf(5, 15, 30) else Clocks.PRESETS
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Clocks.PRESETS.forEach { min ->
+                presets.forEach { min ->
                     BigButton("$min min", Modifier.weight(1f), color = Luluco.Solid) { Clocks.startTimer(ctx, min) }
                 }
                 BigButton("Definir", Modifier.weight(1f), color = Luluco.Solid) { definir = true }

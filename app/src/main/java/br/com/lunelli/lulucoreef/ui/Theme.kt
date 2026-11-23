@@ -13,17 +13,27 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import br.com.lunelli.lulucoreef.R
 
 /**
- * Tema v0.4: escuro neutro e sobrio (grafite azulado), cor so com funcao.
+ * Tema v0.5: escuro com fundo violeta-tinta, acento actinico, cor so com funcao.
  * Os nomes antigos foram mantidos para nao mexer em todas as telas; os valores mudaram.
+ *
+ * Por que o acento deixou de ser verde-agua: o verde do app significa "dentro da faixa". Tendo
+ * tambem um acento verde, botao, icone e brilho da interface entravam na mesma familia de quem
+ * julga o parametro, e a tela inteira parecia dizer que estava tudo bem. Agora o unico verde da
+ * tela e o da zona ideal.
+ *
+ * E por que violeta: e a cor da luz actinica sobre o aquario. O recife do Lucas e visto nessa luz
+ * todo dia, e os corais fluorescem em verde, laranja e rosa justamente CONTRA ela. Entao a cor da
+ * marca e a agua, e as cores que julgam sao o que aparece dentro dela.
  */
 object Luluco {
-    // um unico destaque, contido (verde-agua frio); o resto e cinza
-    val Pool = Color(0xFF2CC5A8)
-    val PoolText = Color(0xFF5ED6BF)
+    // um unico destaque: violeta actinico
+    val Pool = Color(0xFF7B61FF)
+    val PoolText = Color(0xFFA796FF)
     val Royal = Color(0xFF4C8DF6)
     // estado
     val Coral = Color(0xFFE8734A)
@@ -37,21 +47,21 @@ object Luluco {
     val Amber = Color(0xFFE5A23C)
     val Pink = Color(0xFFE06C9F)
     val Cyan = Color(0xFF38BDF8)
-    // fundo e superficies: preto azulado e um degrau acima
-    val DeepTop = Color(0xFF0B0E13)
-    val DeepBottom = Color(0xFF0B0E13)
-    val Navy = Color(0xFF0B0E13)
-    val Card = Color(0xFF12161C)
-    val CardBorder = Color(0xFF1E242C)
-    val Solid = Color(0xFF161B22)
-    val SolidHigh = Color(0xFF1C222A)
-    val Divider = Color(0xFF1E242C)
+    // fundo e superficies: tinta violeta e tres degraus acima
+    val DeepTop = Color(0xFF090A11)
+    val DeepBottom = Color(0xFF090A11)
+    val Navy = Color(0xFF090A11)
+    val Card = Color(0xFF13141E)
+    val CardBorder = Color(0xFF212338)
+    val Solid = Color(0xFF191B28)
+    val SolidHigh = Color(0xFF212433)
+    val Divider = Color(0xFF212338)
     // cor de cada area (menu e jornal)
     // ------------------------------------------------------------------ areas
     //
     // Area so identifica de que parte do app o item e. Nunca diz se esta bom ou ruim: para isso sao
     // as zonas acima.
-    val AreaPainel = Color(0xFF2CC5A8)
+    val AreaPainel = Color(0xFF2CC5A8) // verde-agua: era o acento antigo, agora so identifica o Painel
     val AreaTeste = Color(0xFF4C8DF6)
     val AreaTpa = Color(0xFF38BDF8)
     val AreaDose = Color(0xFFC2855A)
@@ -85,6 +95,14 @@ object Luluco {
 
     /** Versoes de fundo das zonas, para a pilula tingida. */
     fun zoneBg(c: Color) = c.copy(alpha = 0.12f)
+
+    /**
+     * Forma de marca: quadrado muito arredondado com UM canto vivo, em cima a esquerda.
+     * Vem do Gluco. Repetida em todo card, ela vira assinatura sem custar cor nenhuma, e num app de
+     * recife lembra folha de coral. E o unico canto reto da tela inteira, entao o olho acha.
+     */
+    val RaioCard = 20.dp
+    val RaioVivo = 5.dp
     // texto
     val Cream = Color(0xFFECEFF3)
     val TextSoft = Color(0xFF8B95A3)

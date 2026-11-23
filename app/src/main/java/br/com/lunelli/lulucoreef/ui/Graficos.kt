@@ -17,7 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,10 +55,13 @@ fun GraficosScreen(vm: MainViewModel) {
         ScreenHeader("Parâmetros")
         Segmented(PERIODS, period, Modifier.fillMaxWidth()) { period = it }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Legend(Luluco.Ok.copy(alpha = 0.35f), "faixa ideal")
+            Legend(Luluco.ZoneIdeal.copy(alpha = 0.35f), "faixa ideal")
             Legend(Luluco.Pool, "TPA")
             Legend(Luluco.Cream.copy(alpha = 0.6f), "dose")
-            Legend(Luluco.Coral, "projeção (tracejado)")
+            Legend(Luluco.ZoneWarn, "projeção")
+            // O ponto vazado existia no desenho desde sempre e nao tinha legenda nenhuma: quem
+            // olhava via uma bolinha diferente e nao sabia se era erro.
+            Legend(Luluco.TextSoft, "ponto vazado: leitura duvidosa")
         }
         (Params.MAIN + Params.OPTIONAL).forEach { p ->
             val pts = tests.filter { it.parametro == p && it.medidoEm in from..now }.sortedBy { it.medidoEm }
@@ -67,14 +70,27 @@ fun GraficosScreen(vm: MainViewModel) {
             Panel(Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${Params.label(p)} (${Params.unit(p)})", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Muted("${pts.size} medições" + (pts.lastOrNull { !it.baixaConfianca }?.let { " · última ${Params.format(p, it.valor)}" } ?: ""))
+                    // So as confiaveis, para bater com a barra de faixas logo abaixo. Antes o
+                    // cabecalho dizia "5 medicoes" e a barra "4 de 4 leituras", na mesma tela.
+                    val confiaveis = pts.count { !it.baixaConfianca }
+                    Muted("$confiaveis ${if (confiaveis == 1) "medição" else "medições"}" + (pts.lastOrNull { !it.baixaConfianca }?.let { " · última ${Params.format(p, it.valor)}" } ?: ""))
                 }
                 if (pts.isEmpty()) {
                     Muted("Sem medições neste período.")
                 } else {
                     Chart(p, pts, ranges[p], trend, tpas, doses, from, to, now)
-                    if (trend?.daysToExit != null) Text("Projeção: sai da faixa ideal em ~${maxOf(1, trend.daysToExit.roundToInt())} dias", color = Luluco.CoralText, style = MaterialTheme.typography.bodySmall)
-                    else if (trend != null) Muted("Projeção: tendência de ${if (trend.slopePerDay >= 0) "+" else ""}${Params.format(p, trend.slopePerDay * 7)} por semana.")
+                    // A linha tracejada laranja nao se explica sozinha: quem olha ve uma linha que
+                    // continua para a direita e nao sabe se e previsao, meta ou limite. A frase diz
+                    // o que ela e, de onde sai e ate quando vale, em palavras.
+                    if (trend != null) {
+                        val semana = Params.format(p, kotlin.math.abs(trend.slopePerDay * 7))
+                        val rumo = if (trend.slopePerDay >= 0) "subindo" else "caindo"
+                        val base = "A linha tracejada é a continuação desse ritmo: $rumo $semana por semana, contando as últimas medições."
+                        if (trend.daysToExit != null) Text(
+                            "$base Nesse passo sai da faixa ideal em ~${maxOf(1, trend.daysToExit.roundToInt())} dias.",
+                            color = Luluco.ZoneWarn, style = MaterialTheme.typography.bodySmall,
+                        ) else Muted("$base Não é previsão: é o que aconteceria se nada mudasse.")
+                    }
                 }
             }
         }
@@ -101,9 +117,16 @@ private fun Compare(tests: List<WaterTest>, @Suppress("UNUSED_PARAMETER") fromTo
         ChipRow(listOf("7" to "7 dias", "30" to "30 dias", "90" to "90 dias", "365" to "1 ano"), dias) { dias = it }
         val series = sel.toList().sortedBy { all.indexOf(it) }.map { p -> p to tests.filter { it.parametro == p && it.medidoEm in from..now }.sortedBy { it.medidoEm } }
         Spacer(Modifier.height(10.dp))
+        // O eixo acompanha os dados, e nao o periodo escolhido. Em "90 dias" com um mes de
+        // historico as linhas se espremiam no quarto direito da tela e dois tercos ficavam vazios,
+        // parecendo grafico quebrado. Agora o periodo recorta quais medicoes entram; o desenho usa
+        // da primeira a ultima que sobraram.
+        val todosPontos = series.flatMap { it.second }
+        val ini = todosPontos.minOfOrNull { it.medidoEm } ?: from
+        val fim = todosPontos.maxOfOrNull { it.medidoEm } ?: now
         if (series.none { it.second.size >= 2 }) Muted("Poucas medições neste período.")
         else Canvas(Modifier.fillMaxWidth().height(220.dp)) {
-            fun x(t: Long) = ((t - from).toFloat() / (now - from).coerceAtLeast(1)) * size.width
+            fun x(t: Long) = ((t - ini).toFloat() / (fim - ini).coerceAtLeast(1)) * size.width * 0.96f + size.width * 0.02f
             for (i in 0..4) drawLine(Color.White.copy(alpha = 0.05f), Offset(0f, size.height * i / 4), Offset(size.width, size.height * i / 4), 1f)
             series.forEach { (p, s) ->
                 if (s.isEmpty()) return@forEach
@@ -113,6 +136,13 @@ private fun Compare(tests: List<WaterTest>, @Suppress("UNUSED_PARAMETER") fromTo
                 fun y(v: Double) = (1f - ((v - lo) / span).toFloat()) * size.height * 0.84f + size.height * 0.08f
                 for (i in 1 until s.size) drawLine(c, Offset(x(s[i - 1].medidoEm), y(s[i - 1].valor)), Offset(x(s[i].medidoEm), y(s[i].valor)), 2.dp.toPx(), cap = StrokeCap.Round)
                 s.forEach { drawCircle(c, 3.dp.toPx(), Offset(x(it.medidoEm), y(it.valor))) }
+            }
+        }
+        if (series.any { it.second.size >= 2 }) {
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth()) {
+                Muted(fmtDay(ini).take(5), Modifier.weight(1f))
+                Muted(fmtDay(fim).take(5))
             }
         }
         Spacer(Modifier.height(6.dp))
@@ -164,7 +194,7 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
                     drawRect(Luluco.ZoneIdeal.copy(alpha = 0.10f), topLeft = Offset(0f, y(range.idealMax)), size = Size(size.width, y(range.idealMin) - y(range.idealMax)))
                     // bordas marcadas: sem elas o bloco se confunde com o fundo do card
                     listOf(range.idealMax, range.idealMin).forEach { v ->
-                        drawLine(Luluco.ZoneIdeal.copy(alpha = 0.45f), Offset(0f, y(v)), Offset(size.width, y(v)), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
+                        tracejar(Offset(0f, y(v)), Offset(size.width, y(v)), Luluco.ZoneIdeal.copy(alpha = 0.55f), 1.dp.toPx(), 6.dp.toPx(), 5.dp.toPx())
                     }
                 }
                 // moldura e "agora"
@@ -188,7 +218,9 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
                         lineTo(xy.first().x, size.height)
                         close()
                     }
-                    drawPath(sob, Brush.verticalGradient(listOf(line.copy(alpha = 0.26f), line.copy(alpha = 0f)), startY = 0f, endY = size.height))
+                    // 10% e nao 26%: com a curva no alto do grafico o preenchimento cobria quase
+                    // toda a area e engolia a faixa ideal, que e a informacao que importa.
+                    drawPath(sob, Brush.verticalGradient(listOf(line.copy(alpha = 0.10f), line.copy(alpha = 0f)), startY = 0f, endY = size.height))
                     drawPath(caminho, line, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
                 }
                 pts.forEach {
@@ -202,7 +234,7 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
                     val endDays = (to - now).toDouble() / DAY_MS
                     val v0 = trend.intercept.coerceIn(lo, hi)
                     val v1 = (trend.intercept + trend.slopePerDay * endDays).coerceIn(lo, hi)
-                    drawLine(Luluco.Coral, Offset(x(now), y(v0)), Offset(x(to), y(v1)), 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f)))
+                    tracejar(Offset(x(now), y(v0)), Offset(x(to), y(v1)), Luluco.ZoneWarn, 2.dp.toPx(), 9.dp.toPx(), 7.dp.toPx())
                 }
             }
             Row(Modifier.fillMaxWidth().height(14.dp)) {
@@ -282,5 +314,28 @@ private fun FaixasBar(param: String, pts: List<WaterTest>, range: ParamRange, fr
                 }
             }
         }
+    }
+}
+
+/**
+ * Tracejado desenhado tracinho a tracinho.
+ *
+ * O PathEffect do Canvas e ignorado pelo GPU do Fire quando a tela esta acelerada por hardware: a
+ * linha da projecao e a borda da faixa ideal saiam solidas no tablet, mesmo o codigo pedindo
+ * tracejado, e a legenda dizia "tracejado" apontando para uma linha cheia. Desenhando os
+ * segmentos na mao o resultado nao depende do driver.
+ */
+private fun DrawScope.tracejar(a: Offset, b: Offset, cor: Color, largura: Float, traco: Float, vao: Float) {
+    val dx = b.x - a.x
+    val dy = b.y - a.y
+    val comprimento = kotlin.math.hypot(dx, dy)
+    if (comprimento <= 0f) return
+    val ux = dx / comprimento
+    val uy = dy / comprimento
+    var d = 0f
+    while (d < comprimento) {
+        val fim = minOf(d + traco, comprimento)
+        drawLine(cor, Offset(a.x + ux * d, a.y + uy * d), Offset(a.x + ux * fim, a.y + uy * fim), largura, cap = StrokeCap.Round)
+        d = fim + vao
     }
 }

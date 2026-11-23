@@ -123,9 +123,20 @@ fun Segmented(options: List<Pair<String, String>>, selected: String?, modifier: 
 }
 
 /** Card v0.4: grafite um tom acima do fundo, borda fina; com borderColor ganha um leve tom da cor. */
+/**
+ * A forma de todo card: muito arredondada, com um canto vivo em cima a esquerda. Repetida em toda
+ * a tela ela vira assinatura sem gastar cor, e e o unico canto reto do app, entao o olho acha.
+ */
+val FormaLuluco = RoundedCornerShape(
+    topStart = Luluco.RaioVivo,
+    topEnd = Luluco.RaioCard,
+    bottomEnd = Luluco.RaioCard,
+    bottomStart = Luluco.RaioCard,
+)
+
 @Composable
-fun Panel(modifier: Modifier = Modifier, borderColor: Color? = null, padding: Dp = 16.dp, content: @Composable ColumnScope.() -> Unit) {
-    val shape = RoundedCornerShape(14.dp)
+fun Panel(modifier: Modifier = Modifier, borderColor: Color? = null, padding: Dp = 18.dp, content: @Composable ColumnScope.() -> Unit) {
+    val shape = FormaLuluco
     Column(
         modifier.clip(shape).background(Luluco.Card)
             .border(1.dp, borderColor?.copy(alpha = 0.40f) ?: Luluco.CardBorder, shape).padding(padding),
@@ -149,14 +160,14 @@ fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = tr
     val source = remember { MutableInteractionSource() }
     // so o verde-agua vira botao de destaque (contornado e levemente tingido); qualquer outra cor vira neutro
     val primary = color == Luluco.Pool || color == Luluco.Ok
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(14.dp)
     Button(
         onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 52.dp).pressSpring(source)
             .border(1.dp, if (primary) Luluco.Pool.copy(alpha = 0.55f) else Luluco.CardBorder, shape),
         shape = shape, interactionSource = source,
         colors = ButtonDefaults.buttonColors(containerColor = if (primary) tint(Luluco.Pool, 0.12f) else Luluco.Solid, contentColor = if (primary) Luluco.PoolText else Luluco.Cream,
             disabledContainerColor = Luluco.Solid, disabledContentColor = Luluco.TextFaint),
-    ) { Text(text, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 2) }
+    ) { Text(text, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false) }
 }
 
 @Composable

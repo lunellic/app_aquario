@@ -125,16 +125,24 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
         ChipRow(listOf("todos" to "Todos", "marinho" to "Marinho", "doce" to "Água doce"), filtro) { filtro = it }
     }
 
-    // saldo, gastos e vendas em um so card com divisorias
+    // Caixinha primeiro, e nao mais escondida na aba propria: e o unico numero que responde
+    // "posso comprar isso?", que e a pergunta que leva alguem a abrir Financas. Os outros contam o
+    // que ja aconteceu. "No cartao" saiu da fileira e virou a linha fina embaixo de Gastos: era um
+    // recorte de Gastos ocupando o mesmo tamanho do total, e com cinco numeros do mesmo peso
+    // nenhum deles se le primeiro.
+    val caixaHoje = all.sumOf { caixaDelta(it) }
     Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
         Row(Modifier.height(IntrinsicSize.Min)) {
-            Money(Modifier.weight(1f), "Saldo do mês", receitas - gastos, if (receitas - gastos >= 0) Luluco.Ok else Luluco.CoralText)
+            Money(Modifier.weight(1f), "Caixinha hoje", caixaHoje, if (caixaHoje > 0) Luluco.ZoneIdeal else Luluco.TextSoft,
+                nota = if (all.none { caixaDelta(it) != 0.0 }) "nenhum depósito ainda" else "saldo atual, não é do mês")
             VerticalDivider(color = Luluco.Divider)
-            Money(Modifier.weight(1f), "Gastos", gastos, null)
+            Money(Modifier.weight(1f), "Gastos do ciclo", gastos, null,
+                nota = buildList {
+                    if (cartao > 0) add("${money(cartao)} no cartão")
+                    if (aPagarMes > 0) add("${money(aPagarMes)} a pagar")
+                }.joinToString(" · ").ifBlank { null })
             VerticalDivider(color = Luluco.Divider)
-            Money(Modifier.weight(1f), "No cartão", cartao, null)
-            VerticalDivider(color = Luluco.Divider)
-            Money(Modifier.weight(1f), "A pagar", aPagarMes, if (aPagarMes > 0) Luluco.CoralText else Luluco.TextSoft)
+            Money(Modifier.weight(1f), "Saldo do mês", receitas - gastos, if (receitas - gastos >= 0) Luluco.ZoneIdeal else Luluco.ZoneWarn)
             VerticalDivider(color = Luluco.Divider)
             Money(Modifier.weight(1f), "Vendas", receitas, null)
         }
@@ -295,11 +303,16 @@ private fun Caixinha(vm: MainViewModel, nav: Nav) {
 }
 
 @Composable
-private fun Money(modifier: Modifier, label: String, v: Double, color: Color?) {
+private fun Money(modifier: Modifier, label: String, v: Double, color: Color?, nota: String? = null) {
     Column(modifier.padding(16.dp)) {
         Eyebrow(label)
         Spacer(Modifier.height(6.dp))
-        Text(money(v), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 26.sp, letterSpacing = (-0.6).sp, color = color ?: Luluco.Cream, maxLines = 1)
+        Text(money(v), fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, letterSpacing = (-0.6).sp,
+            color = color ?: Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (nota != null) {
+            Spacer(Modifier.height(3.dp))
+            Text(nota, fontSize = 11.sp, color = Luluco.TextFaint, maxLines = 2, lineHeight = 13.sp)
+        }
     }
 }
 

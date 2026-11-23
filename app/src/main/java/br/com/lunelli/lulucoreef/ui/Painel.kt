@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.graphics.Brush
@@ -458,17 +459,32 @@ private fun FinanceBlock(vm: MainViewModel, nav: Nav) {
     val caixaNunca = all.none { caixaDelta(it) != 0.0 }
     // em aberto conta todas as parcelas futuras, nao so as do ciclo: e o que ainda vai sair
     val aPagar = all.filter { it.emAberto() }.sumOf { it.valor }
+    // Tres numeros, e nao cinco. Na coluna estreita do Painel, icone mais quatro celulas davam uns
+    // 70 px para cada uma: "R$ 294,66" em 20sp nao cabia e o texto era cortado no meio do primeiro
+    // caractere, virando um "R" solto. "No cartao" saiu porque e o unico que da para deduzir dos
+    // outros, e a fonte caiu para 17sp com reticencias, para nunca mais cortar calado.
     Panel(Modifier.fillMaxWidth().clickable { nav.top(Screen.Financas) }, padding = 0.dp) {
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.padding(start = 12.dp)) { GlowIcon(androidx.compose.material.icons.Icons.Outlined.ShoppingCart, Luluco.AreaFinancas, 30.dp) }
+            Box(Modifier.padding(start = 14.dp)) { IconeRedondo(androidx.compose.material.icons.Icons.Outlined.ShoppingCart, Luluco.AreaFinancas) }
             FinCell(Modifier.weight(1f), "Caixinha", caixa, nota = if (caixaNunca) "nenhum depósito ainda" else null)
             VerticalDivider(color = Luluco.Divider)
-            FinCell(Modifier.weight(1f), "Gastos · " + cycleRange(ciclo, settings.cicloDia), gastos)
+            FinCell(Modifier.weight(1f), "Gastos do ciclo", gastos)
             VerticalDivider(color = Luluco.Divider)
-            FinCell(Modifier.weight(1f), "No cartão", cartao)
-            VerticalDivider(color = Luluco.Divider)
-            FinCell(Modifier.weight(1f), "A pagar", aPagar, if (aPagar > 0) Luluco.CoralText else null)
+            FinCell(Modifier.weight(1f), "A pagar", aPagar, if (aPagar > 0) Luluco.ZoneWarn else null,
+                nota = if (cartao > 0) "no cartão ${money(cartao)}" else null)
         }
+    }
+}
+
+/**
+ * Icone dentro de um circulo tingido, do Gluco. Substitui o icone com brilho atras: o brilho
+ * espalhava luz sobre o texto vizinho numa tela que fica acesa o dia inteiro, e o circulo da a
+ * mesma ancora visual sem vazar nada.
+ */
+@Composable
+fun IconeRedondo(icon: androidx.compose.ui.graphics.vector.ImageVector, cor: Color, size: Dp = 34.dp) {
+    Box(Modifier.size(size).clip(CircleShape).background(cor.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = cor, modifier = Modifier.size(size * 0.52f))
     }
 }
 
@@ -476,7 +492,8 @@ private fun FinanceBlock(vm: MainViewModel, nav: Nav) {
 private fun FinCell(modifier: Modifier, label: String, v: Double, color: Color? = null, nota: String? = null) {
     Column(modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
         Eyebrow(label)
-        Text(money(v), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 20.sp, letterSpacing = (-0.4).sp, color = color ?: Luluco.Cream, maxLines = 1)
+        Text(money(v), fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, letterSpacing = (-0.3).sp,
+            color = color ?: Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (nota != null) Text(nota, fontSize = 11.sp, color = Luluco.TextFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
