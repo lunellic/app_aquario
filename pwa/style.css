@@ -1,20 +1,29 @@
 /*
- * Mesma paleta do app do tablet (Theme.kt): grafite quase preto, acento unico verde-agua,
- * divisorias de 1px no lugar de blocos. No iPhone a fonte do sistema ja e a SF Pro, entao
- * -apple-system da o mesmo tipo do app sem baixar fonte nenhuma.
+ * Mesma paleta do app do tablet (Theme.kt), v0.5: tinta violeta, acento actinico, divisorias de
+ * 1px no lugar de blocos. No iPhone a fonte do sistema ja e a SF Pro, entao -apple-system da o
+ * mesmo tipo do app sem baixar fonte nenhuma.
+ *
+ * O acento deixou de ser verde-agua porque o verde do app significa "dentro da faixa": tendo
+ * tambem um acento verde, botao e icone entravam na familia de quem julga o parametro e a tela
+ * inteira parecia dizer que estava tudo bem. O violeta e a cor da luz actinica sobre o aquario,
+ * aquela contra a qual os corais fluorescem.
  */
 :root {
-  --fundo: #0B0E13;
-  --card: #12161C;
-  --borda: #1E242C;
-  --solido: #161B22;
+  --fundo: #090A11;
+  --card: #13141E;
+  --borda: #212338;
+  --solido: #191B28;
   --creme: #ECEFF3;
   --suave: #8B95A3;
   --fraco: #5B6573;
-  --pool: #2CC5A8;
+  --pool: #7B61FF;
+  --pool-texto: #A796FF;
   --ok: #34C77B;
-  --aviso: #E8734A;
+  --aviso: #E8A33C;
   --critico: #E5534B;
+  /* Forma de marca: muito arredondada com UM canto vivo em cima a esquerda. Repetida em toda
+     tela ela vira assinatura sem gastar cor, e e o unico canto reto do app. */
+  --forma: 5px 20px 20px 20px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
@@ -102,7 +111,7 @@ nav#abas button.ativo { color: var(--pool); }
 .param {
   background: var(--card);
   border: 1px solid var(--borda);
-  border-radius: 16px;
+  border-radius: var(--forma);
   padding: 12px 14px;
 }
 .param .topo { display: flex; align-items: center; gap: 6px; }
@@ -117,7 +126,7 @@ nav#abas button.ativo { color: var(--pool); }
 .faixa .marca { position: absolute; top: -3px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--card); margin-left: -5px; }
 
 /* ---------------------------------------------------------------- listas */
-.lista { background: var(--card); border: 1px solid var(--borda); border-radius: 16px; overflow: hidden; }
+.lista { background: var(--card); border: 1px solid var(--borda); border-radius: var(--forma); overflow: hidden; }
 .lista:empty { display: none; }
 .item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--borda); }
 .item:first-child { border-top: 0; }
@@ -130,7 +139,7 @@ nav#abas button.ativo { color: var(--pool); }
 .vazio { padding: 16px 14px; color: var(--suave); font-size: 14px; }
 
 /* ---------------------------------------------------------------- formulario */
-.card { background: var(--card); border: 1px solid var(--borda); border-radius: 16px; padding: 14px; display: grid; gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--borda); border-radius: var(--forma); padding: 14px; display: grid; gap: 12px; }
 label { display: grid; gap: 6px; font-size: 13px; color: var(--suave); }
 .linha-check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--suave); }
 .linha-check input { width: 20px; height: 20px; accent-color: var(--pool); }
@@ -164,7 +173,7 @@ button {
   color: var(--creme);
   background: var(--solido);
 }
-button.primary { background: var(--pool); color: #06231d; }
+button.primary { background: var(--pool); color: #0B0616; }
 button:disabled { opacity: 0.5; }
 button.ghost { background: none; color: var(--suave); font-size: 22px; padding: 6px 10px; }
 button.mini { padding: 8px 12px; font-size: 13px; border-radius: 10px; flex: none; }
@@ -206,7 +215,7 @@ button.mini { padding: 8px 12px; font-size: 13px; border-radius: 10px; flex: non
 .chip.ativo { background: var(--creme); color: var(--fundo); border-color: var(--creme); }
 
 /* ---------------------------------------------------------------- numeros grandes */
-.num { background: var(--card); border: 1px solid var(--borda); border-radius: 16px; padding: 12px 14px; }
+.num { background: var(--card); border: 1px solid var(--borda); border-radius: var(--forma); padding: 12px 14px; }
 .num-valor { font-size: 22px; font-weight: 600; letter-spacing: -0.6px; margin-top: 4px; }
 .num-nota { font-size: 11px; color: var(--fraco); margin-top: 2px; }
 
@@ -236,7 +245,7 @@ button.mini { padding: 8px 12px; font-size: 13px; border-radius: 10px; flex: non
 pre.relatorio {
   background: var(--card);
   border: 1px solid var(--borda);
-  border-radius: 16px;
+  border-radius: var(--forma);
   padding: 14px;
   font-size: 12px;
   line-height: 1.45;
@@ -390,7 +399,7 @@ nav#abas button { position: relative; z-index: 1; transition: color 0.2s; }
   gap: 2px;
   background: var(--card);
   border: 1px solid var(--borda);
-  border-radius: 16px;
+  border-radius: var(--forma);
   padding: 10px 8px;
 }
 .mes-cab { text-align: center; font-size: 10px; letter-spacing: 0.6px; color: var(--suave); font-weight: 600; padding-bottom: 6px; }

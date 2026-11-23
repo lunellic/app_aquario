@@ -191,7 +191,7 @@ private fun Chart(p: String, pts: List<WaterTest>, range: ParamRange?, trend: Tr
                 fun y(v: Double) = (1f - ((v - lo) / (hi - lo)).toFloat()) * size.height
                 // faixa ideal
                 if (range != null) {
-                    drawRect(Luluco.ZoneIdeal.copy(alpha = 0.10f), topLeft = Offset(0f, y(range.idealMax)), size = Size(size.width, y(range.idealMin) - y(range.idealMax)))
+                    drawRect(Luluco.ZoneIdeal.copy(alpha = 0.06f), topLeft = Offset(0f, y(range.idealMax)), size = Size(size.width, y(range.idealMin) - y(range.idealMax)))
                     // bordas marcadas: sem elas o bloco se confunde com o fundo do card
                     listOf(range.idealMax, range.idealMin).forEach { v ->
                         tracejar(Offset(0f, y(v)), Offset(size.width, y(v)), Luluco.ZoneIdeal.copy(alpha = 0.55f), 1.dp.toPx(), 6.dp.toPx(), 5.dp.toPx())

@@ -152,7 +152,12 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
         val serie = meses.map { m -> entries.filter { it.lancadoEm.ym(zone, dia) == m }.let { l -> l.filter { it.tipo == "despesa" }.sumOf { it.valor } to l.filter { it.tipo == "receita" }.sumOf { it.valor } } }
         val maxV = serie.maxOf { maxOf(it.first, it.second) }.coerceAtLeast(1.0)
         Column(Modifier.padding(16.dp)) {
-            Eyebrow("Últimos 6 meses")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Eyebrow("Últimos 6 meses")
+                Spacer(Modifier.weight(1f))
+                // O eixo nao tem escala, entao sem o teto a barra so diz "foi mais que a outra".
+                Muted("teto ${money(maxV)}")
+            }
             Spacer(Modifier.height(10.dp))
             Canvas(Modifier.fillMaxWidth().height(70.dp)) {
                 val slot = size.width / serie.size
@@ -162,11 +167,19 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
                     val hg = (g / maxV).toFloat() * size.height
                     val hr = (r / maxV).toFloat() * size.height
                     drawRoundRect(Color(0xFF8B95A3), Offset(x - bw - 2f, size.height - hg), Size(bw, hg), CornerRadius(4f, 4f))
-                    drawRoundRect(Luluco.Ok, Offset(x + 2f, size.height - hr), Size(bw, hr), CornerRadius(4f, 4f))
+                    drawRoundRect(Luluco.ZoneIdeal, Offset(x + 2f, size.height - hr), Size(bw, hr), CornerRadius(4f, 4f))
                 }
             }
+            // Valor embaixo de cada mes. Barra sem numero so mostra que subiu, nao quanto e,
+            // que foi exatamente a reclamacao sobre os graficos.
             Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                meses.forEach { m -> Text(m.format(DateTimeFormatter.ofPattern("MMM", PtBr)), Modifier.weight(1f), fontSize = 12.sp, color = Luluco.TextSoft, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                meses.forEachIndexed { i, m ->
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(m.format(DateTimeFormatter.ofPattern("MMM", PtBr)), fontSize = 12.sp, color = Luluco.TextSoft)
+                        val g = serie[i].first
+                        Text(if (g > 0) money(g) else "-", fontSize = 11.sp, color = Luluco.TextFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
         }
     }

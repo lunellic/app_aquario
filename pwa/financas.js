@@ -101,19 +101,22 @@ function resumoDoCiclo(caixa) {
   nav.appendChild(dep);
   caixa.appendChild(nav);
 
+  // Os mesmos quatro do tablet, na mesma ordem. "No cartao" e "a pagar" viraram a linha fina
+  // embaixo de Gastos: os dois sao recorte de Gastos, e com cinco numeros do mesmo peso nenhum
+  // deles se le primeiro. Caixinha vem na frente porque e o unico que responde "posso comprar
+  // isso?", que e a pergunta que leva alguem a abrir Financas.
+  const recortes = [];
+  if (cartao > 0) recortes.push(`${dinheiro(cartao)} no cartão`);
+  if (aPagarTudo > 0) recortes.push(`${dinheiro(aPagarTudo)} a pagar`);
   const g = el('div', 'grid');
-  numeroGrande(g, 'Caixinha', caixinha, caixinha < 0 ? 'var(--critico)' : null,
-    dados.financas.every((e) => caixaDelta(e) === 0) ? 'nenhum depósito ainda' : null);
-  numeroGrande(g, 'A pagar', aPagarTudo, aPagarTudo > 0 ? 'var(--aviso)' : null, 'inclui parcelas futuras');
-  numeroGrande(g, 'Gastos do ciclo', gastos);
-  numeroGrande(g, 'No cartão', cartao);
+  numeroGrande(g, 'Caixinha hoje', caixinha, caixinha < 0 ? 'var(--critico)' : 'var(--ok)',
+    dados.financas.every((e) => caixaDelta(e) === 0) ? 'nenhum depósito ainda' : 'saldo atual, não é do mês');
+  numeroGrande(g, 'Gastos do ciclo', gastos, null, recortes.join(' · ') || null);
   caixa.appendChild(g);
-  if (vendas > 0) {
-    const g2 = el('div', 'grid');
-    numeroGrande(g2, 'Vendas', vendas, 'var(--ok)');
-    numeroGrande(g2, 'Saldo do ciclo', vendas - gastos, vendas - gastos >= 0 ? 'var(--ok)' : 'var(--critico)');
-    caixa.appendChild(g2);
-  }
+  const g2 = el('div', 'grid');
+  numeroGrande(g2, 'Saldo do mês', vendas - gastos, vendas - gastos >= 0 ? 'var(--ok)' : 'var(--aviso)');
+  numeroGrande(g2, 'Vendas', vendas, vendas > 0 ? 'var(--ok)' : null);
+  caixa.appendChild(g2);
 
   const novo = el('button', 'primary cheio', 'Novo lançamento');
   novo.onclick = () => folhaLancamento(null);
