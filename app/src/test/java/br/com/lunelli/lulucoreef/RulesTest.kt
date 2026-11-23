@@ -255,9 +255,17 @@ class RulesTest {
         val arrastada = occurrencesOn(listOf(tpa), emptyList(), sabado, zone, ms("2026-11-28", "10:00")).single()
         assertEquals(ms("2026-11-27", "19:00"), arrastada.dueAt)
 
+        // a mais recente feita encerra o assunto: sextas anteriores sem registro nao voltam a cobrar
+        val feitaNa27 = listOf(RoutineLog(tpa.id, ms("2026-11-27", "19:00"), "feito"))
+        assertTrue(occurrencesOn(listOf(tpa), feitaNa27, sabado, zone, ms("2026-11-28", "10:00")).isEmpty())
+
         // rotina diaria nao arrasta: a ocorrencia de hoje ja substitui a de ontem
         val hoje = LocalDate.parse("2026-11-21")
         assertEquals(1, occurrencesOn(listOf(rGoni), emptyList(), hoje, zone, ms("2026-11-21", "10:00")).size)
+
+        // dosagem por dias da semana tambem nao arrasta: dose tem janela e dobrar faz mal
+        val sabado21 = LocalDate.parse("2026-11-21")
+        assertTrue(occurrencesOn(listOf(rAmino.copy(diasSemana = listOf(5))), emptyList(), sabado21, zone, ms("2026-11-21", "10:00")).isEmpty())
 
         // dia passado nunca recebe arrasto
         assertTrue(occurrencesOn(listOf(tpa), emptyList(), LocalDate.parse("2026-11-21"), zone, ms("2026-11-28", "10:00")).isEmpty())

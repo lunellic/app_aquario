@@ -79,9 +79,10 @@ const val CARRY_DAYS = 30
  * e nos dias seguintes, ate ser resolvida. Sem isso ela simplesmente desaparecia no dia seguinte,
  * porque `dueOn` so devolve a ocorrencia no proprio dia da semana.
  *
- * Nao arrasta rotina diaria: a ocorrencia de hoje ja substitui a de ontem, e empilhar dose perdida
- * nao ajuda (nao da para dosar ontem). Rotinas por intervalo e de uma vez so nunca tiveram o
- * problema, porque a ancora `proximaEm` fica no passado e `dueOn` as devolve em todos os dias.
+ * Nao arrasta rotina diaria nem dosagem: a diaria de hoje ja substitui a de ontem, e dose tem janela
+ * (nao da para dosar ontem, e dobrar suplemento faz mal). Arrasta TPA, teste e manutencao, que era o
+ * caso relatado. Rotinas por intervalo e de uma vez so nunca tiveram o problema, porque a ancora
+ * `proximaEm` fica no passado e `dueOn` as devolve em todos os dias.
  */
 fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDate, zone: ZoneId, now: Long? = null): List<Occurrence> {
     val byKey = logs.filter { it.deletedAt == null }.groupBy { it.routineId to it.previstoPara }
@@ -113,13 +114,20 @@ private fun carriedInto(
 ): List<Occurrence> = routines.mapNotNull { r ->
     if (!r.ativa || r.deletedAt != null) return@mapNotNull null
     if (r.recorrencia != "dias_da_semana") return@mapNotNull null
+    // Dosagem nao arrasta. Uma dose tem janela: a de sexta nao se faz no sabado, e "por em dia"
+    // dobrando suplemento de KH, Ca ou Mg faz mal ao aquario. TPA, teste e manutencao sim: essas se
+    // fazem um ou dois dias depois sem problema, e eram exatamente as que desapareciam.
+    if (r.tipo == "dosagem") return@mapNotNull null
     if (r.id in jaNoDia) return@mapNotNull null
+    // Para na ocorrencia mais recente antes de `date`, resolvida ou nao. Se ela foi feita ou pulada,
+    // nao ha pendencia: as anteriores sao historico e nao voltam a cobrar. Sem esse corte o laco
+    // seguia procurando e achava sextas sem registro de antes de o app existir, cobrando TPAs de 2003.
     for (i in 1..CARRY_DAYS) {
         val d = date.minusDays(i.toLong())
         val due = dueOn(r, d, zone) ?: continue
         val log = byKey[r.id to due]?.maxByOrNull { it.updatedAt }
         val o = Occurrence(r, due, log, carried = true)
-        if (o.open) return@mapNotNull o
+        return@mapNotNull if (o.open) o else null
     }
     null
 }

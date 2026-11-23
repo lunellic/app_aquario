@@ -1,0 +1,183 @@
+/*
+ * Mesma paleta do app do tablet (Theme.kt): grafite quase preto, acento unico verde-agua,
+ * divisorias de 1px no lugar de blocos. No iPhone a fonte do sistema ja e a SF Pro, entao
+ * -apple-system da o mesmo tipo do app sem baixar fonte nenhuma.
+ */
+:root {
+  --fundo: #0B0E13;
+  --card: #12161C;
+  --borda: #1E242C;
+  --solido: #161B22;
+  --creme: #ECEFF3;
+  --suave: #8B95A3;
+  --fraco: #5B6573;
+  --pool: #2CC5A8;
+  --ok: #34C77B;
+  --aviso: #E8734A;
+  --critico: #E5534B;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--fundo);
+  color: var(--creme);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+  overscroll-behavior-y: contain;
+}
+
+.hidden { display: none !important; }
+.muted { color: var(--suave); font-size: 14px; }
+.erro { color: var(--critico); font-size: 14px; min-height: 20px; }
+.eyebrow {
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  font-weight: 600;
+  color: var(--suave);
+}
+
+/* ---------------------------------------------------------------- login */
+#login { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.login-box { width: 100%; max-width: 360px; }
+.login-box h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -0.5px; }
+#login-form { display: grid; gap: 10px; margin-top: 20px; }
+
+/* ---------------------------------------------------------------- estrutura */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(var(--safe-t) + 14px) 16px 12px;
+  background: linear-gradient(var(--fundo) 70%, transparent);
+}
+header h2 { margin: 2px 0 0; font-size: 22px; letter-spacing: -0.4px; }
+
+main { padding: 0 16px calc(var(--safe-b) + 84px); }
+h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--suave); margin: 24px 0 10px; font-weight: 600; }
+
+nav#abas {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  border-top: 1px solid var(--borda);
+  background: rgba(11, 14, 19, 0.94);
+  backdrop-filter: blur(12px);
+  padding-bottom: var(--safe-b);
+}
+nav#abas button {
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--fraco);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 14px 0;
+  font-family: inherit;
+}
+nav#abas button.ativo { color: var(--pool); }
+
+/* ---------------------------------------------------------------- parametros */
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.param {
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+.param .topo { display: flex; align-items: center; gap: 6px; }
+.param .ponto { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.param .valor { font-size: 30px; font-weight: 600; letter-spacing: -1px; margin-top: 2px; }
+.param .valor small { font-size: 13px; font-weight: 400; color: var(--suave); letter-spacing: 0; }
+.param .pe { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--fraco); margin-top: 2px; }
+.faixa { height: 4px; border-radius: 2px; margin-top: 8px; position: relative; background: var(--critico); overflow: hidden; }
+.faixa .aviso-zona, .faixa .ideal-zona { position: absolute; top: 0; bottom: 0; }
+.faixa .aviso-zona { background: var(--aviso); }
+.faixa .ideal-zona { background: var(--ok); }
+.faixa .marca { position: absolute; top: -3px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--card); margin-left: -5px; }
+
+/* ---------------------------------------------------------------- listas */
+.lista { background: var(--card); border: 1px solid var(--borda); border-radius: 16px; overflow: hidden; }
+.lista:empty { display: none; }
+.item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--borda); }
+.item:first-child { border-top: 0; }
+.item .hora { width: 52px; flex: none; font-size: 14px; color: var(--suave); }
+.item .corpo { flex: 1; min-width: 0; }
+.item .titulo { font-size: 15px; }
+.item .titulo.feito { color: var(--suave); text-decoration: line-through; }
+.item .sub { font-size: 12px; color: var(--fraco); margin-top: 2px; }
+.item .selo { font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; flex: none; }
+.vazio { padding: 16px 14px; color: var(--suave); font-size: 14px; }
+
+/* ---------------------------------------------------------------- formulario */
+.card { background: var(--card); border: 1px solid var(--borda); border-radius: 16px; padding: 14px; display: grid; gap: 12px; }
+label { display: grid; gap: 6px; font-size: 13px; color: var(--suave); }
+.linha-check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--suave); }
+.linha-check input { width: 20px; height: 20px; accent-color: var(--pool); }
+
+/* 16px e o minimo: abaixo disso o iOS da zoom ao focar o campo */
+input, select, textarea, button {
+  font-size: 16px;
+  font-family: inherit;
+}
+input[type=email], input[type=password], input[type=text], input[type=number], select, textarea {
+  background: var(--solido);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  color: var(--creme);
+  padding: 13px 14px;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--pool); }
+textarea { resize: vertical; }
+
+.campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.campos label { font-size: 12px; }
+
+button {
+  border: 0;
+  border-radius: 12px;
+  padding: 14px;
+  font-weight: 600;
+  color: var(--creme);
+  background: var(--solido);
+}
+button.primary { background: var(--pool); color: #06231d; }
+button:disabled { opacity: 0.5; }
+button.ghost { background: none; color: var(--suave); font-size: 22px; padding: 6px 10px; }
+button.mini { padding: 8px 12px; font-size: 13px; border-radius: 10px; flex: none; }
+
+/* ---------------------------------------------------------------- avisos */
+#toast {
+  position: fixed;
+  left: 16px; right: 16px;
+  bottom: calc(var(--safe-b) + 72px);
+  background: var(--solido);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  z-index: 20;
+  text-align: center;
+}
+#toast.erro-toast { border-color: var(--critico); color: var(--critico); }
+
+#carregando { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(11, 14, 19, 0.6); z-index: 30; }
+.spin { width: 26px; height: 26px; border: 2px solid var(--borda); border-top-color: var(--pool); border-radius: 50%; animation: gira 0.8s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+
+@media (max-width: 360px) {
+  .grid, .campos { grid-template-columns: 1fr; }
+}

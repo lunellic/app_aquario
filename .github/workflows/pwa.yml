@@ -1,0 +1,61 @@
+name: PWA iPhone
+
+# Publica a pasta pwa/ no GitHub Pages.
+# Para o primeiro deploy funcionar, em Settings > Pages o "Source" precisa estar em "GitHub Actions".
+# Depois disso o app fica em https://lunellic.github.io/app_aquario/ e atualiza sozinho a cada push.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pwa/**'
+      - '.github/workflows/pwa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# um deploy por vez, e o mais novo espera o anterior terminar
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    name: Publicar no Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir os arquivos
+        run: |
+          set -e
+          for f in index.html app.js style.css config.js manifest.webmanifest sw.js icon-180.png icon-192.png icon-512.png; do
+            test -s "pwa/$f" || { echo "faltando ou vazio: pwa/$f"; exit 1; }
+          done
+          # o manifest tem que ser JSON valido, senao o iPhone nao oferece "Adicionar à Tela de Início"
+          python3 -c "import json; json.load(open('pwa/manifest.webmanifest'))"
+          # a config precisa ter a URL e a chave de verdade
+          grep -q "https://.*supabase.co" pwa/config.js || { echo "config.js sem a URL do Supabase"; exit 1; }
+          grep -q "sb_publishable" pwa/config.js || { echo "config.js sem a chave publicavel"; exit 1; }
+          echo "ok"
+
+      - name: Verificar a sintaxe do JavaScript
+        run: |
+          node --check pwa/app.js
+          node --check pwa/config.js
+          node --check pwa/sw.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pwa
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover + safe-area no CSS: sem isso o conteudo entra embaixo do notch e da barra de gestos -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0E13">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Luluco Reef">
+<title>Luluco Reef</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- login -->
+<section id="login" class="hidden">
+  <div class="login-box">
+    <h1>Luluco Reef</h1>
+    <p class="muted">Entre com a mesma conta do tablet.</p>
+    <form id="login-form" autocomplete="on">
+      <input id="email" type="email" inputmode="email" autocomplete="username" placeholder="E-mail" required>
+      <input id="senha" type="password" autocomplete="current-password" placeholder="Senha" required>
+      <button type="submit" class="primary" id="login-btn">Entrar</button>
+    </form>
+    <p id="login-erro" class="erro"></p>
+  </div>
+</section>
+
+<!-- app -->
+<div id="app" class="hidden">
+  <header>
+    <div>
+      <div class="eyebrow" id="hoje-data"></div>
+      <h2 id="tanque">Luluco Reef</h2>
+    </div>
+    <button id="recarregar" class="ghost" aria-label="Recarregar">&#8635;</button>
+  </header>
+
+  <main>
+    <!-- painel -->
+    <section id="aba-painel" class="aba">
+      <div id="params" class="grid"></div>
+      <h3>Hoje</h3>
+      <div id="hoje" class="lista"></div>
+      <h3>Últimos registros</h3>
+      <div id="resumo" class="lista"></div>
+    </section>
+
+    <!-- registrar -->
+    <section id="aba-registrar" class="aba hidden">
+      <h3>Teste de água</h3>
+      <div class="card">
+        <div id="campos-teste" class="campos"></div>
+        <label class="linha-check"><input type="checkbox" id="baixa"> Leitura duvidosa (não entra nos alertas)</label>
+        <button class="primary" id="salvar-teste">Salvar teste</button>
+      </div>
+
+      <h3>TPA</h3>
+      <div class="card">
+        <label>Litros trocados
+          <input id="tpa-litros" type="number" inputmode="decimal" step="0.5" placeholder="12">
+        </label>
+        <label>Observação
+          <input id="tpa-obs" type="text" placeholder="opcional">
+        </label>
+        <button class="primary" id="salvar-tpa">Salvar TPA</button>
+      </div>
+
+      <h3>Dose avulsa</h3>
+      <div class="card">
+        <label>Produto
+          <select id="dose-produto"></select>
+        </label>
+        <label>Quantidade
+          <input id="dose-qtd" type="number" inputmode="decimal" step="0.01" placeholder="calculada para o volume">
+        </label>
+        <button class="primary" id="salvar-dose">Salvar dose</button>
+      </div>
+
+      <h3>Nota no jornal</h3>
+      <div class="card">
+        <label>O que aconteceu
+          <textarea id="nota-texto" rows="3" placeholder="Ex.: torch abriu bem hoje"></textarea>
+        </label>
+        <button class="primary" id="salvar-nota">Salvar nota</button>
+      </div>
+    </section>
+
+    <!-- jornal -->
+    <section id="aba-jornal" class="aba hidden">
+      <div id="jornal" class="lista"></div>
+    </section>
+  </main>
+
+  <nav id="abas">
+    <button data-aba="painel" class="ativo">Painel</button>
+    <button data-aba="registrar">Registrar</button>
+    <button data-aba="jornal">Jornal</button>
+  </nav>
+</div>
+
+<div id="toast" class="hidden"></div>
+<div id="carregando" class="hidden"><span class="spin"></span></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
