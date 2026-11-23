@@ -52,7 +52,6 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /** Onda do descanso ligada? (Ajustes > Onda no descanso). Desligada: fundo parado, sem onda. */
-val LocalWaterFx = compositionLocalOf { true }
 
 /**
  * Microanimacoes de dentro do app ligadas? (Ajustes > Animacoes da interface).
@@ -62,28 +61,6 @@ val LocalWaterFx = compositionLocalOf { true }
  * de 2017 elas custam quadros em cima do que importa, entao vem desligadas por padrao.
  */
 val LocalAnim = compositionLocalOf { false }
-
-/**
- * Relogio dos efeitos de agua: ~20 quadros por segundo, so com a tela em primeiro plano.
- * O valor e lido apenas dentro do desenho (Canvas), entao nao recompoe a tela.
- */
-@Composable
-fun rememberWaterTime(enabled: Boolean = LocalWaterFx.current): () -> Float {
-    val t = remember { mutableFloatStateOf(0f) }
-    val owner = LocalLifecycleOwner.current
-    LaunchedEffect(owner, enabled) {
-        if (!enabled) return@LaunchedEffect
-        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            // ~11 quadros por segundo, no mesmo ritmo de antes (1,0 por segundo): a onda e lenta,
-            // nao precisa de 20 quadros, e o tablet agradece. Era 0,05 a cada 50 ms.
-            while (true) {
-                t.floatValue += 0.09f
-                delay(90)
-            }
-        }
-    }
-    return { t.floatValue }
-}
 
 /** Fundo: preto azulado liso, com um clarão quase imperceptivel no topo. */
 @Composable
@@ -100,73 +77,6 @@ fun WaterBackground(modifier: Modifier = Modifier, strength: Float = 1f) {
             ),
         )
         drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.02f * strength), Color.Transparent), endY = size.height * 0.5f))
-    }
-}
-
-/**
- * Uma unica onda em fita, feita de muitas linhas finas que se torcem devagar em loop infinito
- * (inspirada na animacao do Dolby Atmos). Sem shader: so Path e gradiente linear, roda no Fire.
- */
-@Composable
-fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 16, fadeAt: Float = 1f, stroke: Float = 1.4f) {
-    // segue Ajustes: com a onda desligada o descanso fica de fundo liso, sem desenhar nada
-    if (!LocalWaterFx.current) return
-    val time = rememberWaterTime()
-    val paths = remember(lines) { List(lines) { androidx.compose.ui.graphics.Path() } }
-    Canvas(modifier) {
-        val t = time()
-        val w = size.width
-        val h = size.height
-        val cy = h / 2
-        val amp = h * 0.30f
-        // cores da logo: azul royal -> azul claro -> laranja coral
-        val sky = Color(0xFF3FA9E8)
-        // a fronteira azul/laranja vai e volta devagar: metade sempre azul, metade laranja, trocando de lado
-        val (left, right) = waveSideColors(t)
-        val mid = sky
-        val brush = Brush.horizontalGradient(0f to left.copy(alpha = 0f), 0.18f to left.copy(alpha = 0.6f * alpha), 0.42f to mid.copy(alpha = 0.45f * alpha), 0.62f to right.copy(alpha = 0.4f * alpha), fadeAt to right.copy(alpha = 0.16f * alpha), 1f to right.copy(alpha = 0.05f * alpha))
-        // 44 pontos por linha em vez de 72: no tamanho em que a onda aparece a diferenca nao se ve,
-        // e o custo por quadro cai junto com o numero de linhas (eram 26 x 72 = 1.872 pontos)
-        val steps = 44
-        for (i in 0 until lines) {
-            val f = i / (lines - 1f)
-            val p = paths[i]
-            p.reset()
-            for (s in 0..steps) {
-                val x = w * s / steps
-                val u = x / w * 6.2832f
-                // fita: duas bordas defasadas; cada linha interpola entre elas e a torcao gira com o tempo
-                val twist = cos(u * 0.9f - t * 0.35f + f * 3.1416f)
-                val y = cy + amp * sin(u * 0.75f + t * 0.22f) * (0.55f + 0.45f * sin(t * 0.07f + u * 0.3f)) + amp * 0.42f * twist * (f - 0.5f) * 2f
-                if (s == 0) p.moveTo(x, y) else p.lineTo(x, y)
-            }
-            drawPath(p, brush, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
-        }
-    }
-}
-
-/** Ondas suaves na base de um cabecalho ou card. */
-@Composable
-fun Waves(modifier: Modifier = Modifier, color: Color = Luluco.Pool) {
-    val time = rememberWaterTime()
-    Canvas(modifier) {
-        val t = time()
-        for (layer in 0..1) {
-            val amp = size.height * (if (layer == 0) 0.28f else 0.2f)
-            val base = size.height * (if (layer == 0) 0.55f else 0.7f)
-            val path = Path()
-            path.moveTo(0f, size.height)
-            var x = 0f
-            val step = size.width / 24f
-            while (x <= size.width + step) {
-                val y = base + amp * sin((x / size.width) * 2f * PI.toFloat() * (1.5f + layer) + t * (0.9f + layer * 0.5f) + layer * 1.7f)
-                path.lineTo(x, y)
-                x += step
-            }
-            path.lineTo(size.width, size.height)
-            path.close()
-            drawPath(path, color.copy(alpha = if (layer == 0) 0.22f else 0.30f))
-        }
     }
 }
 
@@ -280,14 +190,6 @@ fun Sparkline(values: List<Pair<Long, Double>>, from: Long, to: Long, color: Col
         val last = values.last()
         drawCircle(colorOf?.let { lift(it(last.second)) } ?: color, 3.2.dp.toPx(), Offset(x(last.first), y(last.second)))
     }
-}
-
-/** Cor de cada ponta da onda no instante t: azul e laranja trocando de lado devagar, em loop. */
-fun waveSideColors(t: Float): Pair<Color, Color> {
-    val blue = Color(0xFF2F6BE0); val orange = Color(0xFFF26A3D)
-    val k = 0.5f + 0.5f * sin(t * 0.06f)
-    fun mix(a: Color, b: Color, f: Float) = Color(a.red + (b.red - a.red) * f, a.green + (b.green - a.green) * f, a.blue + (b.blue - a.blue) * f, 1f)
-    return mix(blue, orange, k) to mix(orange, blue, k)
 }
 
 /** Barlow Condensed (licenca OFL, embutida): numeros altos e estreitos para o relogio do descanso. */

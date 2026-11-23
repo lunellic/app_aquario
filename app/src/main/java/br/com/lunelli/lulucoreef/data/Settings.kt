@@ -13,6 +13,8 @@ data class LocalSettings(
     val soundVolume: Int = 70, // 0..100
     val inventoryNoticeSeen: Boolean = false,
     /** Onda do descanso. */
+    // Sobrou da onda, que saiu no build 101. O campo fica para nao quebrar quem ja tem a
+    // preferencia gravada no aparelho; nada le este valor.
     val waterFx: Boolean = true,
     /**
      * Microanimacoes de dentro do app (cascata dos blocos, numero contando, anel enchendo, mola do

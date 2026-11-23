@@ -163,7 +163,7 @@ private val tabs = groups.flatMap { it.tabs } + Tab(Screen.Config, "Ajustes", Ic
 fun AppRoot(vm: MainViewModel = viewModel()) {
     val logged by vm.loggedIn.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
-    CompositionLocalProvider(LocalWaterFx provides settings.waterFx, LocalAnim provides settings.uiAnim) {
+    CompositionLocalProvider(LocalAnim provides settings.uiAnim) {
         Box(Modifier.fillMaxSize()) {
             if (logged) LoggedIn(vm) else {
                 WaterBackground(Modifier.fillMaxSize())
@@ -182,11 +182,11 @@ private fun Splash() {
     var visible by remember { mutableStateOf(true) }
     val scale = remember { Animatable(0.6f) }
     LaunchedEffect(Unit) {
-        scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
-        delay(500)
+        scale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMedium))
+        delay(220)
         visible = false
     }
-    AnimatedVisibility(visible, enter = fadeIn(tween(0)), exit = fadeOut(tween(450))) {
+    AnimatedVisibility(visible, enter = fadeIn(tween(0)), exit = fadeOut(tween(200))) {
         // testTag para o teste de fumaca esperar a abertura sair antes de tirar o print:
         // a tela de baixo ja esta montada enquanto a logo ainda cobre tudo.
         Box(Modifier.fillMaxSize().testTag("splash").background(Luluco.DeepTop), contentAlignment = Alignment.Center) {
@@ -255,7 +255,10 @@ private fun LoggedIn(vm: MainViewModel) {
                 vitrine -> Modo.DESCANSO
                 else -> Modo.APP
             },
-            animationSpec = tween(700),
+            // 260 ms e nao 700. Setecentos milissegundos e o dobro do que o olho le como
+            // "respondeu": a tela ficava meio apagada tempo suficiente para parecer travamento,
+            // e nao transicao. O cruzamento continua existindo, so deixou de ser espera.
+            animationSpec = tween(260),
             label = "descanso",
         ) { modo ->
             when (modo) {

@@ -106,7 +106,6 @@ fun VitrineScreen(vm: MainViewModel) {
         }
         // a onda encheu o vazio da esquerda enquanto ele existia; agora os parametros ocupam esse espaco,
         // entao ela desce para a faixa de baixo e perde peso, para nao disputar com os numeros
-        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.42f).align(Alignment.BottomCenter), alpha = 0.6f, fadeAt = 0.8f, stroke = 2.2f)
 
         Column(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 28.dp)) {
             Row(Modifier.weight(1f)) {
@@ -250,8 +249,8 @@ private fun VRow(time: String, title: String, detail: String?, done: Boolean, la
 }
 
 /**
- * Modo noite: azul bem escuro (nao preto) com ondas suaves, brilho baixo, sem numeros nem foto.
- * Mostra so o nome e, se houver, o proximo passo, em tom discreto. As ondas se movem, entao nao marcam a tela.
+ * Modo noite: quase preto, brilho baixo, sem numeros nem foto. Mostra so a hora, a data e o que
+ * tem amanha, em tom discreto.
  */
 @Composable
 fun NightScreen(vm: MainViewModel) {
@@ -263,16 +262,18 @@ fun NightScreen(vm: MainViewModel) {
         val d = now.toLocalDate(vm.zone).plusDays(1)
         d to agendaOn(routines, logs, d, vm.zone).sortedBy { it.dueAt }.map { it.routine.titulo }.distinct()
     }
-    val time = rememberWaterTime(true)
     Box(Modifier.fillMaxSize().background(Color(0xFF050608))) {
-        // luz lateral: cada lado irradia a cor que a onda tem naquele lado agora
+        // Luz lateral parada. Antes ela acompanhava a onda e, por isso, redesenhava a tela inteira
+        // a cada quadro, a noite toda, so para mudar de tom devagar. Agora e um clarao fixo em
+        // violeta, desenhado uma vez: mesma profundidade, nenhum quadro por segundo.
         androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-            val (l, r) = waveSideColors(time())
             val rad = size.height * 0.9f
-            drawRect(androidx.compose.ui.graphics.Brush.radialGradient(listOf(l.copy(alpha = 0.16f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(0f, size.height / 2), radius = rad))
-            drawRect(androidx.compose.ui.graphics.Brush.radialGradient(listOf(r.copy(alpha = 0.16f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(size.width, size.height / 2), radius = rad))
+            listOf(0f, size.width).forEach { cx ->
+                drawRect(androidx.compose.ui.graphics.Brush.radialGradient(
+                    listOf(Luluco.Pool.copy(alpha = 0.10f), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(cx, size.height / 2), radius = rad))
+            }
         }
-        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.5f).align(Alignment.Center), alpha = 0.35f, lines = 18)
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             GlassClock(clock, Modifier.width(520.dp), maxFont = 300f, dim = 0.6f)
             Spacer(Modifier.height(14.dp))

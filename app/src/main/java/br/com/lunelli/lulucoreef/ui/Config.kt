@@ -106,18 +106,11 @@ fun ConfigScreen(vm: MainViewModel) {
             // o horario do modo noite tambem vai para o servidor (tank_config), que o respeita no push
             Stepper("Modo noite começa às (h)", settings.nightStartHour, 0, 23) { v -> vm.updateSettings { it.copy(nightStartHour = v) }; vm.save(t.copy(noiteInicio = v)) }
             Stepper("Modo noite termina às (h)", settings.nightEndHour, 0, 23) { v -> vm.updateSettings { it.copy(nightEndHour = v) }; vm.save(t.copy(noiteFim = v)) }
-            Muted("No modo noite a tela fica em azul escuro com ondas suaves, brilho baixo, e os lembretes não tocam. Início igual ao fim desliga.")
+            Muted("No modo noite a tela fica quase preta, com brilho baixo, e os lembretes não tocam. Início igual ao fim desliga.")
         }
 
         SectionTitle("Visual e modo quiosque")
         Panel(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Switch(settings.waterFx, { on -> vm.updateSettings { it.copy(waterFx = on) } })
-                Column(Modifier.weight(1f)) {
-                    Text("Onda no descanso")
-                    Muted("A fita de luz que atravessa a tela de descanso e o modo noite. É o efeito mais caro do app; desligue se o tablet engasgar.")
-                }
-            }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Switch(settings.uiAnim, { on -> vm.updateSettings { it.copy(uiAnim = on) } })
                 Column(Modifier.weight(1f)) {
