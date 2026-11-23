@@ -36,7 +36,7 @@ jobs:
       - name: Conferir os arquivos
         run: |
           set -e
-          for f in index.html app.js style.css config.js manifest.webmanifest sw.js icon-180.png icon-192.png icon-512.png; do
+          for f in index.html app.js graficos.js financas.js relatorios.js style.css config.js manifest.webmanifest sw.js icon-180.png icon-192.png icon-512.png; do
             test -s "pwa/$f" || { echo "faltando ou vazio: pwa/$f"; exit 1; }
           done
           # o manifest tem que ser JSON valido, senao o iPhone nao oferece "Adicionar à Tela de Início"
@@ -48,9 +48,7 @@ jobs:
 
       - name: Verificar a sintaxe do JavaScript
         run: |
-          node --check pwa/app.js
-          node --check pwa/config.js
-          node --check pwa/sw.js
+          for f in pwa/*.js; do node --check "$f"; done
 
       # O token do Actions nao tem permissao para criar o site do Pages (tentado e recusado em 22/11).
       # Entao o Pages precisa ser ligado uma vez a mao: Settings > Pages > Source: GitHub Actions.

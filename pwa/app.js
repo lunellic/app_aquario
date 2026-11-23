@@ -80,6 +80,10 @@ async function api(caminho, opcoes = {}, repetir = true) {
 
 const buscar = (tabela, query) => api(`${tabela}?${query}`);
 const inserir = (tabela, linha) => api(tabela, { method: 'POST', body: JSON.stringify(linha) });
+/** PATCH por id. `updated_at` vai junto porque a sincronizacao do app resolve conflito por ele. */
+const atualizar = (tabela, id, campos) =>
+  api(`${tabela}?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ ...campos, updated_at: new Date().toISOString() }) });
+const apagar = (tabela, id) => atualizar(tabela, id, { deleted_at: new Date().toISOString() });
 
 // ---------------------------------------------------------------- regras (espelho do app do tablet)
 
@@ -167,11 +171,14 @@ const estado = (o) => (o.log ? o.log.status : 'pendente');
 
 // ---------------------------------------------------------------- dados
 
-let dados = { ranges: {}, testes: [], rotinas: [], logs: [], produtos: [], tanque: null, tpas: [], doses: [], notas: [] };
+let dados = {
+  ranges: {}, testes: [], rotinas: [], logs: [], produtos: [], tanque: null,
+  tpas: [], doses: [], notas: [], financas: [], compras: [], casos: [],
+};
 
 async function carregar() {
   const desde = iso(new Date(Date.now() - 120 * DIA_MS));
-  const [tanque, ranges, testes, rotinas, logs, produtos, tpas, doses, notas] = await Promise.all([
+  const [tanque, ranges, testes, rotinas, logs, produtos, tpas, doses, notas, financas, compras, casos] = await Promise.all([
     buscar('tank_config', 'deleted_at=is.null&limit=1'),
     buscar('param_ranges', 'deleted_at=is.null'),
     buscar('water_tests', `deleted_at=is.null&medido_em=gte.${desde}&order=medido_em.desc&limit=400`),
@@ -180,7 +187,10 @@ async function carregar() {
     buscar('products', 'deleted_at=is.null&ativo=is.true&order=nome'),
     buscar('water_changes', `deleted_at=is.null&order=feita_em.desc&limit=20`),
     buscar('dosings', `deleted_at=is.null&order=dosado_em.desc&limit=40`),
-    buscar('events', `deleted_at=is.null&order=ocorrido_em.desc&limit=40`),
+    buscar('events', `deleted_at=is.null&order=ocorrido_em.desc&limit=200`),
+    buscar('finance_entries', 'deleted_at=is.null&order=lancado_em.desc&limit=500'),
+    buscar('shopping_items', 'deleted_at=is.null&order=created_at.desc&limit=200'),
+    buscar('health_cases', 'deleted_at=is.null&order=aberto_em.desc&limit=50'),
   ]);
   dados.tanque = (tanque || [])[0] || null;
   dados.ranges = {};
@@ -192,6 +202,9 @@ async function carregar() {
   dados.tpas = tpas || [];
   dados.doses = doses || [];
   dados.notas = notas || [];
+  dados.financas = financas || [];
+  dados.compras = compras || [];
+  dados.casos = casos || [];
 }
 
 const volume = () => (dados.tanque && dados.tanque.volume_dosagem_l) || 100;
@@ -208,6 +221,30 @@ function ultimas(p) {
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, texto) => { const e = document.createElement(tag); if (cls) e.className = cls; if (texto != null) e.textContent = texto; return e; };
+
+/** Linha de chips de escolha unica. Devolve o container, ja preenchido. */
+function chips(alvo, opcoes, selecionado, aoEscolher) {
+  alvo.innerHTML = '';
+  opcoes.forEach(([valor, rotulo]) => {
+    const b = el('button', `chip${valor === selecionado ? ' ativo' : ''}`, rotulo);
+    b.onclick = () => aoEscolher(valor);
+    alvo.appendChild(b);
+  });
+  return alvo;
+}
+
+/**
+ * Folha que sobe de baixo, para formularios. No celular isso funciona melhor que uma tela nova:
+ * o fundo continua visivel, e fechar e um toque fora ou no X.
+ */
+function abrirFolha(titulo, construir) {
+  $('#folha-titulo').textContent = titulo;
+  const c = $('#folha-conteudo');
+  c.innerHTML = '';
+  construir(c);
+  $('#folha').classList.remove('hidden');
+}
+function fecharFolha() { $('#folha').classList.add('hidden'); }
 
 function toast(msg, erro) {
   const t = $('#toast');
@@ -395,35 +432,6 @@ function desenharResumo() {
   }
 }
 
-function desenharJornal() {
-  const caixa = $('#jornal');
-  caixa.innerHTML = '';
-  const itens = [];
-  dados.testes.slice(0, 80).forEach((t) => itens.push({
-    em: new Date(t.medido_em).getTime(),
-    titulo: `${ROTULOS[t.parametro] || t.parametro}: ${formatar(t.parametro, Number(t.valor))} ${UNIDADES[t.parametro] || ''}`.trim(),
-    sub: t.baixa_confianca ? 'leitura duvidosa' : 'teste de água',
-  }));
-  dados.tpas.forEach((t) => itens.push({ em: new Date(t.feita_em).getTime(), titulo: `TPA de ${t.litros} L`, sub: t.observacao || 'troca de água' }));
-  dados.doses.forEach((d) => {
-    const p = dados.produtos.find((x) => x.id === d.product_id);
-    itens.push({ em: new Date(d.dosado_em).getTime(), titulo: `${p ? p.nome : 'Dose'}: ${d.quantidade} ${d.unidade || ''}`.trim(), sub: 'dosagem' });
-  });
-  dados.notas.forEach((n) => itens.push({ em: new Date(n.ocorrido_em).getTime(), titulo: n.texto || 'Nota', sub: 'nota no jornal' }));
-
-  itens.sort((a, b) => b.em - a.em);
-  if (!itens.length) { caixa.appendChild(el('div', 'vazio', 'Nada registrado ainda.')); return; }
-  itens.slice(0, 120).forEach((i) => {
-    const item = el('div', 'item');
-    item.appendChild(el('div', 'hora', ddmm(i.em)));
-    const c = el('div', 'corpo');
-    c.appendChild(el('div', 'titulo', i.titulo));
-    c.appendChild(el('div', 'sub', `${i.sub} · ${hhmm(i.em)}`));
-    item.appendChild(c);
-    caixa.appendChild(item);
-  });
-}
-
 function desenharFormularios() {
   const caixa = $('#campos-teste');
   if (!caixa.childElementCount) {
@@ -472,8 +480,11 @@ function desenharTudo() {
   desenharParams();
   desenharHoje();
   desenharResumo();
-  desenharJornal();
   desenharFormularios();
+  // as outras abas vivem nos proprios arquivos (graficos.js, financas.js, relatorios.js)
+  desenharGraficos();
+  desenharFinancas();
+  desenharMais();
 }
 
 async function recarregar() {
@@ -585,8 +596,10 @@ function mostrarApp(logado) {
   $('#app').classList.toggle('hidden', !logado);
 }
 
+const ABAS = ['painel', 'registrar', 'graficos', 'financas', 'mais'];
+
 function abrirAba(nome) {
-  ['painel', 'registrar', 'jornal'].forEach((a) => {
+  ABAS.forEach((a) => {
     $(`#aba-${a}`).classList.toggle('hidden', a !== nome);
   });
   document.querySelectorAll('#abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === nome));
@@ -609,7 +622,7 @@ async function iniciar() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function ligar() {
   $('#login-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     $('#login-erro').textContent = '';
@@ -632,6 +645,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#salvar-dose').onclick = salvarDose;
   $('#salvar-nota').onclick = salvarNota;
   $('#dose-produto').onchange = atualizarDosePadrao;
+  $('#folha-fechar').onclick = fecharFolha;
+  $('#folha-fundo').onclick = fecharFolha;
 
   // volta do bolso: atualiza para nao mostrar dado de horas atras
   document.addEventListener('visibilitychange', () => {
@@ -640,4 +655,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   iniciar();
-});
+}
+
+/** Chamado pelo index depois que todos os scripts carregaram. */
+function iniciarApp() {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ligar);
+  else ligar();
+}

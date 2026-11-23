@@ -91,17 +91,49 @@
       </div>
     </section>
 
-    <!-- jornal -->
-    <section id="aba-jornal" class="aba hidden">
-      <div id="jornal" class="lista"></div>
+    <!-- graficos -->
+    <section id="aba-graficos" class="aba hidden">
+      <div id="g-periodo" class="chips"></div>
+      <div id="g-comparar" class="card">
+        <div class="eyebrow">Comparar no mesmo gráfico</div>
+        <div id="g-escolha" class="chips"></div>
+        <div id="g-multi"></div>
+      </div>
+      <div id="graficos"></div>
+    </section>
+
+    <!-- financas -->
+    <section id="aba-financas" class="aba hidden">
+      <div id="f-abas" class="chips"></div>
+      <div id="financas"></div>
+    </section>
+
+    <!-- mais: jornal e relatorios -->
+    <section id="aba-mais" class="aba hidden">
+      <div id="m-abas" class="chips"></div>
+      <div id="mais"></div>
     </section>
   </main>
 
   <nav id="abas">
     <button data-aba="painel" class="ativo">Painel</button>
     <button data-aba="registrar">Registrar</button>
-    <button data-aba="jornal">Jornal</button>
+    <button data-aba="graficos">Gráficos</button>
+    <button data-aba="financas">Finanças</button>
+    <button data-aba="mais">Mais</button>
   </nav>
+</div>
+
+<!-- folha que sobe de baixo, para formularios -->
+<div id="folha" class="hidden">
+  <div id="folha-fundo"></div>
+  <div id="folha-corpo">
+    <div class="folha-topo">
+      <strong id="folha-titulo"></strong>
+      <button class="ghost" id="folha-fechar" aria-label="Fechar">&times;</button>
+    </div>
+    <div id="folha-conteudo"></div>
+  </div>
 </div>
 
 <div id="toast" class="hidden"></div>
@@ -109,5 +141,9 @@
 
 <script src="config.js"></script>
 <script src="app.js"></script>
+<script src="graficos.js"></script>
+<script src="financas.js"></script>
+<script src="relatorios.js"></script>
+<script>iniciarApp();</script>
 </body>
 </html>

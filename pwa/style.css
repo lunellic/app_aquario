@@ -181,3 +181,82 @@ button.mini { padding: 8px 12px; font-size: 13px; border-radius: 10px; flex: non
 @media (max-width: 360px) {
   .grid, .campos { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------------------------------- chips */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.chip {
+  background: var(--solido);
+  border: 1px solid var(--borda);
+  color: var(--suave);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.chip.ativo { background: var(--creme); color: var(--fundo); border-color: var(--creme); }
+
+/* ---------------------------------------------------------------- numeros grandes */
+.num { background: var(--card); border: 1px solid var(--borda); border-radius: 16px; padding: 12px 14px; }
+.num-valor { font-size: 22px; font-weight: 600; letter-spacing: -0.6px; margin-top: 4px; }
+.num-nota { font-size: 11px; color: var(--fraco); margin-top: 2px; }
+
+.nav-mes { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; }
+.nav-mes-txt { flex: 1; text-align: center; }
+.nav-mes-txt strong { font-size: 16px; }
+
+.linha-botoes { display: flex; gap: 10px; margin-top: 10px; }
+.linha-botoes button { flex: 1; }
+
+.valor-linha { font-size: 15px; font-weight: 500; flex: none; }
+.item.coluna { display: block; }
+.linha-cheia { display: flex; justify-content: space-between; gap: 10px; }
+.barra { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.06); margin-top: 7px; overflow: hidden; }
+.barra-dentro { height: 100%; background: #B9C0CA; }
+/* tirinha de cor na lateral do item, para varrer o jornal sem ler */
+.risco { width: 3px; align-self: stretch; border-radius: 2px; flex: none; margin: -12px 0 -12px -4px; }
+
+/* ---------------------------------------------------------------- graficos */
+.gsvg { width: 100%; height: 130px; display: block; margin-top: 8px; overflow: visible; }
+.topo-graf { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.legenda { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 12px; color: var(--suave); }
+.leg { display: flex; align-items: center; gap: 6px; }
+.leg .ponto { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+/* ---------------------------------------------------------------- relatorio */
+pre.relatorio {
+  background: var(--card);
+  border: 1px solid var(--borda);
+  border-radius: 16px;
+  padding: 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--suave);
+  max-height: 60vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------------------------------------------------------------- folha de baixo */
+#folha { position: fixed; inset: 0; z-index: 40; }
+#folha-fundo { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+#folha-corpo {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  max-height: 88vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--fundo);
+  border-top: 1px solid var(--borda);
+  border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(var(--safe-b) + 24px);
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.folha-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.folha-topo strong { font-size: 17px; }
+#folha-conteudo { display: grid; gap: 12px; }
+.eixo-x { display: flex; justify-content: space-between; font-size: 11px; color: var(--fraco); margin-top: 4px; }
