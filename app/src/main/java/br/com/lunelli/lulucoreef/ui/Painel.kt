@@ -84,12 +84,12 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     val volume = tank?.volumeDosagemL ?: 100.0
     val productById = remember(products) { products.associateBy { it.id } }
 
-    val today = remember(routines, logs, now) { occurrencesOn(routines, logs, now.toLocalDate(zone), zone) }
+    val today = remember(routines, logs, now) { occurrencesOn(routines, logs, now.toLocalDate(zone), zone, now) }
     // Navegacao de dias no "Hoje": voltar para marcar o que ficou de ontem (ex.: dose feita de madrugada) ou ver amanha.
     var dayOffset by remember { mutableIntStateOf(0) }
     val realToday = now.toLocalDate(zone)
     val selDate = realToday.plusDays(dayOffset.toLong())
-    val dayList = remember(routines, logs, now, dayOffset) { if (dayOffset == 0) today else occurrencesOn(routines, logs, selDate, zone) }
+    val dayList = remember(routines, logs, now, dayOffset) { if (dayOffset == 0) today else occurrencesOn(routines, logs, selDate, zone, now) }
     val yesterdayOpen = remember(routines, logs, now) { occurrencesOn(routines, logs, realToday.minusDays(1), zone).count { it.open && it.dueAt.toLocalDate(zone) == realToday.minusDays(1) } }
     val entries by vm.entries.collectAsStateWithLifecycle()
     val alerts = remember(tests, ranges, changes, today, cases, entries, now) { allAlerts(tests, ranges, changes, today, cases, entries, now) }
@@ -151,6 +151,8 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                         }
                     }
                     FinanceBlock(vm, nav)
+                    // logo abaixo das financas, como ele pediu: um toque e o timer esta contando
+                    TimerBlock(nav)
                 }
             }
             if (wide) {
@@ -364,7 +366,7 @@ fun MetricCard(modifier: Modifier, param: String, value: Double?, at: Long?, ran
 
 /** Barra da faixa: zona de alerta ao fundo, faixa ideal destacada e marcador do valor. */
 @Composable
-private fun RangeBar(value: Double?, r: ParamRange, markerColor: Color) {
+fun RangeBar(value: Double?, r: ParamRange, markerColor: Color) {
     val pad = (r.alertaMax - r.alertaMin) * 0.25
     val lo = r.alertaMin - pad
     val hi = r.alertaMax + pad
@@ -448,6 +450,8 @@ private fun FinanceBlock(vm: MainViewModel, nav: Nav) {
     val gastos = doCiclo.filter { it.tipo == "despesa" }.sumOf { it.valor }
     val cartao = doCiclo.filter { it.tipo == "despesa" && it.forma == "cartao" }.sumOf { it.valor }
     val caixa = all.sumOf { caixaDelta(it) }
+    // em aberto conta todas as parcelas futuras, nao so as do ciclo: e o que ainda vai sair
+    val aPagar = all.filter { it.emAberto() }.sumOf { it.valor }
     Panel(Modifier.fillMaxWidth().clickable { nav.top(Screen.Financas) }, padding = 0.dp) {
         Row(Modifier.height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.padding(start = 12.dp)) { GlowIcon(androidx.compose.material.icons.Icons.Outlined.ShoppingCart, Luluco.AreaFinancas, 30.dp) }
@@ -456,14 +460,16 @@ private fun FinanceBlock(vm: MainViewModel, nav: Nav) {
             FinCell(Modifier.weight(1f), "Gastos · " + cycleRange(ciclo, settings.cicloDia), gastos)
             VerticalDivider(color = Luluco.Divider)
             FinCell(Modifier.weight(1f), "No cartão", cartao)
+            VerticalDivider(color = Luluco.Divider)
+            FinCell(Modifier.weight(1f), "A pagar", aPagar, if (aPagar > 0) Luluco.CoralText else null)
         }
     }
 }
 
 @Composable
-private fun FinCell(modifier: Modifier, label: String, v: Double) {
+private fun FinCell(modifier: Modifier, label: String, v: Double, color: Color? = null) {
     Column(modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
         Eyebrow(label)
-        Text(money(v), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 20.sp, letterSpacing = (-0.4).sp, color = Luluco.Cream, maxLines = 1)
+        Text(money(v), fontFamily = Display, fontWeight = FontWeight.Medium, fontSize = 20.sp, letterSpacing = (-0.4).sp, color = color ?: Luluco.Cream, maxLines = 1)
     }
 }

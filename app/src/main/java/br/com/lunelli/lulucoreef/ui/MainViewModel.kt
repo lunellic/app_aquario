@@ -29,6 +29,8 @@ import br.com.lunelli.lulucoreef.domain.Occurrence
 import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.isInterval
 import br.com.lunelli.lulucoreef.domain.nextAnchor
+import br.com.lunelli.lulucoreef.data.Alarm
+import br.com.lunelli.lulucoreef.reminders.Clocks
 import br.com.lunelli.lulucoreef.reminders.Reminders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -69,6 +71,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val equipment = db.equipment().all().state()
     val finance = db.finance().all().state()
     val shopping = db.shopping().all().state()
+    /** Alarmes do tablet: locais, nao sincronizam (ver Alarm em Entities.kt). */
+    val alarms = db.alarms().all().state()
     val cases = db.healthCases().all().state()
     val entries = db.healthEntries().all().state()
     val speciesInfo = db.speciesInfo().all().state()
@@ -186,6 +190,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun save(x: FinanceEntry) = persist(db.finance(), x.copy(updatedAt = ts(), pending = true))
     fun save(x: ShoppingItem) = persist(db.shopping(), x.copy(updatedAt = ts(), pending = true))
     fun delete(x: FinanceEntry) = save(x.copy(deletedAt = ts()))
+
+    fun save(a: Alarm) = viewModelScope.launch {
+        db.alarms().put(a)
+        Clocks.reschedule(getApplication())
+    }
+
+    fun delete(a: Alarm) = viewModelScope.launch {
+        db.alarms().remove(a.id)
+        Clocks.reschedule(getApplication())
+    }
+
+    /** Marca (ou desmarca) gastos no cartao como pagos. Nao muda valor nem data: so o "a pagar". */
+    fun setFinancePago(items: List<FinanceEntry>, pago: Boolean) {
+        items.filter { it.pago != pago }.forEach { save(it.copy(pago = pago)) }
+    }
     fun delete(x: ShoppingItem) = save(x.copy(deletedAt = ts()))
 
     /** Compra parcelada no cartao: uma entrada por fatura, todas com o mesmo grupo. */

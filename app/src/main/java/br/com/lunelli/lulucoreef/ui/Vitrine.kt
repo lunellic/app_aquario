@@ -1,14 +1,6 @@
 package br.com.lunelli.lulucoreef.ui
 
 import android.app.Activity
-import android.view.WindowManager
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -28,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -93,7 +84,7 @@ fun VitrineScreen(vm: MainViewModel) {
     val dx = listOf(0, 6, 12, 6, 0, -6, -12, -6)[shift]
     val dy = listOf(0, 5, 0, -5, -10, -5, 0, 5)[shift]
 
-    val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone)
+    val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone, now)
     val alertas = allAlerts(allTests, ranges, changes, today, cases, entries, now).take(4)
     val score = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone).score
     val foto = tank?.fotoVitrinePath
@@ -111,63 +102,112 @@ fun VitrineScreen(vm: MainViewModel) {
             Photo(foto, Modifier.fillMaxSize(), maxPx = 120)
             Box(Modifier.fillMaxSize().background(Luluco.Navy.copy(alpha = 0.88f)))
         }
-        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.56f).align(Alignment.Center), alpha = 1f, fadeAt = 0.8f, stroke = 2.6f)
+        // a onda encheu o vazio da esquerda enquanto ele existia; agora os parametros ocupam esse espaco,
+        // entao ela desce para a faixa de baixo e perde peso, para nao disputar com os numeros
+        AtmosWave(Modifier.fillMaxWidth().fillMaxHeight(0.42f).align(Alignment.BottomCenter), alpha = 0.6f, fadeAt = 0.8f, stroke = 2.2f)
 
-        Column(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 32.dp)) {
-        Row(Modifier.weight(1f)) {
-            // esquerda: hora, data, saude e o que vem
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.8f), maxFont = 190f)
-                Spacer(Modifier.height(4.dp))
-                Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
-                Spacer(Modifier.weight(1f))
-                // todos os avisos ativos (ate 4), um por linha
-                Column(Modifier.padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    alertas.forEach { a ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(a.severity)))
-                            Spacer(Modifier.width(10.dp))
-                            Text(a.fato, fontSize = 15.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.fillMaxSize().offset(dx.dp, dy.dp).padding(horizontal = 40.dp, vertical = 28.dp)) {
+            Row(Modifier.weight(1f)) {
+                // esquerda: hora, data e, no espaco que antes ficava vazio, os ultimos testes em destaque
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.62f), maxFont = 128f)
+                    Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
+                    Spacer(Modifier.height(18.dp))
+                    if (shown.isNotEmpty()) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        shown.chunked(2).forEach { linha ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                                linha.forEach { p ->
+                                    val last = tests.latestOf(p)
+                                    val r = ranges[p]
+                                    val serie = remember(tests, p) { tests.filter { it.parametro == p }.sortedBy { it.medidoEm }.takeLast(12).map { it.medidoEm to it.valor } }
+                                    VParam(Modifier.weight(1f), p, last?.valor, last?.medidoEm, r, serie, now)
+                                }
+                                // linha de um item so (5 ou 1 parametro escolhido): nao esticar o card
+                                if (linha.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    } else Spacer(Modifier.weight(1f))
+                    // todos os avisos ativos (ate 4), um por linha
+                    if (alertas.isNotEmpty()) Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        alertas.forEach { a ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(a.severity)))
+                                Spacer(Modifier.width(10.dp))
+                                Text(a.fato, fontSize = 15.sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+                // direita: hoje e proximos, em lista com linhas finas
+                Column(Modifier.width(300.dp).fillMaxHeight().padding(start = 24.dp), verticalArrangement = Arrangement.Center) {
+                    Eyebrow(if (today.isEmpty()) "Hoje" else "Hoje  ·  $doneToday/${today.size}")
+                    Spacer(Modifier.height(8.dp))
+                    if (today.isEmpty()) Text("Nada para hoje.", fontSize = 15.sp, color = Luluco.TextSoft)
+                    today.forEachIndexed { i, o ->
+                        if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                        val pr = o.routine.productId?.let { productById[it] }
+                        val dose = if (o.routine.tipo == "dosagem" && pr != null) formatDose(doseFor(pr, vm.volume), pr.doseUnidade) else null
+                        // atrasada arrastada de outro dia: mostra de quando e, nao a hora
+                        val quando = when {
+                            o.state == OccState.FEITO -> "feito"
+                            o.state == OccState.PULADO -> "pulou"
+                            o.carried -> fmtDay(o.dueAt)
+                            else -> fmtTime(o.effectiveDueAt)
+                        }
+                        VRow(quando, o.routine.titulo, dose, done = !o.open, late = o.isDue(now))
+                    }
+                    if (next.isNotEmpty()) {
+                        Spacer(Modifier.height(22.dp))
+                        Eyebrow("Próximos")
+                        Spacer(Modifier.height(8.dp))
+                        next.forEachIndexed { i, item ->
+                            if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                            VRow(whenText(item.dueAt, now, zone), item.routine.titulo, null, done = false, late = item.late, wide = true)
                         }
                     }
                 }
             }
-            // direita: hoje e proximos, em lista com linhas finas
-            Column(Modifier.width(300.dp).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
-                Eyebrow(if (today.isEmpty()) "Hoje" else "Hoje  ·  $doneToday/${today.size}")
-                Spacer(Modifier.height(8.dp))
-                if (today.isEmpty()) Text("Nada para hoje.", fontSize = 15.sp, color = Luluco.TextSoft)
-                today.forEachIndexed { i, o ->
-                    if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
-                    val p = o.routine.productId?.let { productById[it] }
-                    val dose = if (o.routine.tipo == "dosagem" && p != null) formatDose(doseFor(p, vm.volume), p.doseUnidade) else null
-                    VRow(if (o.state == OccState.FEITO) "feito" else if (o.state == OccState.PULADO) "pulou" else fmtTime(o.effectiveDueAt),
-                        o.routine.titulo, dose, done = !o.open, late = o.isDue(now))
-                }
-                if (next.isNotEmpty()) {
-                    Spacer(Modifier.height(22.dp))
-                    Eyebrow("Próximos")
-                    Spacer(Modifier.height(8.dp))
-                    next.forEachIndexed { i, item ->
-                        if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
-                        VRow(whenText(item.dueAt, now, zone), item.routine.titulo, null, done = false, late = item.late, wide = true)
-                    }
-                }
-            }
-        }
-                Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween) {
+            // rodape enxuto: o que nao e parametro
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(44.dp)) {
                 VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score))
                 VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
                     if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else null)
-                shown.forEach { p ->
-                    val last = tests.latestOf(p)
-                    val r = ranges[p]
-                    val st = if (last == null || r == null) Status.SEM_MEDICAO else statusOf(last.valor, r)
-                    val serie = remember(tests, p) { tests.filter { it.parametro == p }.sortedBy { it.medidoEm }.takeLast(10).map { it.medidoEm to it.valor } }
-                    VStat(Params.label(p), last?.let { Params.format(p, it.valor) } ?: "-", Params.unit(p), statusColor(st), serie, r?.let { it.idealMin to it.idealMax }, r)
-                }
             }
         }
+    }
+}
+
+/**
+ * Um parametro no descanso, em destaque: valor grande, quando foi medido, variacao desde a leitura
+ * anterior, minigrafico com os pontos na cor da zona e a barra da faixa.
+ *
+ * Antes os parametros eram seis itenzinhos apertados numa fileira no pe da tela, com grafico de
+ * 84 x 18 dp, enquanto a metade esquerda ficava vazia embaixo do relogio. Agora ocupam esse espaco.
+ */
+@Composable
+private fun VParam(modifier: Modifier, param: String, valor: Double?, medidoEm: Long?, range: br.com.lunelli.lulucoreef.data.ParamRange?, serie: List<Pair<Long, Double>>, now: Long) {
+    val st = if (valor == null || range == null) Status.SEM_MEDICAO else statusOf(valor, range)
+    val delta = if (serie.size >= 2) serie[serie.size - 1].second - serie[serie.size - 2].second else null
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(7.dp).clip(CircleShape).background(statusColor(st)))
+            Spacer(Modifier.width(8.dp))
+            Eyebrow(Params.label(param))
+            Spacer(Modifier.weight(1f))
+            if (medidoEm != null) Text(fmtAgoShort(medidoEm, now), fontSize = 12.sp, color = Luluco.TextFaint, maxLines = 1)
+        }
+        Spacer(Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(valor?.let { Params.format(param, it) } ?: "-", fontFamily = Display, fontWeight = FontWeight.SemiBold,
+                fontSize = 46.sp, letterSpacing = (-1.5).sp, color = Luluco.Cream, maxLines = 1)
+            Params.unit(param)?.let { Text(" $it", fontSize = 15.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 8.dp)) }
+            Spacer(Modifier.weight(1f))
+            if (delta != null) Text(deltaText(param, delta), fontSize = 13.sp, color = Luluco.TextSoft, maxLines = 1, modifier = Modifier.padding(bottom = 8.dp))
+        }
+        if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft,
+            Modifier.fillMaxWidth().height(34.dp), band = range?.let { it.idealMin to it.idealMax },
+            colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
+        if (range != null) RangeBar(valor, range, statusColor(st))
     }
 }
 
@@ -205,11 +245,6 @@ fun NightScreen(vm: MainViewModel) {
     val now by vm.now.collectAsStateWithLifecycle()
     val routines by vm.routines.collectAsStateWithLifecycle()
     val logs by vm.logs.collectAsStateWithLifecycle()
-    val activity = LocalContext.current as? Activity
-    DisposableEffect(Unit) {
-        setBrightness(activity, 0.12f)
-        onDispose { setBrightness(activity, WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE) }
-    }
     val clock = remember(now / 60_000) { java.time.Instant.ofEpochMilli(now).atZone(vm.zone).format(DateTimeFormatter.ofPattern("HH:mm")) }
     val amanha = remember(routines, logs, now / 600_000) {
         val d = now.toLocalDate(vm.zone).plusDays(1)

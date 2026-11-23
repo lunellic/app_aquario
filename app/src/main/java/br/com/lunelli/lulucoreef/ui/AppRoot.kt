@@ -91,6 +91,8 @@ sealed interface Screen {
     data object Financas : Screen { override val topLevel = true }
     data class Calendario(val dia: String? = null) : Screen { override val topLevel get() = dia == null }
     data object Calculadoras : Screen { override val topLevel = true }
+    data object Timers : Screen { override val topLevel = true }
+    data class AlarmForm(val id: String? = null) : Screen
     data class QuarantineStart(val protocolo: String) : Screen
     data class FinanceForm(val id: String? = null, val tipo: String? = null) : Screen
     data class ShoppingForm(val id: String? = null) : Screen
@@ -137,6 +139,7 @@ private val groups = listOf(
         Tab(Screen.Calendario(), "Calendário", Icons.Outlined.DateRange, Luluco.AreaTpa),
         Tab(Screen.Rotinas, "Rotinas", Icons.Outlined.Notifications, Luluco.AreaDose),
         Tab(Screen.Historico, "Jornal", Icons.Outlined.List, Luluco.AreaJornal),
+        Tab(Screen.Timers, "Timer e alarmes", Icons.Outlined.Refresh, Luluco.AreaCalc),
     )),
     TabGroup("Aquário", listOf(
         Tab(Screen.Aquario, "Meu Aquário", Icons.Outlined.Star, Luluco.AreaAnimal),
@@ -156,13 +159,15 @@ private val tabs = groups.flatMap { it.tabs } + Tab(Screen.Config, "Ajustes", Ic
 fun AppRoot(vm: MainViewModel = viewModel()) {
     val logged by vm.loggedIn.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
-    CompositionLocalProvider(LocalWaterFx provides settings.waterFx) {
+    CompositionLocalProvider(LocalWaterFx provides settings.waterFx, LocalAnim provides settings.uiAnim) {
         Box(Modifier.fillMaxSize()) {
             if (logged) LoggedIn(vm) else {
                 WaterBackground(Modifier.fillMaxSize())
                 LoginScreen(vm)
             }
             Splash()
+            // timer ou alarme tocando: cobre a tela com o botao de parar, onde ele estiver
+            if (logged) RingingOverlay()
         }
     }
 }
@@ -208,6 +213,21 @@ private fun LoggedIn(vm: MainViewModel) {
         if (overlay) nav.top(Screen.Painel)
         lastTouch = System.currentTimeMillis()
         tick = lastTouch
+    }
+
+    // Brilho num unico lugar: o Fire no automatico deixa a tela apagada e o tema e grafite, entao o
+    // painel ao lado do aquario parecia escuro. O modo noite continua baixando para quase nada.
+    val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    DisposableEffect(activity, settings.brilho, night) {
+        setBrightness(
+            activity,
+            when {
+                night -> 0.12f
+                settings.brilho <= 0 -> android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                else -> (settings.brilho / 100f).coerceIn(0.05f, 1f)
+            },
+        )
+        onDispose { }
     }
 
     Box(
@@ -324,6 +344,12 @@ private fun SyncDot(vm: MainViewModel) {
 
 @Composable
 private fun ScreenContent(vm: MainViewModel, nav: Nav) {
+    // Com as animacoes da interface desligadas a troca e seca: nao compoe as duas telas ao mesmo
+    // tempo, que era o que fazia o menu parecer travado no Fire.
+    if (!LocalAnim.current) {
+        ScreenFor(vm, nav, nav.current)
+        return
+    }
     // transicao fluida entre telas: fade + leve deslize para cima
     AnimatedContent(
         targetState = nav.current,
@@ -347,6 +373,8 @@ private fun ScreenFor(vm: MainViewModel, nav: Nav, s: Screen) {
         Screen.Financas -> FinancasScreen(vm, nav)
         is Screen.Calendario -> CalendarioScreen(vm, nav, s.dia)
         Screen.Calculadoras -> CalculadorasScreen(vm)
+        Screen.Timers -> TimersScreen(vm, nav)
+        is Screen.AlarmForm -> AlarmForm(vm, nav, s.id)
         is Screen.QuarantineStart -> QuarantineStart(vm, nav, s.protocolo)
         is Screen.FinanceForm -> FinanceForm(vm, nav, s.id, s.tipo)
         is Screen.ShoppingForm -> ShoppingForm(vm, nav, s.id)

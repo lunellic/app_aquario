@@ -1,6 +1,8 @@
 package br.com.lunelli.lulucoreef.data
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
@@ -166,4 +168,13 @@ interface ShoppingItemDao : SyncDao<ShoppingItem> {
     @Query("SELECT * FROM shopping_items WHERE id = :id") override suspend fun get(id: String): ShoppingItem?
     @Query("UPDATE shopping_items SET pending = 0 WHERE id = :id AND updatedAt = :updatedAt") override suspend fun markSynced(id: String, updatedAt: Long)
     @Query("SELECT COUNT(*) FROM shopping_items WHERE pending = 1") override suspend fun pendingCount(): Int
+}
+
+@Dao
+interface AlarmDao {
+    @Query("SELECT * FROM alarms ORDER BY hora, minuto") fun all(): Flow<List<Alarm>>
+    @Query("SELECT * FROM alarms") suspend fun list(): List<Alarm>
+    @Query("SELECT * FROM alarms WHERE id = :id") suspend fun get(id: String): Alarm?
+    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(a: Alarm)
+    @Query("DELETE FROM alarms WHERE id = :id") suspend fun remove(id: String)
 }

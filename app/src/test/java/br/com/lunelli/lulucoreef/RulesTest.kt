@@ -207,6 +207,62 @@ class RulesTest {
         assertEquals(ms("2026-12-08", "19:00"), nextAnchor(vencida, done = false, now = now, zone = zone))
     }
 
+    /**
+     * Defeito real relatado em 21/11: a TPA e a troca do perlon (rotinas por dias da semana) nao
+     * foram feitas na sexta e desapareceram no sabado, enquanto o carvao (por intervalo) continuou
+     * cobrando. Agora a pendencia por dias da semana e arrastada para os dias seguintes.
+     */
+    @Test fun pendenciaPorDiasDaSemanaArrastaParaOsDiasSeguintes() {
+        val tpa = rTpa.copy(diasSemana = listOf(5)) // sexta
+        val sexta = LocalDate.parse("2026-11-20")
+        val sabado = sexta.plusDays(1)
+        val domingo = sexta.plusDays(2)
+        val vencimento = ms("2026-11-20", "19:00")
+        val agoraSabado = ms("2026-11-21", "10:00")
+
+        // sem o `now` o comportamento antigo se mantem: nao aparece fora do dia marcado
+        assertTrue(occurrencesOn(listOf(tpa), emptyList(), sabado, zone).isEmpty())
+
+        // na sexta aparece normalmente
+        assertEquals(vencimento, occurrencesOn(listOf(tpa), emptyList(), sexta, zone, agoraSabado).single().dueAt)
+
+        // sabado e domingo: continua cobrando, com o vencimento original e marcada como arrastada
+        val noSabado = occurrencesOn(listOf(tpa), emptyList(), sabado, zone, agoraSabado).single()
+        assertEquals(vencimento, noSabado.dueAt)
+        assertTrue(noSabado.carried)
+        assertTrue(noSabado.isDue(agoraSabado))
+        assertEquals(vencimento, occurrencesOn(listOf(tpa), emptyList(), domingo, zone, agoraSabado).single().dueAt)
+
+        // feita (ainda que no sabado): para de cobrar nos dias seguintes
+        val feita = listOf(RoutineLog(tpa.id, vencimento, "feito", feitoEm = agoraSabado))
+        assertTrue(occurrencesOn(listOf(tpa), feita, domingo, zone, agoraSabado).isEmpty())
+        // pulada tambem encerra
+        val pulada = listOf(RoutineLog(tpa.id, vencimento, "pulado"))
+        assertTrue(occurrencesOn(listOf(tpa), pulada, domingo, zone, agoraSabado).isEmpty())
+    }
+
+    @Test fun arrastaNaoDuplicaNemEmpilha() {
+        val tpa = rTpa.copy(diasSemana = listOf(5))
+        val agora = ms("2026-11-27", "10:00")
+        // sexta seguinte: vence de novo hoje, entao a de hoje representa o servico (uma linha, nao duas)
+        val naSextaSeguinte = occurrencesOn(listOf(tpa), emptyList(), LocalDate.parse("2026-11-27"), zone, agora)
+        assertEquals(1, naSextaSeguinte.size)
+        assertFalse(naSextaSeguinte.single().carried)
+        assertEquals(ms("2026-11-27", "19:00"), naSextaSeguinte.single().dueAt)
+
+        // tres sextas perdidas: arrasta so a mais recente, para fazer uma TPA por em dia
+        val sabado = LocalDate.parse("2026-11-28")
+        val arrastada = occurrencesOn(listOf(tpa), emptyList(), sabado, zone, ms("2026-11-28", "10:00")).single()
+        assertEquals(ms("2026-11-27", "19:00"), arrastada.dueAt)
+
+        // rotina diaria nao arrasta: a ocorrencia de hoje ja substitui a de ontem
+        val hoje = LocalDate.parse("2026-11-21")
+        assertEquals(1, occurrencesOn(listOf(rGoni), emptyList(), hoje, zone, ms("2026-11-21", "10:00")).size)
+
+        // dia passado nunca recebe arrasto
+        assertTrue(occurrencesOn(listOf(tpa), emptyList(), LocalDate.parse("2026-11-21"), zone, ms("2026-11-28", "10:00")).isEmpty())
+    }
+
     @Test fun cumprimentoDaSemana() {
         val now = ms("2026-11-16", "21:00")
         val logs = listOf(
@@ -334,5 +390,40 @@ class ReportAndUpcomingTest {
         // so as secoes pedidas
         val so = br.com.lunelli.lulucoreef.domain.buildReport(data, ms("2026-11-01", "00:00"), now, now, zone, setOf(br.com.lunelli.lulucoreef.domain.ReportSection.TPAS))
         assertTrue(so.contains("TPAS") && !so.contains("PRODUTOS USADOS") && !so.contains("RESUMO"))
+    }
+}
+
+/** Alarmes do tablet: quando o proximo toque cai. */
+class AlarmTest {
+    private val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    private fun ms(date: String, time: String = "12:00") = java.time.LocalDateTime.parse("${date}T$time").atZone(zone).toInstant().toEpochMilli()
+    private val base = br.com.lunelli.lulucoreef.data.Alarm(hora = 21, minuto = 30)
+
+    @org.junit.Test fun diaria() {
+        val a = base.copy(recorrencia = "diaria")
+        // 20/11 as 10h -> toca hoje as 21:30
+        assertEquals(ms("2026-11-20", "21:30"), br.com.lunelli.lulucoreef.domain.nextRing(a, ms("2026-11-20", "10:00"), zone))
+        // depois do horario -> amanha
+        assertEquals(ms("2026-11-21", "21:30"), br.com.lunelli.lulucoreef.domain.nextRing(a, ms("2026-11-20", "22:00"), zone))
+    }
+
+    @org.junit.Test fun diasDaSemana() {
+        // quarta (3) e sexta (5)
+        val a = base.copy(recorrencia = "dias_da_semana", diasSemana = listOf(3, 5))
+        // segunda 16/11 -> proxima quarta 18/11
+        assertEquals(ms("2026-11-18", "21:30"), br.com.lunelli.lulucoreef.domain.nextRing(a, ms("2026-11-16", "10:00"), zone))
+        // quarta depois da hora -> sexta
+        assertEquals(ms("2026-11-20", "21:30"), br.com.lunelli.lulucoreef.domain.nextRing(a, ms("2026-11-18", "22:00"), zone))
+        // sem nenhum dia marcado nao toca
+        assertNull(br.com.lunelli.lulucoreef.domain.nextRing(a.copy(diasSemana = emptyList()), ms("2026-11-16"), zone))
+    }
+
+    @org.junit.Test fun umaVezSoEDesligado() {
+        val a = base.copy(recorrencia = "unica", diaUnico = ms("2026-11-21", "00:00"))
+        assertEquals(ms("2026-11-21", "21:30"), br.com.lunelli.lulucoreef.domain.nextRing(a, ms("2026-11-20", "10:00"), zone))
+        // passou do dia marcado: nao toca mais
+        assertNull(br.com.lunelli.lulucoreef.domain.nextRing(a, ms("2026-11-22", "10:00"), zone))
+        // desativado nao toca
+        assertNull(br.com.lunelli.lulucoreef.domain.nextRing(a.copy(ativo = false), ms("2026-11-20", "10:00"), zone))
     }
 }

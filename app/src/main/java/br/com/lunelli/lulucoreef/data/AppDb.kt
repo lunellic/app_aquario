@@ -17,8 +17,8 @@ class Converters {
 }
 
 @Database(
-    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class, FinanceEntry::class, ShoppingItem::class],
-    version = 4,
+    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class, FinanceEntry::class, ShoppingItem::class, Alarm::class],
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -40,6 +40,7 @@ abstract class AppDb : RoomDatabase() {
     abstract fun aiAnalyses(): AiAnalysisDao
     abstract fun finance(): FinanceEntryDao
     abstract fun shopping(): ShoppingItemDao
+    abstract fun alarms(): AlarmDao
 
     /** Tabelas na ordem de envio (respeita chaves estrangeiras). */
     fun syncTables(): List<SyncTable<*>> = listOf(
@@ -64,7 +65,7 @@ abstract class AppDb : RoomDatabase() {
 
     companion object {
         fun build(context: Context): AppDb =
-            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
 
         /** v2: water_tests.baixaConfianca. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -80,6 +81,14 @@ abstract class AppDb : RoomDatabase() {
                 db.execSQL("ALTER TABLE finance_entries ADD COLUMN `parcela` INTEGER")
                 db.execSQL("ALTER TABLE finance_entries ADD COLUMN `parcelas` INTEGER")
                 db.execSQL("ALTER TABLE finance_entries ADD COLUMN `grupo` TEXT")
+            }
+        }
+
+        /** v5: parcela do cartao marcada como paga e alarmes do tablet (locais, nao sincronizam). */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE finance_entries ADD COLUMN `pago` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `alarms` (`id` TEXT NOT NULL, `titulo` TEXT NOT NULL, `hora` INTEGER NOT NULL, `minuto` INTEGER NOT NULL, `recorrencia` TEXT NOT NULL, `diasSemana` TEXT, `alto` INTEGER NOT NULL, `ativo` INTEGER NOT NULL, `diaUnico` INTEGER, PRIMARY KEY(`id`))")
             }
         }
 

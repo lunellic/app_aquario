@@ -13,7 +13,11 @@ const val SNOOZE_MS = 30 * 60_000L
 
 enum class OccState { PENDENTE, ADIADO, FEITO, PULADO }
 
-data class Occurrence(val routine: Routine, val dueAt: Long, val log: RoutineLog?) {
+/**
+ * Uma ocorrencia da rotina. `carried` marca a pendencia arrastada de um dia anterior:
+ * a rotina nao estava marcada para hoje, mas ficou em aberto e continua cobrando.
+ */
+data class Occurrence(val routine: Routine, val dueAt: Long, val log: RoutineLog?, val carried: Boolean = false) {
     val state: OccState
         get() = when (log?.status) {
             "feito" -> OccState.FEITO
@@ -64,14 +68,60 @@ fun dueOn(r: Routine, date: LocalDate, zone: ZoneId): Long? {
     }
 }
 
-fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDate, zone: ZoneId): List<Occurrence> {
+/** Quantos dias para tras procurar pendencia em aberto de uma rotina por dias da semana. */
+const val CARRY_DAYS = 30
+
+/**
+ * Ocorrencias de um dia.
+ *
+ * Com `now` informado e `date` de hoje em diante, arrasta tambem as pendencias dos dias anteriores:
+ * uma rotina marcada para sexta que nao foi feita nem pulada continua cobrando no sabado, no domingo
+ * e nos dias seguintes, ate ser resolvida. Sem isso ela simplesmente desaparecia no dia seguinte,
+ * porque `dueOn` so devolve a ocorrencia no proprio dia da semana.
+ *
+ * Nao arrasta rotina diaria: a ocorrencia de hoje ja substitui a de ontem, e empilhar dose perdida
+ * nao ajuda (nao da para dosar ontem). Rotinas por intervalo e de uma vez so nunca tiveram o
+ * problema, porque a ancora `proximaEm` fica no passado e `dueOn` as devolve em todos os dias.
+ */
+fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDate, zone: ZoneId, now: Long? = null): List<Occurrence> {
     val byKey = logs.filter { it.deletedAt == null }.groupBy { it.routineId to it.previstoPara }
-    return routines.mapNotNull { r ->
+    val doDia = routines.mapNotNull { r ->
         val due = dueOn(r, date, zone) ?: return@mapNotNull null
         val o = Occurrence(r, due, byKey[r.id to due]?.maxByOrNull { it.updatedAt })
         // atividade de uma vez ja concluida (feita ou pulada): aparece so no dia em que foi resolvida
         if (r.isOnce() && !o.open && (o.log!!.feitoEm ?: o.log.updatedAt).toLocalDate(zone) != date) null else o
-    }.sortedWith(compareBy({ it.dueAt }, { it.routine.titulo }))
+    }
+    val arrastadas = if (now == null || date.isBefore(now.toLocalDate(zone))) emptyList()
+    else carriedInto(routines, byKey, date, zone, doDia.map { it.routine.id }.toSet())
+    return (arrastadas + doDia).sortedWith(compareBy({ it.dueAt }, { it.routine.titulo }))
+}
+
+/**
+ * Pendencias de dias anteriores que ainda cobram em `date`. So rotinas por dias da semana, uma por
+ * rotina (a ultima ainda aberta) e so quando a rotina nao tem ocorrencia no proprio dia: se ela
+ * vence hoje de novo, a de hoje ja representa o servico, nao precisa listar as duas.
+ *
+ * Pega a mais recente, nao a mais antiga: se ele perdeu tres TPAs seguidas, fazer uma TPA o poe em
+ * dia. Mostrar a de tres semanas atras faria a lista cobrar de novo a cada vez que ele resolvesse uma.
+ */
+private fun carriedInto(
+    routines: List<Routine>,
+    byKey: Map<Pair<String, Long>, List<RoutineLog>>,
+    date: LocalDate,
+    zone: ZoneId,
+    jaNoDia: Set<String>,
+): List<Occurrence> = routines.mapNotNull { r ->
+    if (!r.ativa || r.deletedAt != null) return@mapNotNull null
+    if (r.recorrencia != "dias_da_semana") return@mapNotNull null
+    if (r.id in jaNoDia) return@mapNotNull null
+    for (i in 1..CARRY_DAYS) {
+        val d = date.minusDays(i.toLong())
+        val due = dueOn(r, d, zone) ?: continue
+        val log = byKey[r.id to due]?.maxByOrNull { it.updatedAt }
+        val o = Occurrence(r, due, log, carried = true)
+        if (o.open) return@mapNotNull o
+    }
+    null
 }
 
 /** Proxima ocorrencia estritamente depois de `after` (para o alarme). */

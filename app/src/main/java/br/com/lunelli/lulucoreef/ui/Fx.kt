@@ -1,7 +1,6 @@
 package br.com.lunelli.lulucoreef.ui
 
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
@@ -9,7 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -53,8 +51,17 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** Efeitos de agua ligados? (Ajustes > Animacoes). Desligado: fundo parado e sem ondas. */
+/** Onda do descanso ligada? (Ajustes > Onda no descanso). Desligada: fundo parado, sem onda. */
 val LocalWaterFx = compositionLocalOf { true }
+
+/**
+ * Microanimacoes de dentro do app ligadas? (Ajustes > Animacoes da interface).
+ *
+ * Sao a entrada em cascata dos blocos, o numero contando, o anel enchendo, a mola do botao e a
+ * transicao entre telas. Nenhuma delas mostra informacao: so enfeitam a troca de tela. No Fire HD 8
+ * de 2017 elas custam quadros em cima do que importa, entao vem desligadas por padrao.
+ */
+val LocalAnim = compositionLocalOf { false }
 
 /**
  * Relogio dos efeitos de agua: ~20 quadros por segundo, so com a tela em primeiro plano.
@@ -67,9 +74,11 @@ fun rememberWaterTime(enabled: Boolean = LocalWaterFx.current): () -> Float {
     LaunchedEffect(owner, enabled) {
         if (!enabled) return@LaunchedEffect
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            // ~11 quadros por segundo, no mesmo ritmo de antes (1,0 por segundo): a onda e lenta,
+            // nao precisa de 20 quadros, e o tablet agradece. Era 0,05 a cada 50 ms.
             while (true) {
-                t.floatValue += 0.05f
-                delay(50)
+                t.floatValue += 0.09f
+                delay(90)
             }
         }
     }
@@ -90,8 +99,10 @@ fun WaterBackground(modifier: Modifier = Modifier, strength: Float = 1f) {
  * (inspirada na animacao do Dolby Atmos). Sem shader: so Path e gradiente linear, roda no Fire.
  */
 @Composable
-fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26, fadeAt: Float = 1f, stroke: Float = 1.4f) {
-    val time = rememberWaterTime(true)
+fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 16, fadeAt: Float = 1f, stroke: Float = 1.4f) {
+    // segue Ajustes: com a onda desligada o descanso fica de fundo liso, sem desenhar nada
+    if (!LocalWaterFx.current) return
+    val time = rememberWaterTime()
     val paths = remember(lines) { List(lines) { androidx.compose.ui.graphics.Path() } }
     Canvas(modifier) {
         val t = time()
@@ -105,7 +116,9 @@ fun AtmosWave(modifier: Modifier = Modifier, alpha: Float = 1f, lines: Int = 26,
         val (left, right) = waveSideColors(t)
         val mid = sky
         val brush = Brush.horizontalGradient(0f to left.copy(alpha = 0f), 0.18f to left.copy(alpha = 0.6f * alpha), 0.42f to mid.copy(alpha = 0.45f * alpha), 0.62f to right.copy(alpha = 0.4f * alpha), fadeAt to right.copy(alpha = 0.16f * alpha), 1f to right.copy(alpha = 0.05f * alpha))
-        val steps = 72
+        // 44 pontos por linha em vez de 72: no tamanho em que a onda aparece a diferenca nao se ve,
+        // e o custo por quadro cai junto com o numero de linhas (eram 26 x 72 = 1.872 pontos)
+        val steps = 44
         for (i in 0 until lines) {
             val f = i / (lines - 1f)
             val p = paths[i]
@@ -151,6 +164,7 @@ fun Waves(modifier: Modifier = Modifier, color: Color = Luluco.Pool) {
 /** Leve "mola" ao tocar. */
 @Composable
 fun Modifier.pressSpring(source: InteractionSource): Modifier {
+    if (!LocalAnim.current) return this
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.94f else 1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), label = "mola")
     return graphicsLayer { scaleX = scale; scaleY = scale }
@@ -159,6 +173,7 @@ fun Modifier.pressSpring(source: InteractionSource): Modifier {
 /** Entrada em cascata: cada item sobe e aparece um pouco depois do anterior. */
 @Composable
 fun Modifier.cascade(index: Int): Modifier {
+    if (!LocalAnim.current) return this
     val a = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
         delay(index.coerceAtMost(12) * 55L)
@@ -173,6 +188,7 @@ fun Modifier.cascade(index: Int): Modifier {
 /** Numero que conta ate o valor. Ao terminar mostra o valor exato registrado. */
 @Composable
 fun animatedParam(param: String, value: Double): String {
+    if (!LocalAnim.current) return Params.format(param, value)
     val a = remember { Animatable((value * 0.9).toFloat()) }
     LaunchedEffect(value) { a.animateTo(value.toFloat(), tween(750, easing = FastOutSlowInEasing)) }
     return if (a.isRunning) num(a.value.toDouble(), Params.decimals(param)) else Params.format(param, value)
@@ -181,8 +197,9 @@ fun animatedParam(param: String, value: Double): String {
 /** Anel da nota de saude enchendo, com o numero contando no centro. */
 @Composable
 fun HealthRing(score: Int?, size: Dp, modifier: Modifier = Modifier, stroke: Dp = size / 18, label: String? = "Saúde") {
-    val a = remember { Animatable(0f) }
-    LaunchedEffect(score) { a.animateTo((score ?: 0) / 100f, tween(1100, easing = FastOutSlowInEasing)) }
+    val anim = LocalAnim.current
+    val a = remember { Animatable(if (anim) 0f else (score ?: 0) / 100f) }
+    LaunchedEffect(score, anim) { if (anim) a.animateTo((score ?: 0) / 100f, tween(1100, easing = FastOutSlowInEasing)) else a.snapTo((score ?: 0) / 100f) }
     val color = scoreColor(score)
     Box(modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
@@ -237,33 +254,7 @@ fun waveSideColors(t: Float): Pair<Color, Color> {
     return mix(blue, orange, k) to mix(orange, blue, k)
 }
 
-/**
- * Relogio de virar: so o digito que mudou desce (o novo entra por cima, o antigo sai por baixo),
- * como os relogios antigos de plaquinha. 12:09 -> 12:10 mexe nos dois ultimos; 12:10 -> 12:11 so no ultimo.
- */
-@Composable
-fun FlipClock(time: String, fontSize: androidx.compose.ui.unit.TextUnit, color: Color, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.layout.Row(modifier, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((-fontSize.value * 0.03f).dp)) {
-        time.forEachIndexed { i, ch ->
-            androidx.compose.runtime.key(i) {
-                androidx.compose.animation.AnimatedContent(
-                    targetState = ch,
-                    transitionSpec = {
-                        (androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it } +
-                            androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(380))) togetherWith
-                            (androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(520, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } +
-                                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(300)))
-                    },
-                    label = "digito$i",
-                ) { c ->
-                    Text(c.toString(), fontFamily = Display, fontWeight = FontWeight.Bold, fontSize = fontSize, lineHeight = fontSize, color = color, maxLines = 1)
-                }
-            }
-        }
-    }
-}
-
-/** Barlow Condensed (licenca OFL, embutida): numeros altos e estreitos para o relogio de vidro. */
+/** Barlow Condensed (licenca OFL, embutida): numeros altos e estreitos para o relogio do descanso. */
 val Barlow = androidx.compose.ui.text.font.FontFamily(
     androidx.compose.ui.text.font.Font(br.com.lunelli.lulucoreef.R.font.barlow_medium, FontWeight.Medium),
     androidx.compose.ui.text.font.Font(br.com.lunelli.lulucoreef.R.font.barlow_semibold, FontWeight.SemiBold),
@@ -278,71 +269,61 @@ fun shortDate(d: java.time.LocalDate): String {
 }
 
 /**
- * Relogio de vidro (referencia do Lucas): pilula com a data em cima e um painel de vidro escuro com
- * numeros altos, estreitos e juntos, cor de aluminio, com brilho na borda de cima e sombra embaixo.
- * Cada digito vira sozinho quando muda. [dim] escurece tudo para o modo noite.
+ * Relogio do descanso: numeros chapados, sem painel atras e sem animacao.
+ *
+ * Era um relogio "de vidro": degrade de aluminio, contorno claro em cima e escuro embaixo, sombra e
+ * virada animada por digito. Saiu inteiro por tres motivos que apontavam para o mesmo lugar:
+ *
+ * 1. o efeito de vidro nao era o que o Lucas queria ("a cor um pouco mais dura, mais chapada");
+ * 2. em alguns horarios o digito aparecia partido na vertical, com metade mais clara que a outra
+ *    (o 9, por exemplo). A causa era o contorno em Stroke sobre a fonte em tamanho enorme: no Fire
+ *    o glifo vai para uma textura e o tracado nao fecha igual nas duas metades;
+ * 3. desenhava dois textos com pincel por digito, mais sombra, mais quatro animacoes rodando sem
+ *    parar. Era o item mais caro da tela que fica ligada o dia inteiro.
+ *
+ * Agora e uma cor so, um desenho de texto por grupo de digitos e nenhuma animacao.
  */
 @Composable
 fun GlassClock(time: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f) {
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
-        // so os numeros (sem painel atras): 4 digitos + dois pontos ocupam ~1,3 em na Barlow Condensed
+        // 4 digitos + dois pontos ocupam ~1,3 em na Barlow Condensed
         val fs = minOf(maxFont, maxWidth.value / 1.32f)
-        val size = fs.sp
+        val cor = Luluco.Cream.copy(alpha = 0.93f * dim)
+        val estilo = androidx.compose.ui.text.TextStyle(
+            fontFamily = Barlow, fontWeight = FontWeight.SemiBold, fontSize = fs.sp, lineHeight = (fs * 0.98f).sp, color = cor,
+            platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
+        )
+        val partes = time.split(":")
         androidx.compose.foundation.layout.Row(
-            Modifier.graphicsLayer { alpha = dim },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((-fs * 0.035f).dp),
         ) {
-            time.forEachIndexed { i, ch ->
-                androidx.compose.runtime.key(i) {
-                    if (ch == ':') GlassColon(fs)
-                    else androidx.compose.animation.AnimatedContent(
-                        targetState = ch,
-                        transitionSpec = {
-                            (androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { -it } +
-                                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400))) togetherWith
-                                (androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(560, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { it } +
-                                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(320)))
-                        },
-                        label = "vidro$i",
-                    ) { c -> GlassDigit(c, size, fs) }
-                }
+            FlatDigits(partes.getOrElse(0) { time }, estilo, fs)
+            if (partes.size > 1) {
+                FlatColon(fs, cor)
+                FlatDigits(partes[1], estilo, fs)
             }
         }
     }
 }
 
-private fun Modifier.fillMaxWidthCompat() = this.fillMaxWidth()
-
-private val DigitFill = Brush.verticalGradient(listOf(Color(0xFFA9ACB1), Color(0xFF8C9095), Color(0xFF7A7E83)))
-private val DigitRim = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.55f), Color.White.copy(alpha = 0.10f), Color.Black.copy(alpha = 0.25f)))
-
+/** Caixa da altura do numero (sem o respiro da fonte em cima e embaixo), para o numero nao ficar cortado. */
 @Composable
-private fun GlassDigit(c: Char, size: androidx.compose.ui.unit.TextUnit, fs: Float) {
-    val base = androidx.compose.ui.text.TextStyle(
-        fontFamily = Barlow, fontWeight = FontWeight.SemiBold, fontSize = size, lineHeight = size * 0.98f,
-        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
-        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
-    )
-    // caixa da altura do numero (sem o respiro da fonte em cima e embaixo): os digitos enchem o painel
-    androidx.compose.foundation.layout.Box(Modifier.height((fs * 0.92f).dp).wrapContentHeight(unbounded = true), contentAlignment = Alignment.Center) {
-        // corpo com degrade de aluminio e sombra
-        Text(c.toString(), style = base.copy(brush = DigitFill, shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.55f), Offset(0f, 6f), 14f)))
-        // borda clara em cima e escura embaixo: o efeito de vidro
-        Text(c.toString(), style = base.copy(brush = DigitRim, drawStyle = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f, join = StrokeJoin.Round)))
+private fun FlatDigits(texto: String, estilo: androidx.compose.ui.text.TextStyle, fs: Float) {
+    Box(Modifier.height((fs * 0.92f).dp).wrapContentHeight(unbounded = true), contentAlignment = Alignment.Center) {
+        Text(texto, style = estilo)
     }
 }
 
-/** Dois pontos redondos, como na referencia. */
+/** Dois pontos redondos, na mesma cor chapada dos numeros. */
 @Composable
-private fun GlassColon(fs: Float) {
-    val d = (fs * 0.13f).dp
+private fun FlatColon(fs: Float, cor: Color) {
+    val d = (fs * 0.125f).dp
     androidx.compose.foundation.layout.Column(
-        Modifier.padding(horizontal = (fs * 0.045f).dp),
+        Modifier.padding(horizontal = (fs * 0.05f).dp),
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy((fs * 0.22f).dp),
     ) {
-        repeat(2) {
-            androidx.compose.foundation.layout.Box(Modifier.size(d).clip(CircleShape).background(DigitFill).border(1.5.dp, DigitRim, CircleShape))
-        }
+        repeat(2) { Box(Modifier.size(d).clip(CircleShape).background(cor)) }
     }
 }

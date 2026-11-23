@@ -114,10 +114,19 @@ fun ConfigScreen(vm: MainViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Switch(settings.waterFx, { on -> vm.updateSettings { it.copy(waterFx = on) } })
                 Column(Modifier.weight(1f)) {
-                    Text("Animações de água")
-                    Muted("Fundo em movimento, reflexos e ondas. Desligue se o tablet ficar lento.")
+                    Text("Onda no descanso")
+                    Muted("A fita de luz que atravessa a tela de descanso e o modo noite. É o efeito mais caro do app; desligue se o tablet engasgar.")
                 }
             }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Switch(settings.uiAnim, { on -> vm.updateSettings { it.copy(uiAnim = on) } })
+                Column(Modifier.weight(1f)) {
+                    Text("Animações da interface")
+                    Muted("Blocos entrando em cascata, número contando, anel enchendo e transição entre telas. Vem desligado: enfeitam a troca de tela e custam quadros no tablet.")
+                }
+            }
+            Stepper("Brilho da tela (%; 0 usa o brilho do sistema)", settings.brilho, 0, 100, step = 10) { v -> vm.updateSettings { it.copy(brilho = v) } }
+            Muted("O app força esse brilho enquanto está na frente. O modo noite continua baixando a tela quase toda.")
             var home by remember { mutableStateOf(br.com.lunelli.lulucoreef.MainActivity.isHomeEnabled(ctx)) }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Switch(home, { on -> br.com.lunelli.lulucoreef.MainActivity.setHomeEnabled(ctx, on); home = on })
@@ -201,12 +210,12 @@ fun ConfigScreen(vm: MainViewModel) {
 }
 
 @Composable
-private fun Stepper(label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
+private fun Stepper(label: String, value: Int, min: Int, max: Int, step: Int = 1, onChange: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f))
-        OutlinedButton(onClick = { if (value > min) onChange(value - 1) }) { Text("-") }
+        OutlinedButton(onClick = { onChange((value - step).coerceAtLeast(min)) }, enabled = value > min) { Text("-") }
         Text(value.toString(), Modifier.width(56.dp), fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        OutlinedButton(onClick = { if (value < max) onChange(value + 1) }) { Text("+") }
+        OutlinedButton(onClick = { onChange((value + step).coerceAtMost(max)) }, enabled = value < max) { Text("+") }
     }
 }
 

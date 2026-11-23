@@ -172,6 +172,7 @@ class ReminderReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Reminders.schedule(context)
+        Clocks.load(context.applicationContext)
         // quiosque: ao ligar o tablet (ou atualizar o app), abre sozinho
         Reminders.bringToFront(context.applicationContext)
     }

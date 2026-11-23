@@ -74,6 +74,12 @@ fun caixaDelta(e: FinanceEntry): Double = when (e.tipo) {
     else -> 0.0
 }
 fun FinanceEntry.parcelaTexto(): String? = if (parcela != null && parcelas != null && parcelas > 1) "parcela $parcela/$parcelas" else null
+
+/** Gasto no cartao que ainda nao foi quitado. Pix sai da caixinha na hora, entao nunca fica em aberto. */
+fun FinanceEntry.emAberto(): Boolean = tipo == "despesa" && forma == "cartao" && !pago
+
+/** Da para marcar como paga? So gasto no cartao; no Pix o dinheiro ja saiu. */
+fun FinanceEntry.podeQuitar(): Boolean = tipo == "despesa" && forma == "cartao"
 fun FinanceEntry.formaTexto(): String = when (tipo) { "aporte" -> "Depósito na caixinha"; "retirada" -> "Retirada da caixinha"; else -> if (forma == "cartao") "Cartão" else "Pix" }
 
 @Composable
@@ -104,6 +110,9 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
     val cartao = doMes.filter { it.tipo == "despesa" && it.forma == "cartao" }.sumOf { it.valor }
     val gastos = doMes.filter { it.tipo == "despesa" }.sumOf { it.valor }
     val receitas = doMes.filter { it.tipo == "receita" }.sumOf { it.valor }
+    // o que ainda nao foi quitado, neste ciclo e no total (parcelas futuras incluidas)
+    val aPagarMes = doMes.filter { it.emAberto() }.sumOf { it.valor }
+    val aPagarTudo = entries.filter { it.emAberto() }.sumOf { it.valor }
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { mes = mes.minusMonths(1) }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Mês anterior") }
@@ -124,6 +133,8 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
             Money(Modifier.weight(1f), "Gastos", gastos, null)
             VerticalDivider(color = Luluco.Divider)
             Money(Modifier.weight(1f), "No cartão", cartao, null)
+            VerticalDivider(color = Luluco.Divider)
+            Money(Modifier.weight(1f), "A pagar", aPagarMes, if (aPagarMes > 0) Luluco.CoralText else Luluco.TextSoft)
             VerticalDivider(color = Luluco.Divider)
             Money(Modifier.weight(1f), "Vendas", receitas, null)
         }
@@ -174,20 +185,75 @@ private fun Resumo(vm: MainViewModel, nav: Nav) {
         Muted("Ciclo começa no dia ")
         NumInput("", dia.toString(), Modifier.width(70.dp)) { v -> v.toIntOrNull()?.let { n -> if (n in 1..28) vm.updateSettings { it.copy(cicloDia = n) } } }
     }
+    if (aPagarTudo > 0) Muted("Em aberto no cartão, somando as parcelas futuras: " + money(aPagarTudo) + ". Toque numa parcela já paga para quitá-la.")
     if (doMes.isEmpty()) Muted("Nada lançado neste mês. Use \"Novo lançamento\" ou marque um item da lista de compras como comprado.")
     else Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
         doMes.forEachIndexed { i, e ->
             if (i > 0) HorizontalDivider(color = Luluco.Divider)
-            Row(Modifier.fillMaxWidth().clickable { nav.go(Screen.FinanceForm(e.id)) }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(fmtDay(e.lancadoEm), Modifier.width(64.dp), color = Luluco.TextSoft, fontSize = 14.sp)
-                Column(Modifier.weight(1f)) {
-                    Text(e.descricao.ifBlank { catLabel(e.categoria) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Muted(listOfNotNull(catLabel(e.categoria), aquarioLabel(e.aquario), e.formaTexto(), e.parcelaTexto()).joinToString(" · "), maxLines = 1)
-                }
-                Text((if (e.tipo == "receita") "+ " else "- ") + money(e.valor), fontWeight = FontWeight.Medium, color = if (e.tipo == "receita") Luluco.Ok else Luluco.Cream)
-            }
+            Lancamento(vm, nav, e)
         }
     }
+}
+
+/**
+ * Uma linha de lancamento. Gasto no cartao abre o dialogo de quitar; o resto vai direto para a ficha.
+ * Marcar como paga nao muda o gasto do ciclo (o custo foi real), muda o "a pagar".
+ */
+@Composable
+private fun Lancamento(vm: MainViewModel, nav: Nav, e: FinanceEntry) {
+    var dialogo by remember { mutableStateOf(false) }
+    if (dialogo) QuitarDialog(vm, nav, e) { dialogo = false }
+    val quitado = e.podeQuitar() && e.pago
+    Row(
+        Modifier.fillMaxWidth().clickable { if (e.podeQuitar()) dialogo = true else nav.go(Screen.FinanceForm(e.id)) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(fmtDay(e.lancadoEm), Modifier.width(64.dp), color = Luluco.TextSoft, fontSize = 14.sp)
+        Column(Modifier.weight(1f)) {
+            Text(e.descricao.ifBlank { catLabel(e.categoria) }, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = if (quitado) Luluco.TextSoft else Luluco.Cream)
+            Muted(listOfNotNull(catLabel(e.categoria), aquarioLabel(e.aquario), e.formaTexto(), e.parcelaTexto()).joinToString(" · "), maxLines = 1)
+        }
+        if (quitado) Badge("paga", Luluco.Ok) else if (e.emAberto()) Badge("a pagar", Luluco.CoralText)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            (if (e.tipo == "receita") "+ " else "- ") + money(e.valor), fontWeight = FontWeight.Medium,
+            color = if (e.tipo == "receita") Luluco.Ok else if (quitado) Luluco.TextFaint else Luluco.Cream,
+        )
+    }
+}
+
+/** Quitar a parcela, quitar a compra inteira ou abrir a ficha. */
+@Composable
+private fun QuitarDialog(vm: MainViewModel, nav: Nav, e: FinanceEntry, onDismiss: () -> Unit) {
+    val all by vm.finance.collectAsStateWithLifecycle()
+    val irmas = e.grupo?.let { g -> all.filter { it.grupo == g && it.deletedAt == null } }.orEmpty()
+    val abertasNoGrupo = irmas.count { it.emAberto() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(e.descricao.ifBlank { catLabel(e.categoria) }) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(listOfNotNull(money(e.valor), e.parcelaTexto(), "Cartão").joinToString(" · "))
+                Muted(
+                    if (e.pago) "Esta parcela está marcada como paga."
+                    else "Marcar como paga só tira do \"a pagar\". O gasto continua contando no ciclo em que foi lançado.",
+                )
+                if (abertasNoGrupo > 1) Muted("Esta compra tem $abertasNoGrupo parcelas em aberto.")
+            }
+        },
+        confirmButton = {
+            if (e.pago) TextButton(onClick = { vm.setFinancePago(listOf(e), false); onDismiss() }) { Text("Desmarcar") }
+            else TextButton(onClick = { vm.setFinancePago(listOf(e), true); onDismiss() }) { Text("Já paguei esta") }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = { nav.go(Screen.FinanceForm(e.id)); onDismiss() }) { Text("Editar") }
+                if (!e.pago && abertasNoGrupo > 1) TextButton(onClick = { vm.setFinancePago(irmas.filter { it.emAberto() }, true); onDismiss() }) { Text("Quitar todas") }
+            }
+        },
+    )
 }
 
 @Composable

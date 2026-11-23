@@ -293,6 +293,11 @@ data class FinanceEntry(
     val parcelas: Int? = null,
     /** mesmo id para todas as parcelas de uma compra. */
     val grupo: String? = null,
+    /**
+     * Gasto no cartao ja quitado. Serve para a parcela que ele ja pagou parar de pesar no "a pagar".
+     * Gasto no Pix sai da caixinha na hora, entao nao usa este campo.
+     */
+    val pago: Boolean = false,
     @PrimaryKey override val id: String = newId(),
     @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
@@ -317,3 +322,25 @@ data class ShoppingItem(
     @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
     @Transient override val pending: Boolean = false,
 ) : Syncable
+
+/**
+ * Alarme do tablet: toca na hora marcada e nao e tarefa (nao entra no calendario, no "Hoje", na nota
+ * de saude nem nos relatorios). Fica so neste aparelho: nao sincroniza e nao entra no backup, porque
+ * um alarme que toca so serve no tablet que esta ao lado do aquario.
+ */
+@Entity(tableName = "alarms")
+data class Alarm(
+    @PrimaryKey val id: String = newId(),
+    val titulo: String = "",
+    val hora: Int = 7,
+    val minuto: Int = 0,
+    /** "unica", "diaria" ou "dias_da_semana". */
+    val recorrencia: String = "unica",
+    /** ISO: 1 = segunda ... 7 = domingo. So para "dias_da_semana". */
+    val diasSemana: List<Int>? = null,
+    /** Alto usa o som de alarme do tablet no volume cheio; normal toca mais baixo. */
+    val alto: Boolean = true,
+    val ativo: Boolean = true,
+    /** Para "unica": o dia em que deve tocar (epoch ms). Depois de tocar, o alarme se desliga. */
+    val diaUnico: Long? = null,
+)

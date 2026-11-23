@@ -178,7 +178,10 @@ class SmokeTest {
         val name = "migracao_teste.db"
         app.deleteDatabase(name)
         fun open() = androidx.room.Room.databaseBuilder(app, br.com.lunelli.lulucoreef.data.AppDb::class.java, name)
-            .addMigrations(br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_3_4).build()
+            .addMigrations(
+                br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3,
+                br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_3_4, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_4_5,
+            ).build()
         open().apply { openHelper.writableDatabase; close() }
 
         // volta o arquivo ao formato v1: water_tests sem a coluna nova, com uma medicao gravada
@@ -189,6 +192,7 @@ class SmokeTest {
         raw.execSQL("DROP TABLE water_tests")
         raw.execSQL("DROP TABLE finance_entries")
         raw.execSQL("DROP TABLE shopping_items")
+        raw.execSQL("DROP TABLE IF EXISTS alarms")
         raw.execSQL(v1)
         raw.execSQL("INSERT INTO water_tests (medidoEm, parametro, valor, unidade, id, createdAt, updatedAt, pending) VALUES (1000, 'kh', 8.2, 'dKH', 'abc', 1000, 1000, 1)")
         raw.version = 1
@@ -202,6 +206,15 @@ class SmokeTest {
             assertTrue(t.pending)
             db.waterTests().upsert(t.copy(baixaConfianca = true))
             assertTrue(db.waterTests().get("abc")!!.baixaConfianca)
+            // v5: parcela paga e a tabela de alarmes (local)
+            val e = br.com.lunelli.lulucoreef.data.FinanceEntry(valor = 10.0, forma = "cartao")
+            db.finance().upsert(e)
+            assertEquals(false, db.finance().get(e.id)!!.pago)
+            db.finance().upsert(e.copy(pago = true))
+            assertTrue(db.finance().get(e.id)!!.pago)
+            val a = br.com.lunelli.lulucoreef.data.Alarm(titulo = "Religar a bomba", hora = 21, minuto = 30)
+            db.alarms().put(a)
+            assertEquals("Religar a bomba", db.alarms().get(a.id)!!.titulo)
         }
         db.close()
         app.deleteDatabase(name)
@@ -307,6 +320,11 @@ class SmokeTest {
             shot("compras")
             step { menu("Calculadoras") }
             shot("calculadoras")
+            step { menu("Timer e alarmes") }
+            shot("timers")
+            step { compose.onNodeWithText("Novo alarme", ignoreCase = true).performClick() }
+            shot("alarme")
+            step { compose.onNodeWithText("Voltar", ignoreCase = true).performClick() }
             step { menu("Calendário") }
             shot("calendario_tela")
             step { menu("Saúde e quarentena") }

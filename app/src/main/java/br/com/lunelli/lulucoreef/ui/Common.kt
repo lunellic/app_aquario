@@ -70,6 +70,18 @@ fun fmtAgo(ms: Long, now: Long): String {
     }
 }
 
+/** Versao curta para caber ao lado do titulo no descanso: "agora", "3 h", "2 d". */
+fun fmtAgoShort(ms: Long, now: Long): String {
+    val d = now - ms
+    return when {
+        d < 0 -> fmtDay(ms)
+        d < HOUR_MS -> "agora"
+        d < DAY_MS -> "${d / HOUR_MS} h"
+        d < 60 * DAY_MS -> "${d / DAY_MS} d"
+        else -> fmtDay(ms)
+    }
+}
+
 fun statusColor(s: Status): Color = when (s) {
     Status.IDEAL -> Luluco.Ok
     Status.ATENCAO -> Luluco.CoralText

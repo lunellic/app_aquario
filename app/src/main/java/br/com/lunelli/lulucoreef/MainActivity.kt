@@ -48,6 +48,7 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         Reminders.schedule(this)
+        br.com.lunelli.lulucoreef.reminders.Clocks.load(this)
         setContent { LulucoTheme { AppRoot() } }
     }
 
