@@ -218,7 +218,16 @@ function folhaQuitar(e) {
 
 /** Novo lancamento ou edicao. Parcelado cria uma entrada por fatura, como no tablet. */
 function folhaLancamento(existente) {
-  abrirFolha(existente ? 'Editar lançamento' : 'Novo lançamento', (c) => {
+  // "existente" serve para duas coisas: pre-preencher a folha e dizer se e edicao. Depositar e
+  // Retirar passam um objeto so para pre-preencher o tipo, com id null. Como o teste era so
+  // "existe objeto?", o deposito entrava no caminho da edicao e mandava um PATCH para id=null,
+  // que o banco recusa ("invalid input syntax for type uuid"). Edicao e quem tem id.
+  const editando = Boolean(existente && existente.id);
+  const titulo = editando ? 'Editar lançamento'
+    : existente && existente.tipo === 'aporte' ? 'Depositar na caixinha'
+    : existente && existente.tipo === 'retirada' ? 'Retirar da caixinha'
+    : 'Novo lançamento';
+  abrirFolha(titulo, (c) => {
     let tipo = existente ? existente.tipo : 'despesa';
     let categoria = existente ? existente.categoria : 'outros';
     let aquario = existente ? existente.aquario : 'marinho';
@@ -286,7 +295,7 @@ function folhaLancamento(existente) {
           descricao: desc.value.trim(), aquario, forma: tipo === 'despesa' ? forma : 'pix',
           observacao: obs.value.trim() || null,
         };
-        if (existente) {
+        if (editando) {
           await atualizar('finance_entries', existente.id, { ...base, valor: v });
         } else if (tipo === 'despesa' && forma === 'cartao' && parcelas > 1) {
           // parcelas iguais e a sobra dos centavos na ultima, como o cartao faz
@@ -312,7 +321,7 @@ function folhaLancamento(existente) {
     };
     c.appendChild(salvar);
 
-    if (existente) {
+    if (editando) {
       const del = el('button', null, 'Apagar');
       del.onclick = async () => {
         ocupado(true);
