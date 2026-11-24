@@ -52,6 +52,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import br.com.lunelli.lulucoreef.update.Atualizacao
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -213,7 +214,11 @@ private fun LoggedIn(vm: MainViewModel) {
     val topLevel = nav.current.topLevel
     // Modo noite: tela quase preta; um toque acorda o Painel por 1 minuto.
     val night = topLevel && Settings.isNight(hour, settings.nightStartHour, settings.nightEndHour) && idle > 60_000
-    val vitrine = topLevel && !night && settings.vitrineMinutes > 0 && idle > settings.vitrineMinutes * 60_000L
+    // Durante um download de atualizacao o tablet nao vai para o descanso: a pessoa esta
+    // esperando a barra andar, e a tela trocar sozinha no meio parece que o download sumiu.
+    val baixando by Atualizacao.estado.collectAsStateWithLifecycle()
+    val vitrine = topLevel && !night && settings.vitrineMinutes > 0 && idle > settings.vitrineMinutes * 60_000L &&
+        baixando !is Atualizacao.Estado.Baixando
     val overlay by rememberUpdatedState(night || vitrine)
     fun wake() {
         if (overlay) nav.top(Screen.Painel)

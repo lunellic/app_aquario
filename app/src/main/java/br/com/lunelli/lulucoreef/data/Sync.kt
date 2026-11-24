@@ -45,10 +45,18 @@ class SyncEngine(context: Context, private val db: AppDb, private val api: Api, 
         mutex.withLock {
             status.value = status.value.copy(running = true)
             try {
-                val tables = db.syncTables()
-                tables.forEach { pull(it) }
-                tables.forEach { push(it) }
-                photos.uploadPending()
+                // Uma segunda chance numa conexao nova. O erro de tempo esgotado quase sempre e
+                // conexao que morreu enquanto o Wi-Fi do Fire dormia; jogar o pool fora e repetir
+                // resolve sem esperar o proximo ciclo de 15 minutos.
+                try {
+                    rodada()
+                } catch (e: java.io.IOException) {
+                    // So erro de rede ganha segunda chance. Resposta do servidor (400, 401,
+                    // sessao expirada) repetida da o mesmo resultado, so que mais devagar.
+                    if (e is ApiException || e is SessionExpiredException) throw e
+                    api.descartarConexoes()
+                    rodada()
+                }
                 val now = System.currentTimeMillis()
                 prefs.edit().putLong("last_ok", now).apply()
                 status.value = SyncStatus(lastOkAt = now, pending = countPending())
@@ -58,11 +66,24 @@ class SyncEngine(context: Context, private val db: AppDb, private val api: Api, 
                 false
             } catch (e: Exception) {
                 val msg = e.message ?: e.javaClass.simpleName
-                val friendly = if (msg.contains("schema cache") || msg.contains("does not exist")) "O banco no Supabase está desatualizado: falta rodar o SQL mais recente ($msg)" else msg
+                val friendly = when {
+                    msg.contains("schema cache") || msg.contains("does not exist") -> "O banco no Supabase está desatualizado: falta rodar o SQL mais recente ($msg)"
+                    e is java.net.SocketTimeoutException || msg.contains("timeout", ignoreCase = true) ->
+                        "O servidor não respondeu a tempo, duas vezes seguidas. Confira o Wi-Fi do tablet; tento de novo sozinho em alguns minutos."
+                    e is java.net.UnknownHostException -> "Sem internet no tablet. Tento de novo quando a rede voltar."
+                    else -> msg
+                }
                 status.value = status.value.copy(running = false, lastError = friendly, pending = countPending())
                 false
             }
         }
+    }
+
+    private suspend fun rodada() {
+        val tables = db.syncTables()
+        tables.forEach { pull(it) }
+        tables.forEach { push(it) }
+        photos.uploadPending()
     }
 
     suspend fun countPending(): Int = db.syncTables().sumOf { it.dao.pendingCount() } + photos.pendingCount()

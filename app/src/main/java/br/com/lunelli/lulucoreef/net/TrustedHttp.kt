@@ -3,6 +3,7 @@ package br.com.lunelli.lulucoreef.net
 import android.content.Context
 import br.com.lunelli.lulucoreef.R
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
@@ -69,8 +70,16 @@ object TrustedHttp {
 
         return OkHttpClient.Builder()
             .sslSocketFactory(ssl.socketFactory, trustManager)
+            // HTTP/1.1 e nao HTTP/2. No HTTP/2 tudo que vai para o Supabase divide UMA conexao:
+            // quando o Fire apaga a tela ele desliga o Wi-Fi, a conexao morre sem avisar, e a
+            // proxima sincronizacao e o proximo download ficam pendurados nela ate estourar o
+            // tempo. Com HTTP/1.1 cada pedido tem conexao propria e uma morta derruba so um.
+            .protocols(listOf(Protocol.HTTP_1_1))
+            .retryOnConnectionFailure(true)
             .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(90, TimeUnit.SECONDS)
+            // 30 s sem receber um byte e conexao morta, nao rede lenta: melhor falhar e tentar de
+            // novo numa conexao nova do que ficar 90 s olhando para ela.
+            .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }

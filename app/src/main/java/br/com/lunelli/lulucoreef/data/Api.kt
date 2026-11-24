@@ -19,6 +19,12 @@ class SessionExpiredException : IOException("Sessão expirada")
 /** REST, Auth e Storage do Supabase via OkHttp. Chamadas bloqueantes: usar em Dispatchers.IO. */
 class Api(context: Context, private val session: SessionStore) {
     private val real by lazy { TrustedHttp.client(context) }
+
+    /** Joga fora as conexoes guardadas, para o proximo pedido abrir uma nova. */
+    fun descartarConexoes() {
+        if (offlineForTests) return
+        real.connectionPool.evictAll()
+    }
     private val http get() = if (offlineForTests) throw IOException("offline (teste)") else real
     private val base = BuildConfig.SUPABASE_URL
     private val key = BuildConfig.SUPABASE_KEY

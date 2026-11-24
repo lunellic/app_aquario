@@ -509,43 +509,42 @@ private fun FinCell(modifier: Modifier, label: String, v: Double, color: Color? 
 @Composable
 private fun AvisoDeAtualizacao() {
     val ctx = LocalContext.current
-    val escopo = rememberCoroutineScope()
     var versao by remember { mutableStateOf<VersaoRemota?>(null) }
-    var progresso by remember { mutableIntStateOf(-1) }
-    var erro by remember { mutableStateOf<String?>(null) }
+    val estado by Atualizacao.estado.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { versao = Atualizacao.checar(ctx)?.takeIf { it.nova } }
 
     val v = versao ?: return
     Panel(Modifier.fillMaxWidth().cascade(0)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(Luluco.ZoneIdeal))
+            Box(Modifier.size(8.dp).clip(CircleShape).background(if (estado is Atualizacao.Estado.Falhou) Luluco.ZoneWarn else Luluco.ZoneIdeal))
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text("Versão ${v.versao} disponível", fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
-                val detalhe = erro ?: when {
-                    progresso in 0..99 -> "Baixando… $progresso%"
-                    progresso == 100 -> "Baixado. Confirme a instalação na tela do sistema."
-                    v.notas.isNotBlank() -> v.notas
-                    else -> "Você está na ${BuildConfig.VERSION_NAME}."
+                val (detalhe, cor) = when (val e = estado) {
+                    is Atualizacao.Estado.Baixando ->
+                        (if (e.tentativa > 1) "Baixando… ${e.pct}% (tentativa ${e.tentativa})" else "Baixando… ${e.pct}%") to Luluco.TextSoft
+                    is Atualizacao.Estado.Falhou -> e.motivo to Luluco.ZoneWarn
+                    Atualizacao.Estado.Pronto -> "Baixado. Confirme a instalação na tela do sistema." to Luluco.TextSoft
+                    Atualizacao.Estado.Parado -> (v.notas.ifBlank { "Você está na ${BuildConfig.VERSION_NAME}." }) to Luluco.TextSoft
                 }
-                Text(detalhe, fontSize = 13.sp, color = if (erro != null) Luluco.ZoneCrit else Luluco.TextSoft, maxLines = 2)
+                Text(detalhe, fontSize = 13.sp, color = cor, maxLines = 3)
+                if (estado is Atualizacao.Estado.Baixando) {
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { (estado as Atualizacao.Estado.Baixando).pct / 100f },
+                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                        color = Luluco.Pool, trackColor = Luluco.Solid,
+                    )
+                }
             }
             Spacer(Modifier.width(12.dp))
-            if (progresso < 0) Button(onClick = {
-                erro = null
-                progresso = 0
-                escopo.launch {
-                    try {
-                        val apk = Atualizacao.baixar(ctx) { progresso = it }
-                        progresso = 100
-                        Atualizacao.instalar(ctx, apk)
-                    } catch (e: Exception) {
-                        erro = "Não deu para baixar: ${e.message}"
-                        progresso = -1
-                    }
-                }
-            }) { Text("Atualizar") }
+            when (estado) {
+                is Atualizacao.Estado.Baixando -> {}
+                is Atualizacao.Estado.Falhou -> Button(onClick = { Atualizacao.iniciar(ctx, v) }) { Text("Continuar") }
+                Atualizacao.Estado.Pronto -> Button(onClick = { Atualizacao.iniciar(ctx, v) }) { Text("Instalar") }
+                Atualizacao.Estado.Parado -> Button(onClick = { Atualizacao.iniciar(ctx, v) }) { Text("Atualizar") }
+            }
         }
     }
 }
