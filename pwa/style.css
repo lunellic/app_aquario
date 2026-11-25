@@ -534,3 +534,14 @@ body::before {
 .param, .num, .mosaico { min-width: 0; }
 .param .topo .eyebrow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .param .topo .pilula { flex: none; }
+
+/* Navegacao entre dias no Painel: setas nas pontas, o dia no meio. Tocar no nome do dia volta
+   para hoje, que e para onde a pessoa quer voltar quase sempre. */
+.navdia { display: flex; align-items: center; gap: 8px; margin: 14px 0 2px; }
+.navdia .seta { flex: none; width: 40px; height: 40px; padding: 0; border-radius: 12px; font-size: 22px; line-height: 1;
+  background: var(--solido); color: var(--creme); }
+.navdia .seta:disabled { opacity: 0.3; }
+.navdia .rotulo-dia { flex: 1; background: none; padding: 6px 0; font-size: 13px; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--suave); font-weight: 600; text-align: center; }
+.navdia .rotulo-dia.fora { color: var(--pool-texto); }
+.resumo-dia { padding: 4px 2px 8px; color: var(--suave); }

@@ -162,7 +162,62 @@ function ocorrenciasDeHoje(rotinas, logs, agora) {
   return lista.sort((a, b) => a.due - b.due);
 }
 
+/**
+ * Ocorrencias de um dia qualquer, para navegar pelas setas do Painel.
+ *
+ * Hoje continua usando a regra de cima, com as atrasadas arrastadas. Os outros dias mostram so
+ * o que venceu NAQUELE dia, sem arrastar nada: no passado a pergunta e "o que eu fiz e o que
+ * deixei de fazer em tal dia", e repetir a mesma TPA atrasada em todos os dias seguintes
+ * esconderia a resposta; no futuro nada esta atrasado ainda.
+ *
+ * Rotina por intervalo ou de uma vez so tem uma data unica (proxima_em). Fora de hoje ela so
+ * aparece nesse dia exato; senao, uma troca de carvao marcada para quinta apareceria em todos os
+ * dias depois de quinta. No passado entram tambem os registros que caem no dia, para que uma
+ * rotina por intervalo ja feita continue aparecendo no dia em que foi feita.
+ */
+function ocorrenciasDoDia(rotinas, logs, dia, agora) {
+  if (diaDe(dia.getTime()).getTime() === diaDe(agora).getTime()) return ocorrenciasDeHoje(rotinas, logs, agora);
+  const alvo = diaDe(dia.getTime());
+  const fimDoDia = alvo.getTime() + DIA_MS;
+  const porChave = {};
+  logs.filter((l) => !l.deleted_at).forEach((l) => {
+    const k = `${l.routine_id}|${new Date(l.previsto_para).getTime()}`;
+    if (!porChave[k] || new Date(l.updated_at) > new Date(porChave[k].updated_at)) porChave[k] = l;
+  });
+  const lista = [];
+  const visto = new Set();
+  rotinas.forEach((r) => {
+    if (!r.ativa || r.deleted_at) return;
+    // rotina criada depois desse dia nao tinha como ter sido feita nele
+    if (r.created_at && new Date(r.created_at).getTime() >= fimDoDia) return;
+    let due = null;
+    if (r.recorrencia === 'diaria' || r.recorrencia === 'dias_da_semana') due = vencimento(r, alvo);
+    else if (r.proxima_em) {
+      const t = new Date(r.proxima_em).getTime();
+      if (t >= alvo.getTime() && t < fimDoDia) due = t;
+    }
+    if (due == null) return;
+    visto.add(`${r.id}|${due}`);
+    lista.push({ rotina: r, due, log: porChave[`${r.id}|${due}`] || null, arrastada: false });
+  });
+  const porId = {};
+  rotinas.forEach((r) => { porId[r.id] = r; });
+  Object.values(porChave).forEach((l) => {
+    const due = new Date(l.previsto_para).getTime();
+    if (due < alvo.getTime() || due >= fimDoDia || visto.has(`${l.routine_id}|${due}`)) return;
+    const r = porId[l.routine_id];
+    if (r) lista.push({ rotina: r, due, log: l, arrastada: false });
+  });
+  return lista.sort((a, b) => a.due - b.due);
+}
+
 const estado = (o) => (o.log ? o.log.status : 'pendente');
+
+// Dia mostrado no Painel, em dias a partir de hoje (0 = hoje, -1 = ontem, 1 = amanha).
+// O historico carregado cobre 45 dias, entao a navegacao para em 30 para tras.
+let deslocDia = 0;
+const DIAS_ATRAS = 30;
+const DIAS_FRENTE = 30;
 
 // ---------------------------------------------------------------- dados
 
@@ -355,12 +410,40 @@ function desenharParams() {
   });
 }
 
+function rotuloDoDia(desloc, dia) {
+  if (desloc === 0) return 'Hoje';
+  if (desloc === -1) return 'Ontem';
+  if (desloc === 1) return 'Amanhã';
+  if (desloc === -2) return 'Anteontem';
+  return dia.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '');
+}
+
 function desenharHoje() {
   const caixa = $('#hoje');
   caixa.innerHTML = '';
   const agora = Date.now();
-  const lista = ocorrenciasDeHoje(dados.rotinas, dados.logs, agora);
-  if (!lista.length) { caixa.appendChild(el('div', 'vazio', 'Nada para hoje.')); return; }
+  const dia = diaDe(agora); dia.setDate(dia.getDate() + deslocDia);
+  const passado = deslocDia < 0;
+  const futuro = deslocDia > 0;
+
+  const rot = $('#dia-rotulo');
+  rot.textContent = rotuloDoDia(deslocDia, dia);
+  rot.classList.toggle('fora', deslocDia !== 0);
+  $('#dia-ant').disabled = deslocDia <= -DIAS_ATRAS;
+  $('#dia-prox').disabled = deslocDia >= DIAS_FRENTE;
+
+  const lista = ocorrenciasDoDia(dados.rotinas, dados.logs, dia, agora);
+  if (!lista.length) {
+    caixa.appendChild(el('div', 'vazio', passado ? 'Nada estava marcado para esse dia.' : futuro ? 'Nada marcado para esse dia.' : 'Nada para hoje.'));
+    return;
+  }
+  // No passado, um resumo de uma linha em cima: e a pergunta que trouxe a pessoa ate aqui.
+  if (passado) {
+    const feitos = lista.filter((o) => estado(o) === 'feito').length;
+    const faltou = lista.filter((o) => estado(o) === 'pendente' || estado(o) === 'adiado').length;
+    caixa.appendChild(el('div', 'sub resumo-dia',
+      faltou ? `${feitos} de ${lista.length} feitas · ${faltou} ficaram sem fazer` : `Tudo feito: ${feitos} de ${lista.length}`));
+  }
   const porId = {};
   dados.produtos.forEach((p) => { porId[p.id] = p; });
 
@@ -384,29 +467,37 @@ function desenharHoje() {
     } else if (o.rotina.instrucao) partes.push(o.rotina.instrucao);
     corpo.appendChild(el('div', 'sub', partes.join(' · ')));
     // o estado sai do texto e vira pilula
-    if (st === 'feito') corpo.appendChild(pilula('feito', ZONA.ideal));
+    if (st === 'feito') corpo.appendChild(pilula(passado && o.log && o.log.feito_em ? `feito ${ddmm(new Date(o.log.feito_em).getTime())} ${hhmm(new Date(o.log.feito_em).getTime())}` : 'feito', ZONA.ideal));
     else if (st === 'pulado') corpo.appendChild(pilula('pulado', '#8B95A3'));
+    else if (passado) corpo.appendChild(pilula('não foi feito', ZONA.atencao));
+    else if (futuro) corpo.appendChild(pilula('previsto', '#8B95A3'));
     else if (o.arrastada) corpo.appendChild(pilula(`atrasada desde ${ddmm(o.due)}`, ZONA.atencao));
     else if (atrasada) corpo.appendChild(pilula('atrasada', ZONA.atencao));
     item.appendChild(corpo);
 
-    if (!resolvido) {
-      const b = el('button', 'mini', 'Feito');
-      b.onclick = () => marcar(o, 'feito');
+    // Dia passado tambem tem botao: o caso comum e ter feito e esquecido de marcar. No futuro
+    // nao, porque marcar como feito algo que ainda nao aconteceu e inventar registro.
+    if (!resolvido && !futuro) {
+      const b = el('button', 'mini', passado ? 'Fiz' : 'Feito');
+      b.onclick = () => marcar(o, 'feito', passado);
       item.appendChild(b);
     }
     caixa.appendChild(item);
   });
 }
 
-async function marcar(o, status) {
+async function marcar(o, status, retroativo = false) {
+  // Marcando um dia passado, o feito e a dose ficam com o horario previsto, e nao com o de
+  // agora. Uma dose de anteontem gravada como de hoje bagunca o historico e o grafico de
+  // consumo, que e justamente onde se olha para entender um parametro que mexeu.
+  const quando = retroativo ? new Date(o.due).toISOString() : new Date().toISOString();
   ocupado(true);
   try {
     await inserir('routine_logs', {
       routine_id: o.rotina.id,
       previsto_para: new Date(o.due).toISOString(),
       status,
-      feito_em: new Date().toISOString(),
+      feito_em: quando,
     });
     // dosagem marcada como feita tambem lanca a dose, como no tablet
     const prod = dados.produtos.find((p) => p.id === o.rotina.product_id);
@@ -414,7 +505,7 @@ async function marcar(o, status) {
       const q = doseDe(prod, volume());
       if (q != null) {
         await inserir('dosings', {
-          dosado_em: new Date().toISOString(),
+          dosado_em: quando,
           product_id: prod.id,
           quantidade: q,
           unidade: prod.dose_unidade || '',
@@ -658,7 +749,15 @@ async function iniciar() {
   }
 }
 
+function ligarDias() {
+  const mudar = (n) => { deslocDia = Math.max(-DIAS_ATRAS, Math.min(DIAS_FRENTE, n)); desenharHoje(); };
+  $('#dia-ant').onclick = () => mudar(deslocDia - 1);
+  $('#dia-prox').onclick = () => mudar(deslocDia + 1);
+  $('#dia-rotulo').onclick = () => mudar(0);
+}
+
 function ligar() {
+  ligarDias();
   $('#login-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     $('#login-erro').textContent = '';
