@@ -222,7 +222,7 @@ fun shortDate(d: java.time.LocalDate): String {
  * Agora e uma cor so, um desenho de texto por grupo de digitos e nenhuma animacao.
  */
 @Composable
-fun GlassClock(time: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f) {
+fun GlassClock(time: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f, alinhamento: Alignment = Alignment.Center) {
     val medidor = androidx.compose.ui.text.rememberTextMeasurer()
     val densidade = androidx.compose.ui.platform.LocalDensity.current
     fun estiloEm(tamanho: Float, cor: Color) = androidx.compose.ui.text.TextStyle(
@@ -240,7 +240,7 @@ fun GlassClock(time: String, modifier: Modifier = Modifier, maxFont: Float = 240
     }
     // Centralizado na caixa: com a folga de 4% o relogio sobra um pouco, e alinhado a esquerda
     // ele ficava torto em relacao a data, que vem centralizada embaixo.
-    androidx.compose.foundation.layout.BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier, contentAlignment = alinhamento) {
         // em unidades de "fs": digitos (medidos) + dois pontos (0,225) - dois vaos negativos (0,07)
         val porFs = digitosA100 / 100f + 0.225f - 0.07f
         val fs = minOf(maxFont, maxWidth.value / porFs * 0.96f)

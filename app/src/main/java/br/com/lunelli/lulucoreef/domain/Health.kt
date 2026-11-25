@@ -79,3 +79,34 @@ fun healthScore(
     val score = (100 + rounded.sumOf { it.points }).roundToInt().coerceIn(0, 100)
     return HealthScore(score, rounded, missing, critico)
 }
+
+/**
+ * A nota como ela estaria num momento passado, para mostrar quanto subiu ou desceu.
+ *
+ * Recorta tudo que ainda nao existia naquele momento: medicao, TPA e registro de rotina
+ * posteriores somem, e caso de saude fechado depois volta a contar como aberto. Assim a
+ * comparacao e com a nota que a tela teria mostrado de fato, e nao com uma conta nova sobre
+ * dados velhos.
+ */
+fun healthScoreAt(
+    at: Long, allTests: List<WaterTest>, ranges: Map<String, ParamRange>, changes: List<WaterChange>,
+    routines: List<Routine>, logs: List<RoutineLog>, cases: List<HealthCase>, zone: ZoneId,
+): HealthScore = healthScore(
+    allTests.filter { it.medidoEm <= at },
+    ranges,
+    changes.filter { it.feitaEm <= at },
+    routines.filter { it.createdAt <= at },
+    logs.filter { (it.feitoEm ?: it.createdAt) <= at },
+    cases.filter { it.abertoEm <= at }.map { if ((it.fechadoEm ?: Long.MAX_VALUE) > at) it.copy(fechadoEm = null) else it },
+    at, zone,
+)
+
+/** Quantos pontos a nota andou em `dias` dias. Nulo quando uma das duas pontas nao tem nota. */
+fun healthDelta(
+    now: Long, dias: Int, allTests: List<WaterTest>, ranges: Map<String, ParamRange>, changes: List<WaterChange>,
+    routines: List<Routine>, logs: List<RoutineLog>, cases: List<HealthCase>, zone: ZoneId,
+): Int? {
+    val hoje = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone).score ?: return null
+    val antes = healthScoreAt(now - dias * DAY_MS, allTests, ranges, changes, routines, logs, cases, zone).score ?: return null
+    return hoje - antes
+}

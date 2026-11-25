@@ -36,6 +36,7 @@ import br.com.lunelli.lulucoreef.domain.allAlerts
 import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.formatDose
 import br.com.lunelli.lulucoreef.domain.healthScore
+import br.com.lunelli.lulucoreef.domain.healthDelta
 import br.com.lunelli.lulucoreef.domain.latestOf
 import br.com.lunelli.lulucoreef.domain.occurrencesOn
 import br.com.lunelli.lulucoreef.domain.statusOf
@@ -89,6 +90,10 @@ fun VitrineScreen(vm: MainViewModel) {
     val alertas = allAlerts(allTests, ranges, changes, today, cases, entries, now).take(4)
     val saude = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone)
     val score = saude.score
+    // Recalculada uma vez por hora: e a nota de sete dias atras, nao muda de minuto em minuto.
+    val variacao = remember(allTests, ranges, changes, routines, logs, cases, now / 3_600_000) {
+        healthDelta(now, 7, allTests, ranges, changes, routines, logs, cases, zone)
+    }
     val foto = tank?.fotoVitrinePath
 
     val shown = Params.ALL.filter { it in settings.shownParams }
@@ -111,14 +116,16 @@ fun VitrineScreen(vm: MainViewModel) {
             Row(Modifier.weight(1f)) {
                 // esquerda: hora, data e, no espaco que antes ficava vazio, os ultimos testes em destaque
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.62f), maxFont = 112f)
+                    // Encostado a esquerda, alinhado com a data e os parametros embaixo. Centrado
+                    // numa caixa de 62% da coluna ele flutuava no meio, sem ancora nenhuma.
+                    GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.7f), maxFont = 124f, alinhamento = Alignment.CenterStart)
                     Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                     Spacer(Modifier.height(12.dp))
                     // Os quatro parametros mais relogio mais avisos nao cabiam em 500 px de
                     // altura: a segunda linha de numeros saia cortada ao meio. Alem de encolher
                     // o conteudo, o bloco agora recorta no proprio limite, para um dado a mais
                     // nunca voltar a invadir o bloco de baixo sem ninguem perceber.
-                    if (shown.isNotEmpty()) Column(Modifier.weight(1f).clipToBounds(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (shown.isNotEmpty()) Column(Modifier.weight(1f).clipToBounds(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         shown.chunked(2).forEach { linha ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                                 linha.forEach { p ->
@@ -151,7 +158,10 @@ fun VitrineScreen(vm: MainViewModel) {
                     }
                 }
                 // direita: hoje e proximos, em lista com linhas finas
-                Column(Modifier.width(300.dp).fillMaxHeight().padding(start = 24.dp), verticalArrangement = Arrangement.Center) {
+                Column(Modifier.width(300.dp).fillMaxHeight().padding(start = 24.dp)) {
+                  // A lista ocupa o que sobra e recorta no limite: num dia com dez rotinas ela nao
+                  // pode empurrar a saude e a TPA para fora da tela.
+                  Column(Modifier.weight(1f).clipToBounds()) {
                     Eyebrow(if (today.isEmpty()) "Hoje" else "Hoje  ·  $doneToday/${today.size}")
                     Spacer(Modifier.height(8.dp))
                     if (today.isEmpty()) Text("Nada para hoje.", fontSize = 15.sp, color = Luluco.TextSoft)
@@ -177,13 +187,25 @@ fun VitrineScreen(vm: MainViewModel) {
                             VRow(whenText(item.dueAt, now, zone), item.routine.titulo, null, done = false, late = item.late, wide = true)
                         }
                     }
+                    // Saude e ultima TPA desceram para baixo da lista. No rodape da tela inteira
+                    // elas roubavam uma faixa de altura da coluna dos parametros, que era a parte
+                    // apertada; aqui embaixo da lista sobra espaco.
+                  }
+                    HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        Column {
+                            VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score, saude.critico))
+                            if (variacao != null) Box(Modifier.padding(top = 4.dp)) {
+                                // Na saude a cor tem sinal: subir e bom e descer e ruim, ao contrario
+                                // dos parametros de agua, onde subir pode ser piorar.
+                                DeltaBadge("${kotlin.math.abs(variacao)} em 7 dias", variacao.coerceIn(-1, 1), comSinal = true)
+                            }
+                        }
+                        VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
+                            if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.ZoneWarn else null)
+                    }
                 }
-            }
-            // rodape enxuto: o que nao e parametro
-            Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(44.dp)) {
-                VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score, saude.critico))
-                VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
-                    if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.CoralText else null)
             }
         }
     }
@@ -211,13 +233,13 @@ private fun VParam(modifier: Modifier, param: String, valor: Double?, medidoEm: 
         Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(valor?.let { Params.format(param, it) } ?: "-", fontFamily = Display, fontWeight = FontWeight.SemiBold,
-                fontSize = 38.sp, letterSpacing = (-1.2).sp, color = Luluco.Cream, maxLines = 1)
+                fontSize = 34.sp, letterSpacing = (-1.1).sp, color = Luluco.Cream, maxLines = 1)
             Params.unit(param)?.let { Text(" $it", fontSize = 15.sp, color = Luluco.TextSoft, modifier = Modifier.padding(bottom = 8.dp)) }
             Spacer(Modifier.weight(1f))
             if (delta != null) Box(Modifier.padding(bottom = 6.dp)) { DeltaBadge(Params.format(param, kotlin.math.abs(delta)), if (delta > 0) 1 else if (delta < 0) -1 else 0) }
         }
         if (serie.size >= 2) Sparkline(serie, serie.first().first, serie.last().first, Luluco.TextSoft,
-            Modifier.fillMaxWidth().height(24.dp), band = range?.let { it.idealMin to it.idealMax },
+            Modifier.fillMaxWidth().height(20.dp), band = range?.let { it.idealMin to it.idealMax },
             colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
         if (range != null) RangeBar(valor, range, statusColor(st))
     }

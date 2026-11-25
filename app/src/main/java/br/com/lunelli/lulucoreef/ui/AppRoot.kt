@@ -118,7 +118,16 @@ sealed interface Screen {
 }
 
 /** O que a tela esta mostrando: o app, o descanso ou o modo noite. */
-private enum class Modo { APP, DESCANSO, NOITE }
+enum class Modo { APP, DESCANSO, NOITE }
+
+/**
+ * Previa do descanso ou do modo noite, aberta pelos botoes de Ajustes. Mostra a tela na hora,
+ * sem esperar os minutos sem toque nem mexer no horario do modo noite, e o primeiro toque fecha
+ * e volta para Ajustes.
+ */
+object Previa {
+    var modo by mutableStateOf<Modo?>(null)
+}
 
 class Nav {
     val stack = mutableStateListOf<Screen>(Screen.Painel)
@@ -219,8 +228,11 @@ private fun LoggedIn(vm: MainViewModel) {
     val baixando by Atualizacao.estado.collectAsStateWithLifecycle()
     val vitrine = topLevel && !night && settings.vitrineMinutes > 0 && idle > settings.vitrineMinutes * 60_000L &&
         baixando !is Atualizacao.Estado.Baixando
+    val previa = Previa.modo
     val overlay by rememberUpdatedState(night || vitrine)
     fun wake() {
+        // fechando a previa, fica onde estava (em Ajustes), sem pular para o Painel
+        if (Previa.modo != null) { Previa.modo = null; lastTouch = System.currentTimeMillis(); tick = lastTouch; return }
         if (overlay) nav.top(Screen.Painel)
         lastTouch = System.currentTimeMillis()
         tick = lastTouch
@@ -229,11 +241,11 @@ private fun LoggedIn(vm: MainViewModel) {
     // Brilho num unico lugar: o Fire no automatico deixa a tela apagada e o tema e grafite, entao o
     // painel ao lado do aquario parecia escuro. O modo noite continua baixando para quase nada.
     val activity = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
-    DisposableEffect(activity, settings.brilho, night) {
+    DisposableEffect(activity, settings.brilho, night, previa) {
         setBrightness(
             activity,
             when {
-                night -> 0.12f
+                night || previa == Modo.NOITE -> 0.12f
                 settings.brilho <= 0 -> android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
                 else -> (settings.brilho / 100f).coerceIn(0.05f, 1f)
             },
@@ -256,6 +268,7 @@ private fun LoggedIn(vm: MainViewModel) {
         // a cada tantos minutos, e sem ela o tablet ao lado do aquario pisca de uma tela para a outra.
         Crossfade(
             targetState = when {
+                previa != null -> previa
                 night -> Modo.NOITE
                 vitrine -> Modo.DESCANSO
                 else -> Modo.APP
@@ -276,7 +289,7 @@ private fun LoggedIn(vm: MainViewModel) {
             }
         }
         // na vitrine e no modo noite, o botao voltar so acorda o Painel
-        BackHandler(enabled = night || vitrine) { wake() }
+        BackHandler(enabled = night || vitrine || previa != null) { wake() }
     }
 }
 

@@ -54,6 +54,7 @@ import br.com.lunelli.lulucoreef.domain.compliance
 import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.formatDose
 import br.com.lunelli.lulucoreef.domain.healthScore
+import br.com.lunelli.lulucoreef.domain.healthDelta
 import br.com.lunelli.lulucoreef.domain.intervalDays
 import br.com.lunelli.lulucoreef.domain.isInterval
 import br.com.lunelli.lulucoreef.domain.lateRoutineAlerts
@@ -100,6 +101,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     val entries by vm.entries.collectAsStateWithLifecycle()
     val alerts = remember(tests, ranges, changes, today, cases, entries, now) { allAlerts(tests, ranges, changes, today, cases, entries, now) }
     val health = remember(tests, ranges, changes, routines, logs, cases, now) { healthScore(tests, ranges, changes, routines, logs, cases, now, zone) }
+    val healthVar = remember(tests, ranges, changes, routines, logs, cases, now / 3_600_000) { healthDelta(now, 7, tests, ranges, changes, routines, logs, cases, zone) }
     var showScore by remember { mutableStateOf(false) }
     val needAnchor = routines.filter { it.ativa && it.isInterval() && it.proximaEm == null }
     val toReview = livestock.count { it.revisar && it.status == "ativo" }
@@ -108,7 +110,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth > 640.dp
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Header(Modifier.cascade(0), tank?.nome ?: "Luluco Reef", tank?.fotoVitrinePath, now, health, volume, livestock.filter { it.status == "ativo" }.sumOf { it.quantidade }) { showScore = true }
+            Header(Modifier.cascade(0), tank?.nome ?: "Luluco Reef", tank?.fotoVitrinePath, now, health, healthVar, volume, livestock.filter { it.status == "ativo" }.sumOf { it.quantidade }) { showScore = true }
 
             AvisoDeAtualizacao()
 
@@ -223,7 +225,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
 
 /** Topo do Painel: saudacao pelo horario e a nota de saude em anel, com ondas na base. */
 @Composable
-private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, health: HealthScore, volume: Double, count: Int, onScore: () -> Unit) {
+private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, health: HealthScore, variacao: Int?, volume: Double, count: Int, onScore: () -> Unit) {
     val zdt = Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault())
     val greeting = when (zdt.hour) { in 5..11 -> "Bom dia"; in 12..17 -> "Boa tarde"; else -> "Boa noite" }
     val date = zdt.format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", PtBr)).replaceFirstChar { it.uppercase() }
@@ -244,8 +246,12 @@ private fun Header(modifier: Modifier, nome: String, foto: String?, now: Long, h
                 Text("$greeting, Lucas", fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, letterSpacing = (-0.6).sp, color = Luluco.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("$nome  ·  ${numShort(volume)} L  ·  $count habitantes", color = Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
             }
-            Box(Modifier.clip(CircleShape).clickable(onClick = onScore).padding(4.dp)) {
-                HealthRing(health.score, 104.dp, stroke = 5.dp, critico = health.critico)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.clip(CircleShape).clickable(onClick = onScore).padding(4.dp)) {
+                    HealthRing(health.score, if (variacao != null) 84.dp else 104.dp, stroke = 5.dp, critico = health.critico)
+                }
+                // Quanto a nota andou na semana. Aqui a cor tem sinal: na saude subir e bom.
+                if (variacao != null) DeltaBadge("${kotlin.math.abs(variacao)} em 7 dias", variacao.coerceIn(-1, 1), comSinal = true)
             }
         }
     }

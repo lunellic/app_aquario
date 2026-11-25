@@ -107,6 +107,14 @@ fun ConfigScreen(vm: MainViewModel) {
             Stepper("Modo noite começa às (h)", settings.nightStartHour, 0, 23) { v -> vm.updateSettings { it.copy(nightStartHour = v) }; vm.save(t.copy(noiteInicio = v)) }
             Stepper("Modo noite termina às (h)", settings.nightEndHour, 0, 23) { v -> vm.updateSettings { it.copy(nightEndHour = v) }; vm.save(t.copy(noiteFim = v)) }
             Muted("No modo noite a tela fica quase preta, com brilho baixo, e os lembretes não tocam. Início igual ao fim desliga.")
+            Spacer(Modifier.height(8.dp))
+            // Para conferir as duas telas sem esperar os minutos sem toque nem trocar o horario
+            // do modo noite. Um toque em qualquer lugar fecha e volta para ca.
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { Previa.modo = Modo.DESCANSO }) { Text("Ver o standby") }
+                OutlinedButton(onClick = { Previa.modo = Modo.NOITE }) { Text("Ver o modo noite") }
+            }
+            Muted("Mostra a tela na hora. Toque em qualquer lugar para voltar.")
         }
 
         SectionTitle("Visual e modo quiosque")

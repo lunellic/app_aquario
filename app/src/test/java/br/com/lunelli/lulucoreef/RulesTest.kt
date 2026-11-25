@@ -491,3 +491,48 @@ class AlarmTest {
         assertNull(br.com.lunelli.lulucoreef.domain.nextRing(a.copy(ativo = false), ms("2026-11-20", "10:00"), zone))
     }
 }
+
+class VariacaoDaSaudeTest {
+    private val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    private fun ms(date: String) = java.time.LocalDate.parse(date).atTime(19, 0).atZone(zone).toInstant().toEpochMilli()
+    private fun faixa(p: String, a: Double, b: Double, c: Double, d: Double) =
+        br.com.lunelli.lulucoreef.data.ParamRange(parametro = p, idealMin = b, idealMax = c, alertaMin = a, alertaMax = d, unidade = "")
+    private val ranges = mapOf(
+        "kh" to faixa("kh", 6.5, 7.5, 9.0, 10.0),
+        "ca" to faixa("ca", 380.0, 400.0, 450.0, 480.0),
+        "mg" to faixa("mg", 1200.0, 1250.0, 1400.0, 1450.0),
+        "salinidade" to faixa("salinidade", 1.022, 1.024, 1.026, 1.028),
+    )
+    private fun t(dia: String, p: String, v: Double) =
+        br.com.lunelli.lulucoreef.data.WaterTest(medidoEm = ms(dia), parametro = p, valor = v, unidade = "")
+    private val tpa = listOf(br.com.lunelli.lulucoreef.data.WaterChange(feitaEm = ms("2026-11-20"), litros = 10.0))
+
+    @org.junit.Test fun calcioQueSaiuDaFaixaDerrubaANota() {
+        // ha sete dias tudo na faixa; hoje o calcio passou para atencao
+        val base = listOf(t("2026-11-16", "kh", 8.0), t("2026-11-16", "mg", 1300.0), t("2026-11-16", "salinidade", 1.025))
+        val testes = base + t("2026-11-16", "ca", 420.0) + t("2026-11-25", "ca", 470.0) +
+            listOf(t("2026-11-25", "kh", 8.0), t("2026-11-25", "mg", 1300.0), t("2026-11-25", "salinidade", 1.025))
+        val d = br.com.lunelli.lulucoreef.domain.healthDelta(ms("2026-11-25"), 7, testes, ranges,
+            tpa + br.com.lunelli.lulucoreef.data.WaterChange(feitaEm = ms("2026-11-14"), litros = 10.0),
+            emptyList(), emptyList(), emptyList(), zone)
+        assertEquals(-8, d)
+    }
+
+    @org.junit.Test fun medicaoPosteriorNaoEntraNaNotaAntiga() {
+        // a nota de 7 dias atras nao pode enxergar a medicao de hoje
+        val testes = listOf("kh" to 8.0, "ca" to 420.0, "mg" to 1300.0, "salinidade" to 1.025)
+            .flatMap { (p, v) -> listOf(t("2026-11-17", p, v), t("2026-11-25", p, v)) } + t("2026-11-25", "ca", 500.0)
+        val antes = br.com.lunelli.lulucoreef.domain.healthScoreAt(ms("2026-11-18"), testes, ranges,
+            listOf(br.com.lunelli.lulucoreef.data.WaterChange(feitaEm = ms("2026-11-15"), litros = 10.0)),
+            emptyList(), emptyList(), emptyList(), zone)
+        assertEquals(100, antes.score)
+    }
+
+    @org.junit.Test fun semNotaNumaDasPontasNaoTemVariacao() {
+        // sete dias atras ainda nao havia TPA registrada: sem nota, sem seta
+        val testes = listOf("kh" to 8.0, "ca" to 420.0, "mg" to 1300.0, "salinidade" to 1.025).map { (p, v) -> t("2026-11-17", p, v) }
+        val d = br.com.lunelli.lulucoreef.domain.healthDelta(ms("2026-11-25"), 7, testes, ranges, tpa,
+            emptyList(), emptyList(), emptyList(), zone)
+        assertEquals(null, d)
+    }
+}
