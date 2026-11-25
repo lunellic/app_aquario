@@ -20,6 +20,7 @@ anterior não precisa ser copiada de novo.
 | `build-075` | 19/11/2026 | Visual v0.3, entre os dois posts |
 | `build-094` | 23/11/2026 | Base do segundo post |
 | `build-100` | 23/11/2026 | Identidade v0.5: acento actínico |
+| `build-109` | 25/11/2026 | Standby rearrumado, variação da saúde, histórico no teste de água |
 
 Toda vez que o Lucas pedir o prompt de levantamento para o post, o estado atual do app
 vira um checkpoint aqui antes de qualquer outra mudança.
