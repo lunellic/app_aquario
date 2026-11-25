@@ -126,6 +126,7 @@ class SmokeTest {
             compose.onNodeWithTag("roleta_kh").performTouchInput { swipeUp(startY = centerY + 40f, endY = centerY - 40f) }
             compose.waitForIdle()
             Thread.sleep(800)
+            shot("teste_agua")
             compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
             compose.waitUntil(10_000) { runBlocking { app.graph.db.waterTests().all().first().size == 1 } }
             val kh = runBlocking { app.graph.db.waterTests().all().first().first() }

@@ -42,17 +42,36 @@ fun wheelValues(p: String): List<Double> {
 @Composable
 fun WheelPicker(items: List<String>, index: Int, onIndex: (Int) -> Unit, modifier: Modifier = Modifier, active: Boolean = true, onTouch: () -> Unit = {}) {
     val itemH = 40.dp
+    val itemHpx = with(androidx.compose.ui.platform.LocalDensity.current) { itemH.toPx() }
     val state = rememberLazyListState(initialFirstVisibleItemIndex = index.coerceIn(0, items.lastIndex))
     val fling = rememberSnapFlingBehavior(lazyListState = state)
     val touch by rememberUpdatedState(onTouch)
     val pick by rememberUpdatedState(onIndex)
+
+    // O valor escolhido e o que esta NA FAIXA DO MEIO, contando o quanto a lista andou dentro do
+    // item. Antes era so firstVisibleItemIndex: soltando o dedo devagar (sem arremesso, entao sem
+    // o encaixe automatico) a lista parava, por exemplo, 30 dos 40 px adiante, a faixa mostrava
+    // 480 e o app gravava 475, o de cima. Agora passou da metade do item, conta o de baixo.
+    val centro by remember {
+        derivedStateOf {
+            val i = state.firstVisibleItemIndex + if (state.firstVisibleItemScrollOffset > itemHpx / 2) 1 else 0
+            i.coerceIn(0, items.lastIndex)
+        }
+    }
     LaunchedEffect(state) {
         snapshotFlow { state.isScrollInProgress }.collect { moving -> if (moving) touch() }
     }
     LaunchedEffect(state) {
-        snapshotFlow { state.firstVisibleItemIndex to state.isScrollInProgress }.collect { (i, moving) -> if (!moving) pick(i.coerceIn(0, items.lastIndex)) }
+        snapshotFlow { state.isScrollInProgress }.collect { moving ->
+            if (moving) return@collect
+            val alvo = centro
+            // Encaixa de verdade no item, para o numero ficar centrado na faixa e nao a meio
+            // caminho: o que se ve e o que se grava.
+            if (state.firstVisibleItemIndex != alvo || state.firstVisibleItemScrollOffset != 0) state.animateScrollToItem(alvo)
+            pick(alvo)
+        }
     }
-    LaunchedEffect(index) { if (!state.isScrollInProgress && state.firstVisibleItemIndex != index) state.scrollToItem(index.coerceIn(0, items.lastIndex)) }
+    LaunchedEffect(index) { if (!state.isScrollInProgress && centro != index) state.scrollToItem(index.coerceIn(0, items.lastIndex)) }
     val shape = RoundedCornerShape(12.dp)
     Box(modifier.height(itemH * 3).clip(shape).background(Luluco.Solid)) {
         // faixa do meio
@@ -61,8 +80,7 @@ fun WheelPicker(items: List<String>, index: Int, onIndex: (Int) -> Unit, modifie
             // um item vazio em cima e outro embaixo para o primeiro e o ultimo valor poderem ficar no meio
             item { Spacer(Modifier.height(itemH)) }
             items(items.size) { i ->
-                val center = state.firstVisibleItemIndex
-                val dist = abs(i - center)
+                val dist = abs(i - centro)
                 Box(Modifier.height(itemH).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text(items[i], fontSize = if (dist == 0) 22.sp else 16.sp, fontWeight = if (dist == 0) FontWeight.SemiBold else FontWeight.Normal,
                         color = when { dist == 0 && active -> Luluco.Cream; dist == 0 -> Luluco.TextSoft; else -> Luluco.TextFaint })

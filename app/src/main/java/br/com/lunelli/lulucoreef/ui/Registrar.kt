@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.lunelli.lulucoreef.data.Dosing
 import br.com.lunelli.lulucoreef.data.Event
+import br.com.lunelli.lulucoreef.data.ParamRange
 import br.com.lunelli.lulucoreef.data.WaterChange
 import br.com.lunelli.lulucoreef.data.WaterTest
 import br.com.lunelli.lulucoreef.domain.Occurrence
@@ -27,6 +28,7 @@ import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.numShort
 import br.com.lunelli.lulucoreef.domain.parseNum
 import br.com.lunelli.lulucoreef.domain.parseParam
+import br.com.lunelli.lulucoreef.domain.statusOf
 
 @Composable
 fun RegistrarScreen(vm: MainViewModel, nav: Nav) {
@@ -108,18 +110,38 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?, only: String? = null
         nav.back()
     }
 
+    val ranges by vm.ranges.collectAsStateWithLifecycle()
+    // Parametro cujo historico aparece ao lado: o ultimo que foi girado. Comeca no primeiro.
+    var foco by remember { mutableStateOf(params.first()) }
+
     FormColumn {
         ScreenHeader(if (edit != null) "Editar ${Params.label(edit.parametro)}" else "Teste de água", onBack = { nav.back() })
         val visible = if (edit != null || only != null) params else Params.MAIN + (if (more) Params.OPTIONAL else emptyList())
-        // roletas lado a lado (sem teclado); cada uma comeca no ultimo valor medido
-        visible.chunked(4).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { p ->
-                    val lastV = remember(tests, p) { tests.filter { it.parametro == p }.maxByOrNull { it.medidoEm }?.valor }
-                    ParamWheel(p, values[p], edit?.takeIf { it.parametro == p }?.valor ?: lastV, { v -> if (v == null) values.remove(p) else values[p] = v }, Modifier.weight(1f))
-                }
-                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+        @Composable
+        fun Roleta(p: String, modifier: Modifier) {
+            val lastV = remember(tests, p) { tests.filter { it.parametro == p }.maxByOrNull { it.medidoEm }?.valor }
+            ParamWheel(p, values[p], edit?.takeIf { it.parametro == p }?.valor ?: lastV,
+                { v -> foco = p; if (v == null) values.remove(p) else values[p] = v }, modifier)
+        }
+        if (visible.size == 1) {
+            // Um parametro so: roleta a esquerda e o historico dele a direita, que e o espaco que
+            // ficava vazio. Escolher o numero olhando as ultimas medicoes evita o erro classico de
+            // girar ate um valor que nao faz sentido perto do que vinha sendo medido.
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Roleta(visible.first(), Modifier.weight(0.42f))
+                HistoricoDoParametro(visible.first(), tests, ranges[visible.first()], Modifier.weight(0.58f))
             }
+        } else {
+            // roletas lado a lado (sem teclado); cada uma comeca no ultimo valor medido
+            visible.chunked(4).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    row.forEach { p -> Roleta(p, Modifier.weight(1f)) }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+            // Com quatro roletas nao sobra lado: o historico vem embaixo e acompanha a ultima
+            // roleta tocada.
+            HistoricoDoParametro(foco, tests, ranges[foco], Modifier.fillMaxWidth())
         }
         if (edit == null && only == null && !more) TextButton(onClick = { more = true }) { Text("Mais parâmetros (NO3, PO4)") }
         DateTimeField("Medido em", at) { at = it }
@@ -238,6 +260,61 @@ fun EventForm(vm: MainViewModel, nav: Nav, edit: Event?) {
             val base = edit ?: Event(ocorridoEm = at, texto = texto.trim())
             vm.save(base.copy(ocorridoEm = at, tipo = tipo, texto = texto.trim()))
             nav.back()
+        }
+    }
+}
+
+/**
+ * Historico curto de um parametro, ao lado da roleta: minigrafico dos ultimos 30 dias com a faixa
+ * ideal, e as ultimas medicoes em lista, com valor, zona e quanto mudou da anterior.
+ */
+@Composable
+private fun HistoricoDoParametro(p: String, tests: List<WaterTest>, range: ParamRange?, modifier: Modifier = Modifier) {
+    val agora = System.currentTimeMillis()
+    val desde = agora - 30L * 24 * 3600 * 1000
+    val todos = remember(tests, p) { tests.filter { it.parametro == p }.sortedByDescending { it.medidoEm } }
+    val confiaveis = todos.filter { !it.baixaConfianca }
+    val noMes = confiaveis.filter { it.medidoEm >= desde }.sortedBy { it.medidoEm }
+
+    Panel(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Eyebrow("${Params.label(p)} · últimas medições", Modifier.weight(1f))
+            if (range != null) Muted("faixa ${Params.format(p, range.idealMin)} a ${Params.format(p, range.idealMax)}")
+        }
+        if (todos.isEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Muted("Nenhuma medição ainda. Esta vai ser a primeira.")
+            return@Panel
+        }
+        Spacer(Modifier.height(8.dp))
+        if (noMes.size >= 2) {
+            Sparkline(noMes.map { it.medidoEm to it.valor }, desde, agora, Luluco.Pool,
+                Modifier.fillMaxWidth().height(56.dp),
+                band = range?.let { it.idealMin to it.idealMax },
+                colorOf = range?.let { r -> { v: Double -> zoneColor(v, r) } })
+            Row(Modifier.fillMaxWidth()) {
+                Muted(fmtDayShort(desde), Modifier.weight(1f))
+                Muted("hoje")
+            }
+            Spacer(Modifier.height(6.dp))
+        }
+        todos.take(6).forEachIndexed { i, t ->
+            val anterior = todos.drop(i + 1).firstOrNull { !it.baixaConfianca }
+            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(fmtDayShort(t.medidoEm), fontSize = 13.sp, color = Luluco.TextSoft, modifier = Modifier.width(56.dp))
+                Text(Params.format(p, t.valor), fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+                    color = if (t.baixaConfianca) Luluco.TextFaint else Luluco.Cream, modifier = Modifier.width(72.dp))
+                if (t.baixaConfianca) Muted("duvidosa", Modifier.weight(1f))
+                else {
+                    Box(Modifier.weight(1f)) {
+                        if (range != null) Badge(statusLabel(statusOf(t.valor, range)), statusColor(statusOf(t.valor, range)))
+                    }
+                    if (anterior != null) {
+                        val d = t.valor - anterior.valor
+                        DeltaBadge(Params.format(p, kotlin.math.abs(d)), if (d > 0) 1 else if (d < 0) -1 else 0)
+                    }
+                }
+            }
         }
     }
 }
