@@ -223,15 +223,27 @@ fun shortDate(d: java.time.LocalDate): String {
  */
 @Composable
 fun GlassClock(time: String, modifier: Modifier = Modifier, maxFont: Float = 240f, dim: Float = 1f) {
+    val medidor = androidx.compose.ui.text.rememberTextMeasurer()
+    val densidade = androidx.compose.ui.platform.LocalDensity.current
+    fun estiloEm(tamanho: Float, cor: Color) = androidx.compose.ui.text.TextStyle(
+        fontFamily = Barlow, fontWeight = FontWeight.SemiBold, fontSize = tamanho.sp, lineHeight = (tamanho * 0.98f).sp, color = cor,
+        platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+        lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
+    )
+    // Largura de quatro digitos MEDIDA na fonte de verdade, a 100sp, em dp. Antes era um chute
+    // ("4 digitos + dois pontos ~ 1,3 em") que estava errado pela metade: a 300sp do modo noite o
+    // relogio pedia uns 690 dp numa caixa de 520, a Row espremia o ultimo bloco e os minutos
+    // quebravam em duas linhas, "0" em cima e "1" embaixo. Medir tambem respeita a escala de
+    // fonte do sistema, que o chute ignorava.
+    val digitosA100 = remember(densidade) {
+        with(densidade) { medidor.measure("0000", estiloEm(100f, Color.White), softWrap = false, maxLines = 1).size.width.toDp().value }
+    }
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
-        // 4 digitos + dois pontos ocupam ~1,3 em na Barlow Condensed
-        val fs = minOf(maxFont, maxWidth.value / 1.32f)
+        // em unidades de "fs": digitos (medidos) + dois pontos (0,225) - dois vaos negativos (0,07)
+        val porFs = digitosA100 / 100f + 0.225f - 0.07f
+        val fs = minOf(maxFont, maxWidth.value / porFs * 0.96f)
         val cor = Luluco.Cream.copy(alpha = 0.93f * dim)
-        val estilo = androidx.compose.ui.text.TextStyle(
-            fontFamily = Barlow, fontWeight = FontWeight.SemiBold, fontSize = fs.sp, lineHeight = (fs * 0.98f).sp, color = cor,
-            platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
-            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center, androidx.compose.ui.text.style.LineHeightStyle.Trim.Both),
-        )
+        val estilo = estiloEm(fs, cor)
         val partes = time.split(":")
         androidx.compose.foundation.layout.Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -250,7 +262,9 @@ fun GlassClock(time: String, modifier: Modifier = Modifier, maxFont: Float = 240
 @Composable
 private fun FlatDigits(texto: String, estilo: androidx.compose.ui.text.TextStyle, fs: Float) {
     Box(Modifier.height((fs * 0.92f).dp).wrapContentHeight(unbounded = true), contentAlignment = Alignment.Center) {
-        Text(texto, style = estilo)
+        // Uma linha, sempre. Se um dia nao couber, corta na borda; quebrar o horario ao meio
+        // e pior do que perder um pedaco de digito.
+        Text(texto, style = estilo, maxLines = 1, softWrap = false)
     }
 }
 
