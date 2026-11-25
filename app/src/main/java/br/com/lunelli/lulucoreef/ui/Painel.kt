@@ -531,7 +531,9 @@ private fun AvisoDeAtualizacao() {
                     is Atualizacao.Estado.Baixando ->
                         (if (e.tentativa > 1) "Baixando… ${e.pct}% (tentativa ${e.tentativa})" else "Baixando… ${e.pct}%") to Luluco.TextSoft
                     is Atualizacao.Estado.Falhou -> e.motivo to Luluco.ZoneWarn
-                    Atualizacao.Estado.Pronto -> "Baixado. Confirme a instalação na tela do sistema." to Luluco.TextSoft
+                    // Na atualizacao o Android fecha o app que esta rodando para trocar os
+                    // arquivos: isso e normal e nao da para evitar sem permissao de sistema.
+                    Atualizacao.Estado.Pronto -> "Conferido. Toque em Instalar na tela do sistema; o app vai fechar sozinho, é só abrir de novo." to Luluco.TextSoft
                     Atualizacao.Estado.Parado -> (v.notas.ifBlank { "Você está na ${BuildConfig.VERSION_NAME}." }) to Luluco.TextSoft
                 }
                 Text(detalhe, fontSize = 13.sp, color = cor, maxLines = 3)

@@ -27,7 +27,10 @@ import java.io.File
  * Pelo mesmo motivo nao usamos o DownloadManager do sistema: ele baixa com as raizes do Android,
  * que sao justamente as que estao velhas aqui.
  */
-data class VersaoRemota(val build: Int, val versao: String, val notas: String, val quando: String) {
+data class VersaoRemota(
+    val build: Int, val versao: String, val notas: String, val quando: String,
+    val apk: String? = null, val tamanho: Long? = null, val sha256: String? = null,
+) {
     val nova: Boolean get() = build > BuildConfig.VERSION_CODE
 }
 
@@ -51,6 +54,9 @@ object Atualizacao {
                     versao = j.optString("versao", ""),
                     notas = j.optString("notas", ""),
                     quando = j.optString("quando", ""),
+                    apk = j.optString("apk", "").ifBlank { null },
+                    tamanho = j.optLong("tamanho", 0L).takeIf { it > 0 },
+                    sha256 = j.optString("sha256", "").ifBlank { null },
                 )
             }
         } catch (_: Exception) {
@@ -89,7 +95,8 @@ object Atualizacao {
             var ultimoErro = ""
             for (tentativa in 1..TENTATIVAS) {
                 try {
-                    val apk = baixar(app, tentativa, v.build)
+                    val apk = baixar(app, tentativa, v)
+                    conferir(app, apk, v)
                     _estado.value = Estado.Pronto
                     kotlinx.coroutines.withContext(Dispatchers.Main) { instalar(app, apk) }
                     return@launch
@@ -117,7 +124,8 @@ object Atualizacao {
      * Vai para a pasta externa do proprio app porque, no Android 5.1, o instalador e outro processo
      * e nao consegue ler nada que esteja na area interna do app.
      */
-    private fun baixar(ctx: Context, tentativa: Int, build: Int): File {
+    private fun baixar(ctx: Context, tentativa: Int, v: VersaoRemota): File {
+        val build = v.build
         val pasta = ctx.getExternalFilesDir(null) ?: ctx.cacheDir
         val destino = File(pasta, "luluco-reef.apk")
         // O pedaco leva o numero do build no nome. Se saiu versao nova no meio de um download
@@ -126,12 +134,23 @@ object Atualizacao {
         pasta.listFiles { f -> f.name.endsWith(".apk.part") && f.name != parcial.name }?.forEach { it.delete() }
         val jaTenho = if (parcial.exists()) parcial.length() else 0L
 
+        // O arquivo com o numero do build no nome nunca muda, entao o cache do CDN nao tem como
+        // entregar outra versao, e continuar de onde parou e seguro. O de nome fixo so fica de
+        // reserva para um versao.json antigo, sem o campo, e ai vai com o cache-buster.
+        val url = v.apk?.let { "${base()}/$it" } ?: "${base()}/luluco-reef.apk?t=${System.currentTimeMillis() / 60000}"
+        if (v.apk == null && parcial.exists()) parcial.delete()
         val req = Request.Builder()
-            // sem "?t=" variando: o Range so faz sentido pedindo o MESMO arquivo de antes
-            .url("${base()}/luluco-reef.apk")
+            .url(url)
             .apply { if (jaTenho > 0) header("Range", "bytes=$jaTenho-") }
             .build()
         TrustedHttp.client(ctx).newCall(req).execute().use { resp ->
+            // 416: pedi a partir do fim, ou seja, o pedaco ja estava completo
+            if (resp.code == 416 && jaTenho > 0) {
+                if (destino.exists()) destino.delete()
+                if (!parcial.renameTo(destino)) error("não deu para salvar o arquivo")
+                destino.setReadable(true, false)
+                return destino
+            }
             val continuando = resp.code == 206
             if (!resp.isSuccessful) error("HTTP ${resp.code}")
             val corpo = resp.body ?: error("resposta vazia")
@@ -162,6 +181,29 @@ object Atualizacao {
         if (!parcial.renameTo(destino)) error("não deu para salvar o arquivo")
         destino.setReadable(true, false)
         return destino
+    }
+
+    /**
+     * Confere o arquivo ANTES de abrir o instalador. Foi o que faltou: com o CDN servindo o APK
+     * antigo, o app baixava em dois segundos, abria o instalador, e ele reinstalava a mesma
+     * versao. Parecia que tinha atualizado e o aviso voltava. Agora tamanho, assinatura do
+     * conteudo e numero de versao de dentro do APK tem que bater, senao para e diz o que veio.
+     */
+    private fun conferir(ctx: Context, apk: File, v: VersaoRemota) {
+        fun descarta(motivo: String): Nothing { apk.delete(); error(motivo) }
+        if (v.tamanho != null && apk.length() != v.tamanho) descarta("o arquivo veio com ${apk.length()} bytes e devia ter ${v.tamanho}")
+        if (v.sha256 != null) {
+            val md = java.security.MessageDigest.getInstance("SHA-256")
+            apk.inputStream().use { inp -> val b = ByteArray(64 * 1024); while (true) { val n = inp.read(b); if (n < 0) break; md.update(b, 0, n) } }
+            val hex = md.digest().joinToString("") { "%02x".format(it) }
+            if (!hex.equals(v.sha256, ignoreCase = true)) descarta("o arquivo baixado não confere com o publicado")
+        }
+        @Suppress("DEPRECATION")
+        val info = ctx.packageManager.getPackageArchiveInfo(apk.absolutePath, 0) ?: descarta("o arquivo baixado não é um APK válido")
+        @Suppress("DEPRECATION")
+        val codigo = info.versionCode
+        if (codigo != v.build) descarta("veio a versão 0.0.$codigo em vez da ${v.versao}")
+        if (codigo <= BuildConfig.VERSION_CODE) descarta("o arquivo é a mesma versão que já está instalada")
     }
 
     fun instalar(ctx: Context, apk: File) {

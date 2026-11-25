@@ -119,7 +119,19 @@ jobs:
             -d '{"id":"app","name":"app","public":true}' || true
           NOTAS=$(git log -1 --pretty=%s)
           QUANDO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          NOTAS="$NOTAS" QUANDO="$QUANDO" python3 -c 'import json,os; n=os.environ["GITHUB_RUN_NUMBER"]; print(json.dumps({"build":int(n),"versao":f"0.0.{n}","commit":os.environ["GITHUB_SHA"][:7],"quando":os.environ["QUANDO"],"notas":os.environ["NOTAS"]},ensure_ascii=False))' > versao.json
+          TAMANHO=$(stat -c %s luluco-reef.apk)
+          SHA=$(sha256sum luluco-reef.apk | cut -d' ' -f1)
+          NOTAS="$NOTAS" QUANDO="$QUANDO" TAMANHO="$TAMANHO" SHA="$SHA" python3 -c 'import json,os; n=os.environ["GITHUB_RUN_NUMBER"]; print(json.dumps({"build":int(n),"versao":f"0.0.{n}","commit":os.environ["GITHUB_SHA"][:7],"quando":os.environ["QUANDO"],"notas":os.environ["NOTAS"],"apk":f"luluco-reef-{n}.apk","tamanho":int(os.environ["TAMANHO"]),"sha256":os.environ["SHA"]},ensure_ascii=False))' > versao.json
+          # O app baixa uma copia com o NUMERO DO BUILD no nome. Com nome fixo, o CDN do
+          # Storage podia servir o APK anterior por um tempo depois do upload: o tablet via
+          # "versao 109" no versao.json, baixava em dois segundos o arquivo velho que estava no
+          # cache, e o instalador reinstalava a mesma versao. Nome novo a cada build nao tem
+          # cache para errar. Cache longo e imutavel, porque esse arquivo nunca muda.
+          curl -sS --fail -o /dev/null -X POST "$BASE/object/app/luluco-reef-$GITHUB_RUN_NUMBER.apk" \
+            -H "Authorization: Bearer $KEY" -H "apikey: $KEY" -H "x-upsert: true" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            -H "Cache-Control: max-age=31536000, immutable" --data-binary @luluco-reef.apk
+          # e a de nome fixo continua, para o link de instalar na mao
           curl -sS --fail -o /dev/null -X POST "$BASE/object/app/luluco-reef.apk" \
             -H "Authorization: Bearer $KEY" -H "apikey: $KEY" -H "x-upsert: true" \
             -H "Content-Type: application/vnd.android.package-archive" \
@@ -131,6 +143,18 @@ jobs:
             -H "Content-Type: application/json" -H "Cache-Control: max-age=30" \
             --data-binary @versao.json
           echo "Publicado: $(cat versao.json)"
+          # Guarda so as tres ultimas copias numeradas. Cada uma tem uns 10 MB e o plano
+          # gratuito do Storage tem 1 GB: sem limpar, uns cem builds enchiam o espaco.
+          VELHOS=$(curl -sS -X POST "$BASE/object/list/app" \
+            -H "Authorization: Bearer $KEY" -H "apikey: $KEY" -H "Content-Type: application/json" \
+            -d '{"prefix":"luluco-reef-","limit":1000}' \
+            | python3 -c 'import json,re,sys; xs=[o["name"] for o in json.load(sys.stdin) if re.fullmatch(r"luluco-reef-\d+\.apk",o["name"])]; xs.sort(key=lambda n:int(re.findall(r"\d+",n)[0])); print(json.dumps(xs[:-3]))')
+          if [ "$VELHOS" != "[]" ]; then
+            curl -sS -o /dev/null -X DELETE "$BASE/object/app" \
+              -H "Authorization: Bearer $KEY" -H "apikey: $KEY" -H "Content-Type: application/json" \
+              -d "{\"prefixes\": $VELHOS}" || true
+            echo "Apagados: $VELHOS"
+          fi
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: gzfkcryebczjmuzckxuv
