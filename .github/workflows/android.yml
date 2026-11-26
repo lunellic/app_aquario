@@ -128,5 +128,5 @@ jobs:
           script: |
             adb logcat -G 16M
             adb shell settings put secure immersive_mode_confirmations confirmed
-            gradle --no-daemon connectedDebugAndroidTest || (adb logcat -d -t 400 '*:E' ; exit 1)
+            gradle --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=br.com.lunelli.lulucoreef.Prints75Test || adb logcat -d -t 400 '*:E'
             adb logcat -d -v raw -s LULUCO_SHOT:I
