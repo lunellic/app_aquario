@@ -31,11 +31,20 @@ data class VersaoRemota(
     val build: Int, val versao: String, val notas: String, val quando: String,
     val apk: String? = null, val tamanho: Long? = null, val sha256: String? = null,
 ) {
-    val nova: Boolean get() = build > BuildConfig.VERSION_CODE
+    val nova: Boolean get() = build > BuildConfig.VERSION_CODE || Atualizacao.ignorarVersaoParaTeste
 }
 
 object Atualizacao {
     private const val PASTA = "app"
+
+    /**
+     * So para o teste no emulador: deixa baixar e abrir o instalador com a mesma versao que esta
+     * instalada, para o fluxo inteiro (aviso, toque, download, conferencia, instalador) rodar no
+     * CI sem precisar de um APK mais novo que o proprio teste.
+     */
+    @Volatile var ignorarVersaoParaTeste = false
+
+    private fun log(msg: String) { android.util.Log.i("LULUCO_UPD", msg) }
     private fun base() = "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/$PASTA"
 
     /** Le o versao.json publicado pelo CI. Devolve null se nao deu para checar. */
@@ -72,8 +81,13 @@ object Atualizacao {
         data object Pronto : Estado
     }
 
-    private val _estado = kotlinx.coroutines.flow.MutableStateFlow<Estado>(Estado.Parado)
-    val estado: kotlinx.coroutines.flow.StateFlow<Estado> = _estado
+    private val _estado = object {
+        val fluxo = kotlinx.coroutines.flow.MutableStateFlow<Estado>(Estado.Parado)
+        var value: Estado
+            get() = fluxo.value
+            set(v) { if (v !is Estado.Baixando || v.pct % 10 == 0) log("estado: $v"); fluxo.value = v }
+    }
+    val estado: kotlinx.coroutines.flow.StateFlow<Estado> = _estado.fluxo
 
     /** O descanso le isto para nao entrar no meio de um download. */
     val baixando: Boolean get() = _estado.value is Estado.Baixando
@@ -103,6 +117,7 @@ object Atualizacao {
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    log("tentativa $tentativa falhou: ${android.util.Log.getStackTraceString(e).take(600)}")
                     ultimoErro = e.message ?: e.javaClass.simpleName
                     TrustedHttp.client(app).connectionPool.evictAll()
                     if (tentativa < TENTATIVAS) kotlinx.coroutines.delay(3_000L * tentativa)
@@ -203,7 +218,7 @@ object Atualizacao {
         @Suppress("DEPRECATION")
         val codigo = info.versionCode
         if (codigo != v.build) descarta("veio a versão 0.0.$codigo em vez da ${v.versao}")
-        if (codigo <= BuildConfig.VERSION_CODE) descarta("o arquivo é a mesma versão que já está instalada")
+        if (codigo <= BuildConfig.VERSION_CODE && !ignorarVersaoParaTeste) descarta("o arquivo é a mesma versão que já está instalada")
     }
 
     fun instalar(ctx: Context, apk: File) {
@@ -216,6 +231,7 @@ object Atualizacao {
         } else {
             intent.setDataAndType(Uri.fromFile(apk), tipo)
         }
+        log("abrindo o instalador: ${intent.data}")
         ctx.startActivity(intent)
     }
 }

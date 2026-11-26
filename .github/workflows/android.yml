@@ -211,6 +211,8 @@ jobs:
             # tee e nao redirecionamento: o artefato e o jeito bom de pegar as telas, mas o
             # log continua sendo o unico jeito de ver um print de onde nao da para baixar zip.
             adb logcat -d -v raw -s LULUCO_SHOT:I | tee capturas.log
+            echo "=== atualizacao e quedas ==="
+            adb logcat -d -v time -s LULUCO_UPD:I AndroidRuntime:E PackageInstaller:* ActivityManager:I | grep -E "LULUCO_UPD|FATAL|AndroidRuntime|Exception|at br\.com|PackageInstaller|install" | tail -80 || true
             if [ $status -ne 0 ]; then adb logcat -d -t 400 '*:E'; exit $status; fi
 
       - name: Montar as capturas de tela

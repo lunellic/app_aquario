@@ -24,6 +24,7 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        br.com.lunelli.lulucoreef.diag.Queda.instalar(this)
         SyncWorker.schedulePeriodic(this)
     }
 }

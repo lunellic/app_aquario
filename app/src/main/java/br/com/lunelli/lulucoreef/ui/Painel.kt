@@ -113,6 +113,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Header(Modifier.cascade(0), tank?.nome ?: "Luluco Reef", tank?.fotoVitrinePath, now, health, healthVar, volume, livestock.filter { it.status == "ativo" }.sumOf { it.quantidade }) { showScore = true }
 
+            AvisoDeQueda()
             AvisoDeAtualizacao()
 
             val hoje: @Composable (Modifier) -> Unit = { m ->
@@ -538,10 +539,14 @@ private fun AvisoDeAtualizacao() {
                     Atualizacao.Estado.Parado -> (v.notas.ifBlank { "Você está na ${BuildConfig.VERSION_NAME}." }) to Luluco.TextSoft
                 }
                 Text(detalhe, fontSize = 13.sp, color = cor, maxLines = 3)
-                if (estado is Atualizacao.Estado.Baixando) {
+                // A porcentagem e lida AQUI, na composicao, e nao dentro do lambda do progresso.
+                // O lambda e chamado no desenho e na acessibilidade, que podem rodar depois de o
+                // estado ja ter virado "Pronto": um "estado as Baixando" ali derruba o app.
+                val pct = (estado as? Atualizacao.Estado.Baixando)?.pct
+                if (pct != null) {
                     Spacer(Modifier.height(6.dp))
                     LinearProgressIndicator(
-                        progress = { (estado as Atualizacao.Estado.Baixando).pct / 100f },
+                        progress = { pct / 100f },
                         modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                         color = Luluco.Pool, trackColor = Luluco.Solid,
                     )
@@ -555,5 +560,28 @@ private fun AvisoDeAtualizacao() {
                 Atualizacao.Estado.Parado -> Button(onClick = { Atualizacao.iniciar(ctx, v) }) { Text("Atualizar") }
             }
         }
+    }
+}
+
+/**
+ * Se o app caiu da ultima vez, mostra o erro no alto do Painel ate ser dispensado. E o unico jeito
+ * de ver por que ele fechou sozinho no tablet, sem cabo nem computador: tira um print e manda.
+ */
+@Composable
+private fun AvisoDeQueda() {
+    val ctx = LocalContext.current
+    var texto by remember { mutableStateOf(br.com.lunelli.lulucoreef.diag.Queda.ultima(ctx)) }
+    val t = texto ?: return
+    Panel(Modifier.fillMaxWidth(), borderColor = Luluco.ZoneWarn.copy(alpha = 0.5f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("O app fechou sozinho da última vez", fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
+                Text("Tire um print desta caixa e mande no chat: é o motivo exato.", fontSize = 12.sp, color = Luluco.TextSoft)
+            }
+            TextButton(onClick = { br.com.lunelli.lulucoreef.diag.Queda.limpar(ctx); texto = null }) { Text("Dispensar") }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(t.lines().take(9).joinToString("\n"), fontSize = 11.sp, color = Luluco.ZoneWarn, lineHeight = 14.sp,
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
     }
 }
