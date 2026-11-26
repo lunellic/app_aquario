@@ -110,6 +110,8 @@ object Atualizacao {
     private val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     private var tarefa: kotlinx.coroutines.Job? = null
 
+    // 26/11: versao de teste publicada so para conferir a atualizacao pelo botao no tablet.
+
     /** O APK ja baixado e conferido desta versao, para "Instalar" de novo sem baixar tudo outra vez. */
     @Volatile private var conferido: Pair<Int, File>? = null
 
