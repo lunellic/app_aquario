@@ -141,6 +141,12 @@ class Prints75Test {
             png("quarentena")
             step { compose.onNodeWithText("Dia a dia", ignoreCase = true).performScrollTo() }
             png("quarentena_dia_a_dia")
+            // standby: entra sozinho depois de 1 minuto sem toque (mesmo truque do teste da propria build 75)
+            step { menu("Painel") }
+            app.graph.settings.update { it.copy(vitrineMinutes = 1) }
+            Thread.sleep(63_000)
+            compose.mainClock.advanceTimeBy(11_000)
+            png("standby")
         }
     }
 }
