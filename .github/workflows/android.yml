@@ -28,6 +28,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -84,9 +86,27 @@ jobs:
           generate_release_notes: true
           prerelease: ${{ contains(inputs.release_tag || github.ref_name, '-') }}
 
+      # So vira versao nova para o tablet quando o APP mudou. Commit que so mexe no CI, em script
+      # de teste ou em documentacao gera um APK igual com numero novo, e o tablet mostrava
+      # "atualizacao disponivel" toda hora sem nada de novo (na madrugada de 26/11 foram quatro
+      # versoes em vinte minutos).
+      - name: O app mudou desde a versao publicada?
+        id: mudou
+        if: github.ref == 'refs/heads/main'
+        run: |
+          ANTERIOR=$(curl -sS "https://gzfkcryebczjmuzckxuv.supabase.co/storage/v1/object/public/app/versao.json?t=$(date +%s)" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit",""))' 2>/dev/null || true)
+          if [ -n "$ANTERIOR" ] && git cat-file -e "$ANTERIOR^{commit}" 2>/dev/null \
+             && git diff --quiet "$ANTERIOR" HEAD -- app/src/main app/build.gradle.kts build.gradle.kts settings.gradle.kts gradle.properties gradle/; then
+            echo "O app nao mudou desde $ANTERIOR: nada de versao nova para o tablet."
+            echo "publicar=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Mudou desde ${ANTERIOR:-(nenhuma publicada)}: publica."
+            echo "publicar=true" >> "$GITHUB_OUTPUT"
+          fi
+
       # Link fixo para instalar no tablet: sempre o último build da main.
       - name: Atualizar pré-release "dev"
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.mudou.outputs.publicar == 'true'
         run: |
           cp "${{ steps.apk.outputs.name }}" luluco-reef.apk
           gh release view dev >/dev/null 2>&1 || gh release create dev --prerelease --target "$GITHUB_SHA" \
@@ -102,7 +122,7 @@ jobs:
       # carrega as raizes de certificado que faltam para falar com o Supabase. Baixar do GitHub
       # exigiria embutir outro conjunto de raizes e torcer para nao mudarem.
       - name: Publicar a versão no Storage do Supabase
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.mudou.outputs.publicar == 'true'
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
@@ -165,7 +185,7 @@ jobs:
       # O Lucas instala no tablet pelo Drive, sem depender do computador. Sem o segredo
       # configurado o passo nao falha o build: ele so nao envia nada.
       - name: Subir o APK no Google Drive
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.mudou.outputs.publicar == 'true'
         run: |
           pip install --quiet google-api-python-client google-auth
           python3 tools/subir_no_drive.py luluco-reef.apk "$PASTA" \
