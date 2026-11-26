@@ -44,7 +44,16 @@ object Atualizacao {
      */
     @Volatile var ignorarVersaoParaTeste = false
 
-    private fun log(msg: String) { android.util.Log.i("LULUCO_UPD", msg) }
+    private fun log(msg: String) {
+        android.util.Log.i("LULUCO_UPD", msg)
+        br.com.lunelli.lulucoreef.diag.Diario.registrar("atualizacao", msg)
+    }
+
+    /** Manda o diario agora, sem esperar a proxima abertura (antes do instalador matar o app). */
+    private fun enviarDiario(ctx: Context) {
+        val app = ctx.applicationContext as? br.com.lunelli.lulucoreef.App ?: return
+        Thread { br.com.lunelli.lulucoreef.diag.Diario.enviar(app.graph.api) }.apply { isDaemon = true }.start()
+    }
     private fun base() = "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/$PASTA"
 
     /** Le o versao.json publicado pelo CI. Devolve null se nao deu para checar. */
@@ -113,6 +122,8 @@ object Atualizacao {
                 try { instalar(app, apk); return } catch (e: Exception) { log("reabrir o instalador falhou: $e") }
             }
         }
+        val pasta = app.getExternalFilesDir(null)
+        log("tocou em atualizar: ${BuildConfig.VERSION_CODE} -> ${v.build} (${v.apk}, ${v.tamanho} bytes); pasta ${pasta ?: "interna"}, livre ${(pasta ?: app.cacheDir).usableSpace / 1_048_576} MB")
         _estado.value = Estado.Baixando(0, 1)
         tarefa = escopo.launch {
             var ultimoErro = ""
@@ -122,6 +133,7 @@ object Atualizacao {
                     conferir(app, apk, v)
                     conferido = v.build to apk
                     _estado.value = Estado.Pronto
+                    enviarDiario(app)
                     kotlinx.coroutines.withContext(Dispatchers.Main) { instalar(app, apk) }
                     return@launch
                 } catch (e: kotlinx.coroutines.CancellationException) {
@@ -136,6 +148,7 @@ object Atualizacao {
             _estado.value = Estado.Falhou(
                 "Parou $TENTATIVAS vezes seguidas ($ultimoErro). O que já veio fica guardado: tocar de novo continua de onde parou.",
             )
+            enviarDiario(app)
         }
     }
 
@@ -243,6 +256,7 @@ object Atualizacao {
         }
         log("abrindo o instalador: ${intent.data}")
         ctx.startActivity(intent)
+        log("instalador aberto")
     }
 }
 
@@ -255,6 +269,20 @@ object Atualizacao {
  */
 object VersaoVista {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("versao", Context.MODE_PRIVATE)
+
+    /**
+     * Anota no diario a primeira abertura de cada versao: e a confirmacao, do lado de ca, de que a
+     * atualizacao entrou. Separado do aviso do Painel, que so le quando o Painel abre.
+     */
+    fun registrarAbertura(ctx: Context) {
+        val p = prefs(ctx)
+        val vista = p.getInt("diario", 0)
+        val agora = BuildConfig.VERSION_CODE
+        if (vista != agora) {
+            br.com.lunelli.lulucoreef.diag.Diario.registrar("abriu", if (vista == 0) "primeira abertura registrada" else "versao trocou: $vista -> $agora")
+            p.edit().putInt("diario", agora).apply()
+        }
+    }
 
     /** A versao anterior, se esta e a primeira abertura depois de uma atualizacao; senao nulo. */
     fun acabouDeAtualizar(ctx: Context): Int? {

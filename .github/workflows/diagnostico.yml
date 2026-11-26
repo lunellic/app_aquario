@@ -1,0 +1,56 @@
+name: Diagnostico do tablet
+
+# Le o diario que o app do tablet manda (quedas e cada passo da atualizacao) e imprime no log.
+# Rodar pela aba Actions ("Run workflow") ou por "gh workflow run diagnostico.yml".
+# So entram dados tecnicos (versao, modelo do aparelho, passos e pilhas de erro), nada do aquario.
+on:
+  # empurrar um commit para o ramo "diagnostico" tambem roda (workflow_dispatch so funciona depois
+  # que este arquivo estiver no main)
+  push:
+    branches: [diagnostico]
+  workflow_dispatch:
+    inputs:
+      linhas:
+        description: 'Quantas linhas, das mais novas'
+        required: false
+        default: '80'
+
+permissions:
+  contents: read
+
+jobs:
+  ler:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: gzfkcryebczjmuzckxuv
+      LINHAS: ${{ github.event.inputs.linhas || '80' }}
+    steps:
+      - name: Ler o diario
+        continue-on-error: true
+        run: |
+          n=$(printf '%s' "$LINHAS" | tr -cd '0-9'); n=${n:-80}
+          q="select to_char(criado_em at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI:SS') as quando, versao, tipo, texto, aparelho from public.app_diagnosticos order by criado_em desc, recebido_em desc limit $n"
+          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json)
+          if [ "$code" -ge 300 ]; then echo "::error::consulta falhou (HTTP $code)"; head -c 2000 /tmp/out.json; exit 1; fi
+          jq -r 'if length == 0 then "diario vazio" else (reverse | .[] | "[\(.quando)] v\(.versao) \(.tipo): \(.texto)") end' /tmp/out.json
+          echo "---"
+          jq -r '[.[].aparelho] | unique | .[]' /tmp/out.json
+
+      - name: Downloads do APK e consultas de versao (registro do Storage, ultimas 48 h)
+        run: |
+          # Quem baixou qual APK e quando. Sem IP: so pais e programa, para separar o tablet
+          # (okhttp, BR) do CI (EUA). Mostra se a mesma versao foi baixada varias vezes (instalacao
+          # que nao entrou) ou uma de cada (atualizou e veio outra).
+          sql="select timestamp, request.method as metodo, request.path as caminho, response.status_code as status, h.user_agent as agente, h.range as faixa, cf.country as pais from edge_logs cross join unnest(metadata) as m cross join unnest(m.request) as request cross join unnest(m.response) as response cross join unnest(request.headers) as h cross join unnest(request.cf) as cf where regexp_contains(request.path, '/storage/v1/object/public/app/') order by timestamp asc limit 1000"
+          for janela in 48 24; do
+            ini=$(date -u -d "-${janela} hours" +%Y-%m-%dT%H:%M:%SZ); fim=$(date -u -d "-$((janela-24)) hours" +%Y-%m-%dT%H:%M:%SZ)
+            code=$(curl -sS -G -o /tmp/logs.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs.all" \
+              --data-urlencode "sql=$sql" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+            echo "== de $ini a $fim (HTTP $code) =="
+            if [ "$code" -ge 300 ] || jq -e '.error' /tmp/logs.json >/dev/null 2>&1; then head -c 1500 /tmp/logs.json; echo; continue; fi
+            jq -r '.result[] | "\((.timestamp/1000000) | strftime("%d/%m %H:%M:%S")) UTC  \(.pais // "?")  \(.status)  \(.metodo) \(.caminho | sub(".*/app/"; ""))  \(.faixa // "")  [\(.agente // "")]"' /tmp/logs.json
+          done

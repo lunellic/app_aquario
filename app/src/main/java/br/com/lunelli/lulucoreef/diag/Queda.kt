@@ -18,6 +18,7 @@ object Queda {
         val app = ctx.applicationContext
         val anterior = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, erro ->
+            runCatching { Diario.registrar("queda", "thread ${thread.name}\n" + android.util.Log.getStackTraceString(erro)) }
             runCatching {
                 val pilha = android.util.Log.getStackTraceString(erro)
                 arquivo(app).writeText(
