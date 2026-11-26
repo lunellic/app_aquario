@@ -235,3 +235,23 @@ object Atualizacao {
         ctx.startActivity(intent)
     }
 }
+
+/**
+ * Lembra a ultima versao que abriu, para dizer na tela quando uma atualizacao deu certo.
+ *
+ * Na atualizacao o Android fecha o app para trocar os arquivos e ele volta sozinho em seguida.
+ * Sem um aviso explicito, "fechou e voltou" parece "travou", e nao da para saber se a versao nova
+ * entrou. Agora, na primeira abertura depois da troca, o Painel diz "Atualizado para a 0.0.N".
+ */
+object VersaoVista {
+    private fun prefs(ctx: Context) = ctx.getSharedPreferences("versao", Context.MODE_PRIVATE)
+
+    /** A versao anterior, se esta e a primeira abertura depois de uma atualizacao; senao nulo. */
+    fun acabouDeAtualizar(ctx: Context): Int? {
+        val p = prefs(ctx)
+        val antes = p.getInt("ultima", 0)
+        val agora = BuildConfig.VERSION_CODE
+        if (antes != agora) p.edit().putInt("ultima", agora).apply()
+        return antes.takeIf { it in 1 until agora }
+    }
+}

@@ -56,7 +56,11 @@ function caixaDelta(e) {
 const emAberto = (e) => e.tipo === 'despesa' && e.forma === 'cartao' && !e.pago;
 const podeQuitar = (e) => e.tipo === 'despesa' && e.forma === 'cartao';
 const parcelaTexto = (e) => (e.parcela && e.parcelas > 1 ? `parcela ${e.parcela}/${e.parcelas}` : null);
-const formaTexto = (e) => (e.tipo === 'aporte' ? 'Depósito' : e.tipo === 'retirada' ? 'Retirada' : e.forma === 'cartao' ? 'Cartão' : 'Pix');
+// "Pagou com", igual ao tablet. Pix da conta principal e para quando a caixinha acabou: conta como
+// gasto do ciclo, mas nao tira da caixinha nem fica "a pagar".
+const FORMAS = [['pix', 'Pix caixinha'], ['pix_conta', 'Pix conta principal'], ['cartao', 'Crédito']];
+const formaTexto = (e) => (e.tipo === 'aporte' ? 'Depósito' : e.tipo === 'retirada' ? 'Retirada'
+  : (FORMAS.find((f) => f[0] === e.forma) || FORMAS[0])[1]);
 
 function desenharFinancas() {
   segmentado($('#f-abas'), F_ABAS, fAba, (v) => { fAba = v; desenharFinancas(); });
@@ -266,7 +270,10 @@ function folhaLancamento(existente) {
         chips(linhaCat, tipo === 'receita' ? CAT_RECEITA : CAT_DESPESA, categoria, (v) => { categoria = v; redesenhar(); });
         chips(linhaAq, AQUARIOS, aquario, (v) => { aquario = v; redesenhar(); });
       }
-      if (tipo === 'despesa') chips(linhaForma, [['pix', 'Pix (sai da caixinha)'], ['cartao', 'Cartão']], forma, (v) => { forma = v; redesenhar(); });
+      if (tipo === 'despesa') {
+        chips(linhaForma, FORMAS, forma, (v) => { forma = v; redesenhar(); });
+        linhaForma.prepend(el('div', 'campo-rot rot-chips', 'Pagou com'));
+      }
     };
 
     linhaParc.appendChild(el('span', null, 'Em quantas parcelas'));
@@ -491,7 +498,8 @@ function folhaComprei(item) {
     sel.onchange = () => { parcelas = Number(sel.value); };
     lp.appendChild(sel);
     const atualiza = () => {
-      chips(lf, [['pix', 'Pix (sai da caixinha)'], ['cartao', 'Cartão']], forma, (v) => { forma = v; atualiza(); });
+      chips(lf, FORMAS, forma, (v) => { forma = v; atualiza(); });
+      lf.prepend(el('div', 'campo-rot rot-chips', 'Pagou com'));
       lp.classList.toggle('hidden', forma !== 'cartao');
     };
     atualiza();

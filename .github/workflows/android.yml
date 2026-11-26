@@ -4,7 +4,10 @@ on:
   push:
     branches: [main, 'bloco-*']
     tags: ['v*']
-    paths-ignore: ['supabase/**', '**.md']
+    # Commit que nao muda o APK nao gera versao nova. Antes, guardar prints ou mexer no PWA
+    # publicava um build igual com numero novo, e o tablet mostrava "atualizacao disponivel" de
+    # hora em hora sem nada de novo para instalar.
+    paths-ignore: ['supabase/**', '**.md', 'prints/**', 'pwa/**', '.github/workflows/pwa.yml', '.github/workflows/backend.yml']
   workflow_dispatch:
     inputs:
       release_tag:

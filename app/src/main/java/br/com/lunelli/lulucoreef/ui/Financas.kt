@@ -80,7 +80,18 @@ fun FinanceEntry.emAberto(): Boolean = tipo == "despesa" && forma == "cartao" &&
 
 /** Da para marcar como paga? So gasto no cartao; no Pix o dinheiro ja saiu. */
 fun FinanceEntry.podeQuitar(): Boolean = tipo == "despesa" && forma == "cartao"
-fun FinanceEntry.formaTexto(): String = when (tipo) { "aporte" -> "Depósito na caixinha"; "retirada" -> "Retirada da caixinha"; else -> if (forma == "cartao") "Cartão" else "Pix" }
+fun FinanceEntry.formaTexto(): String = when (tipo) {
+    "aporte" -> "Depósito na caixinha"
+    "retirada" -> "Retirada da caixinha"
+    else -> when (forma) { "cartao" -> "Crédito"; "pix_conta" -> "Pix conta principal"; else -> "Pix caixinha" }
+}
+
+/**
+ * "Pagou com". Pix da caixinha tira da caixinha; Pix da conta principal e para quando a caixinha
+ * acabou e a compra saiu do dinheiro do dia a dia: conta como gasto do ciclo, mas nao mexe na
+ * caixinha nem fica "a pagar"; credito vai para a fatura.
+ */
+val FORMAS_PAGAMENTO = listOf("pix" to "Pix caixinha", "pix_conta" to "Pix conta principal", "cartao" to "Crédito")
 
 @Composable
 fun FinancasScreen(vm: MainViewModel, nav: Nav) {
@@ -256,7 +267,7 @@ private fun QuitarDialog(vm: MainViewModel, nav: Nav, e: FinanceEntry, onDismiss
         title = { Text(e.descricao.ifBlank { catLabel(e.categoria) }) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(listOfNotNull(money(e.valor), e.parcelaTexto(), "Cartão").joinToString(" · "))
+                Text(listOfNotNull(money(e.valor), e.parcelaTexto(), "Crédito").joinToString(" · "))
                 Muted(
                     if (e.pago) "Esta parcela está marcada como paga."
                     else "Marcar como paga só tira do \"a pagar\". O gasto continua contando no ciclo em que foi lançado.",
@@ -429,7 +440,7 @@ fun FinanceForm(vm: MainViewModel, nav: Nav, id: String?, tipoInicial: String? =
         }
         if (tipo == "despesa") {
             if (edit == null) PagamentoPicker(forma, parcelas.toIntOrNull() ?: 1, parseMoney(valor), { forma = it }, { parcelas = it.toString() })
-            else ChipRow(listOf("pix" to "Pix (sai da caixinha)", "cartao" to "Cartão de crédito"), forma) { forma = it }
+            else ChipRow(FORMAS_PAGAMENTO, forma) { forma = it }
             if (edit?.parcelaTexto() != null) Muted("Esta é a ${edit.parcelaTexto()}. Salvar ou apagar mexe só nesta parcela.")
         }
         if (!caixa) {
@@ -497,7 +508,7 @@ fun ShoppingForm(vm: MainViewModel, nav: Nav, id: String?) {
 fun PagamentoPicker(forma: String, parcelas: Int, total: Double?, onForma: (String) -> Unit, onParcelas: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Eyebrow("Pagou com")
-        ChipRow(listOf("pix" to "Pix (sai da caixinha)", "cartao" to "Crédito"), forma) { onForma(it) }
+        ChipRow(FORMAS_PAGAMENTO, forma) { onForma(it) }
         if (forma == "cartao") {
             val labels = remember { (1..24).map { if (it == 1) "à vista" else "${it}x" } }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

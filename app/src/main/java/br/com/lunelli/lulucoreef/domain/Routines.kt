@@ -51,6 +51,31 @@ fun Routine.intervalDays(): Long = (intervaloN ?: 1).toLong() * (if (recorrencia
 private fun at(date: LocalDate, time: LocalTime, zone: ZoneId) = date.atTime(time).atZone(zone).toInstant().toEpochMilli()
 fun Long.toLocalDate(zone: ZoneId): LocalDate = Instant.ofEpochMilli(this).atZone(zone).toLocalDate()
 
+/** Hora em que a lista do dia vira. Antes dela, "hoje" ainda e o dia anterior. */
+const val VIRADA_DO_DIA_H = 6L
+
+/**
+ * O dia da AGENDA, que nao vira a meia-noite e sim as 6h.
+ *
+ * O Lucas faz as tarefas da noite muitas vezes depois da meia-noite. As 2h de quinta, a lista ja
+ * mostrava as de quinta, e as doses de quarta que ele estava fazendo naquela hora sumiam da tela:
+ * quase trocou a ordem. Agora, ate as 6h, "hoje" continua sendo quarta. O horario de cada tarefa
+ * e o alarme nao mudam; muda so qual lista aparece como a de hoje.
+ */
+fun diaDaAgenda(now: Long, zone: ZoneId): LocalDate =
+    Instant.ofEpochMilli(now).atZone(zone).minusHours(VIRADA_DO_DIA_H).toLocalDate()
+
+/**
+ * Nome da lista de hoje. Entre meia-noite e 6h ela ainda e a do dia anterior, e o titulo diz isso
+ * ("Ainda quarta"): o relogio ja mostra quinta, e "Hoje" com as tarefas de quarta confundiria.
+ */
+fun rotuloHoje(now: Long, zone: ZoneId): String {
+    val agenda = diaDaAgenda(now, zone)
+    if (agenda == now.toLocalDate(zone)) return "Hoje"
+    val nome = agenda.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale("pt", "BR")).substringBefore("-")
+    return "Ainda $nome"
+}
+
 /**
  * Ocorrencia da rotina no dia, ou null.
  * Rotinas por intervalo usam proximaEm como ancora: vencem nessa data e continuam aparecendo
@@ -92,7 +117,7 @@ fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDa
         // atividade de uma vez ja concluida (feita ou pulada): aparece so no dia em que foi resolvida
         if (r.isOnce() && !o.open && (o.log!!.feitoEm ?: o.log.updatedAt).toLocalDate(zone) != date) null else o
     }
-    val arrastadas = if (now == null || date.isBefore(now.toLocalDate(zone))) emptyList()
+    val arrastadas = if (now == null || date.isBefore(diaDaAgenda(now, zone))) emptyList()
     else carriedInto(routines, byKey, date, zone, doDia.map { it.routine.id }.toSet())
     return (arrastadas + doDia).sortedWith(compareBy({ it.dueAt }, { it.routine.titulo }))
 }

@@ -571,3 +571,6 @@ button.perigo { color: var(--critico); }
 .resultado:empty { display: none; }
 .resultado { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--pool) 14%, transparent); }
 .resultado-grande { font-size: 22px; font-weight: 600; letter-spacing: -0.4px; }
+
+/* rotulo em cima de uma fileira de chips ("Pagou com") */
+.rot-chips { flex-basis: 100%; margin-bottom: 2px; }

@@ -103,6 +103,10 @@ function doseDe(produto, litros) {
 }
 
 const diaDe = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d; };
+// O dia da AGENDA vira as 6h, e nao a meia-noite: de madrugada a lista ainda e a do dia anterior,
+// porque as tarefas da noite muitas vezes sao feitas depois da meia-noite. Igual ao tablet.
+const VIRADA_H = 6;
+const diaDaAgenda = (ms) => diaDe(ms - VIRADA_H * 3600 * 1000);
 const iso = (d) => d.toISOString();
 
 /** 1 = segunda ... 7 = domingo (o getDay do JS e 0 = domingo). */
@@ -165,7 +169,7 @@ function cumprimento(rotinas, logs, agora, dias = 7) {
  * Sem isso a TPA de sexta desaparecia no sabado.
  */
 function ocorrenciasDeHoje(rotinas, logs, agora) {
-  const hoje = diaDe(agora);
+  const hoje = diaDaAgenda(agora);
   const porChave = {};
   logs.filter((l) => !l.deleted_at).forEach((l) => {
     const k = `${l.routine_id}|${new Date(l.previsto_para).getTime()}`;
@@ -213,7 +217,7 @@ function ocorrenciasDeHoje(rotinas, logs, agora) {
  * rotina por intervalo ja feita continue aparecendo no dia em que foi feita.
  */
 function ocorrenciasDoDia(rotinas, logs, dia, agora) {
-  if (diaDe(dia.getTime()).getTime() === diaDe(agora).getTime()) return ocorrenciasDeHoje(rotinas, logs, agora);
+  if (diaDe(dia.getTime()).getTime() === diaDaAgenda(agora).getTime()) return ocorrenciasDeHoje(rotinas, logs, agora);
   const alvo = diaDe(dia.getTime());
   const fimDoDia = alvo.getTime() + DIA_MS;
   const porChave = {};
@@ -452,7 +456,13 @@ function desenharParams() {
 }
 
 function rotuloDoDia(desloc, dia) {
-  if (desloc === 0) return 'Hoje';
+  if (desloc === 0) {
+    // de madrugada, "Hoje" com as tarefas do dia anterior confundiria: o relogio ja virou
+    if (diaDaAgenda(Date.now()).getTime() !== diaDe(Date.now()).getTime()) {
+      return 'Ainda ' + dia.toLocaleDateString('pt-BR', { weekday: 'long' }).split('-')[0];
+    }
+    return 'Hoje';
+  }
   if (desloc === -1) return 'Ontem';
   if (desloc === 1) return 'Amanhã';
   if (desloc === -2) return 'Anteontem';
@@ -463,7 +473,7 @@ function desenharHoje() {
   const caixa = $('#hoje');
   caixa.innerHTML = '';
   const agora = Date.now();
-  const dia = diaDe(agora); dia.setDate(dia.getDate() + deslocDia);
+  const dia = diaDaAgenda(agora); dia.setDate(dia.getDate() + deslocDia);
   const passado = deslocDia < 0;
   const futuro = deslocDia > 0;
 

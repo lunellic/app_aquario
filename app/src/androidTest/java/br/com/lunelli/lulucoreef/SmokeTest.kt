@@ -159,7 +159,12 @@ class SmokeTest {
             // Respiro antes de esperar a ficha. O waitUntil sozinho falhou duas vezes seguidas aqui e
             // passou com esta pausa; a causa exata nao foi isolada, entao fica o respiro e o prazo folgado.
             Thread.sleep(1500)
-            compose.waitUntil(20_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
+            try {
+                compose.waitUntil(20_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
+            } catch (e: Throwable) {
+                shot("falha_caso") // o que estava na tela quando a ficha do caso nao apareceu
+                throw e
+            }
             compose.onNodeWithText("Nova entrada", ignoreCase = true).performScrollTo().assertIsDisplayed()
             compose.onNodeWithText("Voltar", ignoreCase = true).performScrollTo().performClick()
             compose.onNodeWithText("Casos abertos (1)", ignoreCase = true).assertIsDisplayed()

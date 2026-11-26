@@ -55,6 +55,8 @@ import br.com.lunelli.lulucoreef.domain.compliance
 import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.formatDose
 import br.com.lunelli.lulucoreef.domain.healthScore
+import br.com.lunelli.lulucoreef.domain.diaDaAgenda
+import br.com.lunelli.lulucoreef.domain.rotuloHoje
 import br.com.lunelli.lulucoreef.domain.healthDelta
 import br.com.lunelli.lulucoreef.domain.intervalDays
 import br.com.lunelli.lulucoreef.domain.isInterval
@@ -92,10 +94,11 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     val volume = tank?.volumeDosagemL ?: 100.0
     val productById = remember(products) { products.associateBy { it.id } }
 
-    val today = remember(routines, logs, now) { occurrencesOn(routines, logs, now.toLocalDate(zone), zone, now) }
+    // "hoje" da agenda vira as 6h, nao a meia-noite (ver diaDaAgenda)
+    val today = remember(routines, logs, now) { occurrencesOn(routines, logs, diaDaAgenda(now, zone), zone, now) }
     // Navegacao de dias no "Hoje": voltar para marcar o que ficou de ontem (ex.: dose feita de madrugada) ou ver amanha.
     var dayOffset by remember { mutableIntStateOf(0) }
-    val realToday = now.toLocalDate(zone)
+    val realToday = diaDaAgenda(now, zone)
     val selDate = realToday.plusDays(dayOffset.toLong())
     val dayList = remember(routines, logs, now, dayOffset) { if (dayOffset == 0) today else occurrencesOn(routines, logs, selDate, zone, now) }
     val yesterdayOpen = remember(routines, logs, now) { occurrencesOn(routines, logs, realToday.minusDays(1), zone).count { it.open && it.dueAt.toLocalDate(zone) == realToday.minusDays(1) } }
@@ -120,7 +123,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                 Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { dayOffset-- }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Dia anterior", tint = Luluco.Cream) }
-                        SectionTitle(dayLabel(dayOffset, selDate))
+                        SectionTitle(dayLabel(dayOffset, selDate, now, zone))
                         IconButton(onClick = { dayOffset++ }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Próximo dia", tint = Luluco.Cream) }
                         Spacer(Modifier.weight(1f))
                         if (dayOffset != 0) TextButton(onClick = { dayOffset = 0 }) { Text("Voltar para hoje") }
@@ -296,9 +299,9 @@ private fun AnchorQuestion(vm: MainViewModel, r: Routine) {
     }
 }
 
-/** "Hoje", "Ontem", "Amanhã" ou "Seg, 16/11". */
-private fun dayLabel(offset: Int, date: java.time.LocalDate): String = when (offset) {
-    0 -> "Hoje"
+/** "Hoje" (ou "Ainda quarta" de madrugada), "Ontem", "Amanhã" ou "Seg, 16/11". */
+private fun dayLabel(offset: Int, date: java.time.LocalDate, now: Long, zone: java.time.ZoneId): String = when (offset) {
+    0 -> rotuloHoje(now, zone)
     -1 -> "Ontem"
     1 -> "Amanhã"
     else -> date.format(DateTimeFormatter.ofPattern("EEE, dd/MM", PtBr)).replaceFirstChar { it.uppercase() }.replace(".", "")
@@ -306,7 +309,7 @@ private fun dayLabel(offset: Int, date: java.time.LocalDate): String = when (off
 
 @Composable
 private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Product?, volume: Double, now: Long, day: java.time.LocalDate) {
-    val isToday = day == now.toLocalDate(vm.zone)
+    val isToday = day == diaDaAgenda(now, vm.zone)
     val due = o.isDue(now)
     val detail = when {
         o.routine.tipo == "dosagem" && product != null -> formatDose(doseFor(product, volume), product.doseUnidade)
@@ -519,8 +522,25 @@ private fun AvisoDeAtualizacao() {
     val ctx = LocalContext.current
     var versao by remember { mutableStateOf<VersaoRemota?>(null) }
     val estado by Atualizacao.estado.collectAsStateWithLifecycle()
+    // lido uma vez por abertura do app, e nao a cada volta ao Painel
+    val anterior = remember { br.com.lunelli.lulucoreef.update.VersaoVista.acabouDeAtualizar(ctx.applicationContext) }
+    var mostrarConfirmacao by remember { mutableStateOf(anterior != null) }
 
     LaunchedEffect(Unit) { versao = Atualizacao.checar(ctx)?.takeIf { it.nova } }
+
+    if (mostrarConfirmacao && versao == null) {
+        Panel(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(Luluco.ZoneIdeal))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Atualizado para a ${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
+                    Text("Estava na 0.0.$anterior. O app fechou e abriu sozinho para trocar de versão: é o normal.", fontSize = 13.sp, color = Luluco.TextSoft)
+                }
+                TextButton(onClick = { mostrarConfirmacao = false }) { Text("Ok") }
+            }
+        }
+    }
 
     val v = versao ?: return
     Panel(Modifier.fillMaxWidth().cascade(0)) {

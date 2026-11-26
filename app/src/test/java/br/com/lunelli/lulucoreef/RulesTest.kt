@@ -536,3 +536,30 @@ class VariacaoDaSaudeTest {
         assertEquals(null, d)
     }
 }
+
+class ViradaDoDiaTest {
+    private val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    private fun em(dataHora: String) = java.time.LocalDateTime.parse(dataHora).atZone(zone).toInstant().toEpochMilli()
+
+    @org.junit.Test fun madrugadaAindaEODiaAnterior() {
+        // quinta, 3h43: a lista ainda e a de quarta
+        assertEquals(java.time.LocalDate.parse("2026-11-25"), br.com.lunelli.lulucoreef.domain.diaDaAgenda(em("2026-11-26T03:43"), zone))
+        assertEquals("Ainda quarta", br.com.lunelli.lulucoreef.domain.rotuloHoje(em("2026-11-26T03:43"), zone))
+    }
+
+    @org.junit.Test fun seisDaManhaViraODia() {
+        assertEquals(java.time.LocalDate.parse("2026-11-25"), br.com.lunelli.lulucoreef.domain.diaDaAgenda(em("2026-11-26T05:59"), zone))
+        assertEquals(java.time.LocalDate.parse("2026-11-26"), br.com.lunelli.lulucoreef.domain.diaDaAgenda(em("2026-11-26T06:00"), zone))
+        assertEquals("Hoje", br.com.lunelli.lulucoreef.domain.rotuloHoje(em("2026-11-26T06:00"), zone))
+    }
+
+    @org.junit.Test fun doseDeQuartaAparecePendenteAsDuasDeQuinta() {
+        val dose = br.com.lunelli.lulucoreef.data.Routine("Amino Coral", tipo = "dosagem", recorrencia = "diaria", horario = "22:30")
+        val agora = em("2026-11-26T02:10")
+        val lista = br.com.lunelli.lulucoreef.domain.occurrencesOn(listOf(dose), emptyList(),
+            br.com.lunelli.lulucoreef.domain.diaDaAgenda(agora, zone), zone, agora)
+        assertEquals(1, lista.size)
+        assertEquals(em("2026-11-25T22:30"), lista.first().dueAt)
+        assertTrue(lista.first().open)
+    }
+}
