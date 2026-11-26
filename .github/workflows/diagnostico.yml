@@ -39,40 +39,20 @@ jobs:
           echo "---"
           jq -r '[.[].aparelho] | unique | .[]' /tmp/out.json
 
-      - name: Sondar tabelas do registro
+      - name: Downloads do APK (registro do Supabase, ultimas 48 h)
         continue-on-error: true
         run: |
-          ini=$(date -u -d "-24 hours" +%Y-%m-%dT%H:%M:%SZ); fim=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          q() {
-            sleep 3
-            curl -sS -G -o /tmp/p.json "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
-              --data-urlencode "sql=$1" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
-              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
-          }
-          for c in log_attributes attributes resource_attributes request; do
-            q "select timestamp, $c from logs where event_message like '%.apk%' limit 1"; echo "$c: $(head -c 1500 /tmp/p.json)"
-          done
-          echo "=== APKs ==="
-          q "select timestamp, source, event_message from logs where event_message like '%.apk%' order by timestamp asc limit 300"
-          head -c 300 /tmp/p.json; echo
-          jq -r '.result[]? | "\(.timestamp) \(.source) \(.event_message[0:260])"' /tmp/p.json
-          echo "=== versao.json depois de 06:40 UTC ==="
-          q "select timestamp, source, event_message from logs where event_message like '%versao.json%' and timestamp > '2026-11-26 06:40:00' order by timestamp asc limit 300"
-          head -c 300 /tmp/p.json; echo
-          jq -r '.result[]? | "\(.timestamp) \(.source) \(.event_message[0:200])"' /tmp/p.json
-
-      - name: Downloads do APK e consultas de versao (registro do Storage, ultimas 48 h)
-        run: |
           # Quem baixou qual APK e quando. Sem IP: so pais e programa, para separar o tablet
-          # (okhttp, BR) do CI (EUA). Mostra se a mesma versao foi baixada varias vezes (instalacao
-          # que nao entrou) ou uma de cada (atualizou e veio outra).
-          sql="select timestamp, request.method as metodo, request.path as caminho, response.status_code as status, h.user_agent as agente, h.range as faixa, cf.country as pais from edge_logs cross join unnest(metadata) as m cross join unnest(m.request) as request cross join unnest(m.response) as response cross join unnest(request.headers) as h cross join unnest(request.cf) as cf where regexp_contains(request.path, '/storage/v1/object/public/app/') order by timestamp asc limit 1000"
+          # (okhttp, BR) do CI (okhttp ou Python, EUA). A mesma versao baixada varias vezes pelo
+          # tablet quer dizer que a instalacao nao entrou; uma de cada, que atualizou e veio outra.
+          sql="select timestamp, event_message, log_attributes['request.cf.country'] as pais from logs where source = 'edge_logs' and event_message like '%/object/public/app/%.apk%' order by timestamp asc limit 500"
           for janela in 48 24; do
             ini=$(date -u -d "-${janela} hours" +%Y-%m-%dT%H:%M:%SZ); fim=$(date -u -d "-$((janela-24)) hours" +%Y-%m-%dT%H:%M:%SZ)
-            code=$(curl -sS -G -o /tmp/logs.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
+            sleep 2
+            curl -sS -G -o /tmp/logs.json "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
               --data-urlencode "sql=$sql" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
-              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
-            echo "== de $ini a $fim (HTTP $code) =="
-            if [ "$code" -ge 300 ] || jq -e '.error' /tmp/logs.json >/dev/null 2>&1; then head -c 1500 /tmp/logs.json; echo; continue; fi
-            jq -r '.result[] | "\((.timestamp/1000000) | strftime("%d/%m %H:%M:%S")) UTC  \(.pais // "?")  \(.status)  \(.metodo) \(.caminho | sub(".*/app/"; ""))  \(.faixa // "")  [\(.agente // "")]"' /tmp/logs.json
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+            echo "== de $ini a $fim =="
+            jq -e '.result' /tmp/logs.json >/dev/null 2>&1 || { head -c 800 /tmp/logs.json; echo; continue; }
+            jq -r '.result[] | (.event_message | split(" | ")) as $p | "\(.timestamp[0:19]) UTC  \(.pais // "?")  \($p[1])  \($p[2] | sub(".*/app/"; ""))  [\($p[3] // "")]"' /tmp/logs.json
           done
