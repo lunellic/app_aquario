@@ -7,23 +7,57 @@
  */
 'use strict';
 
-const M_ABAS = [['agenda', 'Agenda'], ['jornal', 'Jornal'], ['relatorio', 'Relatório']];
+// A aba "Mais" virou um menu de blocos. Com sete destinos, o controle segmentado de antes nao
+// cabia na largura do iPhone; em grade de dois cada um tem icone, nome e uma linha do que tem
+// dentro, e o toque e grande.
+const M_ITENS = [
+  ['agenda', 'Agenda', 'painel', () => 'calendário e próximos dias'],
+  ['aquario', 'Aquário', 'animal', () => { const n = dados.habitantes.filter((h) => h.status === 'ativo').reduce((a, h) => a + (h.quantidade || 0), 0); return `${n} habitante${n === 1 ? '' : 's'}`; }],
+  ['jornal', 'Jornal', 'nota', () => 'tudo que aconteceu'],
+  ['relatorio', 'Relatório', 'graficos', () => 'texto para compartilhar'],
+  ['equipamentos', 'Equipamentos', 'manutencao', () => `${dados.equipamentos.filter((e) => e.ativo).length} em uso`],
+  ['produtos', 'Produtos', 'dose', () => `${dados.produtos.length} na lista`],
+  ['sal', 'Calculadora de sal', 'tpa', () => 'água nova e corrigir balde'],
+];
+const M_CORES = { agenda: AREA.painel, aquario: AREA.animal, jornal: AREA.jornal, relatorio: AREA.relatorio, equipamentos: AREA.equip, produtos: AREA.dose, sal: AREA.calc };
 const SECOES = [
   ['resumo', 'Resumo'], ['testes', 'Testes'], ['consumo', 'Consumo'], ['tpas', 'TPAs'],
   ['produtos', 'Produtos usados'], ['rotinas', 'Rotinas e manutenção'], ['notas', 'Notas e saúde'],
 ];
 const R_PERIODOS = [['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias'], ['365', '1 ano']];
 
-let mAba = 'agenda';
+let mAba = null; // null = o menu
 let rPeriodo = '30';
 let rSecoes = SECOES.map((s) => s[0]);
 
 function desenharMais() {
-  segmentado($('#m-abas'), M_ABAS, mAba, (v) => { mAba = v; desenharMais(); });
+  const topo = $('#m-abas');
+  topo.innerHTML = '';
   const caixa = $('#mais');
   caixa.innerHTML = '';
+  if (!mAba) {
+    const g = el('div', 'menu-mais');
+    M_ITENS.forEach(([id, nome, ic, resumo]) => {
+      const b = el('button', 'bloco-mais');
+      b.appendChild(selo(ic, M_CORES[id], 36));
+      b.appendChild(el('div', 'bloco-nome', nome));
+      b.appendChild(el('div', 'bloco-sub', resumo()));
+      b.onclick = () => { mAba = id; desenharMais(); window.scrollTo(0, 0); };
+      g.appendChild(b);
+    });
+    caixa.appendChild(g);
+    return;
+  }
+  const volta = el('button', 'voltar-mais', '‹ Mais');
+  volta.onclick = () => { mAba = null; desenharMais(); };
+  topo.appendChild(volta);
+  topo.appendChild(el('h2', 'titulo-mais', (M_ITENS.find((i) => i[0] === mAba) || [, ''])[1]));
   if (mAba === 'agenda') desenharAgenda(caixa);
   else if (mAba === 'jornal') oJornal(caixa);
+  else if (mAba === 'aquario') desenharAquario(caixa);
+  else if (mAba === 'equipamentos') desenharEquipamentos(caixa);
+  else if (mAba === 'produtos') desenharProdutos(caixa);
+  else if (mAba === 'sal') desenharSal(caixa);
   else oRelatorio(caixa);
 }
 

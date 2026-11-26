@@ -9,6 +9,8 @@
  * aquela contra a qual os corais fluorescem.
  */
 :root {
+  /* seletor de data e teclado do sistema no tema escuro, senao o campo de data vinha branco */
+  color-scheme: dark;
   --fundo: #090A11;
   --card: #13141E;
   --borda: #212338;
@@ -149,7 +151,7 @@ input, select, textarea, button {
   font-size: 16px;
   font-family: inherit;
 }
-input[type=email], input[type=password], input[type=text], input[type=number], select, textarea {
+input[type=email], input[type=password], input[type=text], input[type=number], input[type=date], select, textarea {
   background: var(--solido);
   border: 1px solid var(--borda);
   border-radius: 12px;
@@ -545,3 +547,27 @@ body::before {
   letter-spacing: 1px; color: var(--suave); font-weight: 600; text-align: center; }
 .navdia .rotulo-dia.fora { color: var(--pool-texto); }
 .resumo-dia { padding: 4px 2px 8px; color: var(--suave); }
+
+/* Menu da aba Mais: blocos em grade de dois, icone redondo, nome e uma linha do que tem dentro. */
+.menu-mais { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; margin-top: 6px; }
+.bloco-mais { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left;
+  background: var(--card); border: 1px solid var(--borda); border-radius: var(--forma); padding: 14px; color: var(--creme); }
+.bloco-mais:active { background: var(--solido); }
+.bloco-nome { font-weight: 600; font-size: 16px; }
+.bloco-sub { font-size: 12px; color: var(--suave); }
+.topo-mais { display: flex; align-items: center; gap: 10px; }
+.topo-mais:empty { display: none; }
+.voltar-mais { background: var(--solido); color: var(--creme); border-radius: 12px; padding: 8px 12px; font-size: 15px; flex: none; }
+.titulo-mais { margin: 0; font-size: 20px; }
+
+/* Formularios das folhas: rotulo em cima, campo embaixo. */
+.campo { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.campo-rot { font-size: 12px; color: var(--suave); letter-spacing: 0.3px; }
+.item.clicavel { cursor: pointer; }
+.item.clicavel:active { background: var(--solido); }
+button.perigo { color: var(--critico); }
+
+/* Resultado das calculadoras: o numero que se usa na hora, grande. */
+.resultado:empty { display: none; }
+.resultado { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--pool) 14%, transparent); }
+.resultado-grande { font-size: 22px; font-weight: 600; letter-spacing: -0.4px; }

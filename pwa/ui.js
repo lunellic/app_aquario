@@ -360,7 +360,9 @@ function notaDeSaude() {
     const r = dados.ranges[p];
     if (!r) return;
     const st = statusDe(Number(u.valor), r);
-    if (st === 'aviso') itens.push({ txt: `${ROTULOS[p]} em atenção`, pts: -8 * peso });
+    // 'atencao', e nao 'aviso': zonaDe devolve 'atencao' e este teste nunca batia. Parametro
+    // em atencao nao descontava nada no celular e descontava 8 no tablet.
+    if (st === 'atencao') itens.push({ txt: `${ROTULOS[p]} em atenção`, pts: -8 * peso });
     if (st === 'critico') { itens.push({ txt: `${ROTULOS[p]} crítico`, pts: -15 * peso }); critico = true; }
   };
   principais.forEach((p) => avaliar(p, 1, true));
@@ -375,6 +377,13 @@ function notaDeSaude() {
     const dias = Math.floor((agora - new Date(tpa.feita_em).getTime()) / DIA_MS);
     if (dias > 16) itens.push({ txt: `TPA há ${dias} dias`, pts: -20 });
     else if (dias > 9) itens.push({ txt: `TPA há ${dias} dias`, pts: -10 });
+  }
+
+  // Rotinas dos ultimos 7 dias. Faltava inteiro no celular: o tablet desconta ate 15 pontos
+  // pelo que deixou de ser feito, e era o grosso da diferenca entre os dois.
+  const { feito, esperado } = cumprimento(dados.rotinas, dados.logs, agora, 7);
+  if (esperado > 0 && feito < esperado) {
+    itens.push({ txt: `Rotinas dos últimos 7 dias: ${feito} de ${esperado} cumpridas`, pts: -15 * (1 - feito / esperado) });
   }
 
   const abertos = dados.casos.filter((c) => !c.fechado_em).length;

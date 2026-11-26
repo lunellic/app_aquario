@@ -121,6 +121,43 @@ function vencimento(rotina, dia) {
 }
 
 /**
+ * Quantas rotinas venceram nos ultimos `dias` dias e quantas foram feitas. Mesma conta do
+ * compliance() do tablet, linha por linha, para a nota de saude dar o mesmo numero nos dois:
+ * cada (rotina, horario) conta uma vez so, nada do futuro entra, e atividade de uma vez so que ja
+ * foi resolvida conta apenas no dia em que foi resolvida.
+ */
+function cumprimento(rotinas, logs, agora, dias = 7) {
+  const porChave = {};
+  logs.filter((l) => !l.deleted_at).forEach((l) => {
+    const k = `${l.routine_id}|${new Date(l.previsto_para).getTime()}`;
+    if (!porChave[k] || new Date(l.updated_at) > new Date(porChave[k].updated_at)) porChave[k] = l;
+  });
+  let feito = 0;
+  let esperado = 0;
+  const visto = new Set();
+  for (let i = 0; i < dias; i++) {
+    const dia = diaDe(agora);
+    dia.setDate(dia.getDate() - i);
+    rotinas.forEach((r) => {
+      const due = vencimento(r, dia);
+      if (due == null || due > agora) return;
+      const k = `${r.id}|${due}`;
+      const log = porChave[k] || null;
+      const aberto = !log || log.status === 'pendente' || log.status === 'adiado';
+      if (r.recorrencia === 'unica' && !aberto) {
+        const resolvido = new Date(log.feito_em || log.updated_at).getTime();
+        if (diaDe(resolvido).getTime() !== dia.getTime()) return;
+      }
+      if (visto.has(k)) return;
+      visto.add(k);
+      esperado++;
+      if (log && log.status === 'feito') feito++;
+    });
+  }
+  return { feito, esperado };
+}
+
+/**
  * Ocorrencias de hoje, arrastando as pendencias dos dias anteriores.
  *
  * Mesma regra do app do tablet: rotina por dias da semana que nao foi feita nem pulada continua
@@ -222,13 +259,13 @@ const DIAS_FRENTE = 30;
 // ---------------------------------------------------------------- dados
 
 let dados = {
-  ranges: {}, testes: [], rotinas: [], logs: [], produtos: [], tanque: null,
+  ranges: {}, testes: [], rotinas: [], logs: [], produtos: [], tanque: null, habitantes: [], equipamentos: [],
   tpas: [], doses: [], notas: [], financas: [], compras: [], casos: [],
 };
 
 async function carregar() {
   const desde = iso(new Date(Date.now() - 120 * DIA_MS));
-  const [tanque, ranges, testes, rotinas, logs, produtos, tpas, doses, notas, financas, compras, casos] = await Promise.all([
+  const [tanque, ranges, testes, rotinas, logs, produtos, tpas, doses, notas, financas, compras, casos, habitantes, equipamentos] = await Promise.all([
     buscar('tank_config', 'deleted_at=is.null&limit=1'),
     buscar('param_ranges', 'deleted_at=is.null'),
     buscar('water_tests', `deleted_at=is.null&medido_em=gte.${desde}&order=medido_em.desc&limit=400`),
@@ -241,6 +278,8 @@ async function carregar() {
     buscar('finance_entries', 'deleted_at=is.null&order=lancado_em.desc&limit=500'),
     buscar('shopping_items', 'deleted_at=is.null&order=created_at.desc&limit=200'),
     buscar('health_cases', 'deleted_at=is.null&order=aberto_em.desc&limit=50'),
+    buscar('livestock', 'deleted_at=is.null&order=nome_popular&limit=500'),
+    buscar('equipment', 'deleted_at=is.null&order=tipo&limit=200'),
   ]);
   dados.tanque = (tanque || [])[0] || null;
   dados.ranges = {};
@@ -255,6 +294,8 @@ async function carregar() {
   dados.financas = financas || [];
   dados.compras = compras || [];
   dados.casos = casos || [];
+  dados.habitantes = habitantes || [];
+  dados.equipamentos = equipamentos || [];
 }
 
 const volume = () => (dados.tanque && dados.tanque.volume_dosagem_l) || 100;
