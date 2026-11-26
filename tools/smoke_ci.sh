@@ -15,7 +15,7 @@ gradle --no-daemon connectedDebugAndroidTest; status=$?
 adb logcat -d -v raw -s LULUCO_SHOT:I | tee capturas.log
 echo "=== atualizacao e quedas ==="
 adb logcat -d -v time -s LULUCO_UPD:I AndroidRuntime:E PackageInstaller:* ActivityManager:I | grep -E "LULUCO_UPD|FATAL|AndroidRuntime|Exception|at br\.com|PackageInstaller|install" | tail -80 || true
-if [ $status -ne 0 ]; then adb logcat -d -t 400 '*:E'; exit $status; fi
+if [ $status -ne 0 ]; then adb logcat -d -t 400 '*:E'; fi
 # Atualizacao de ponta a ponta, tocando nos botoes: um APK "versao 1" com a
 # assinatura da release, que tem que achar a versao publicada, baixar, instalar por
 # cima e voltar sozinho para a frente.
@@ -29,4 +29,6 @@ adb logcat -c
 python3 tools/e2e_atualizacao.py | tee e2e.log; e2e=${PIPESTATUS[0]}
 adb logcat -d -v time | grep -E "LULUCO_UPD|FATAL|AndroidRuntime|PackageManager.*lulucoreef|INSTALL_FAILED|BootReceiver|MY_PACKAGE_REPLACED" | tail -60 || true
 cat e2e.log >> capturas.log
-exit $e2e
+echo "=== resultado: testes instrumentados $status, atualizacao de ponta a ponta $e2e ==="
+# os dois contam: qualquer um falhando deixa o build vermelho
+[ $status -eq 0 ] && [ $e2e -eq 0 ]
