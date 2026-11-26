@@ -101,9 +101,18 @@ object Atualizacao {
     private val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     private var tarefa: kotlinx.coroutines.Job? = null
 
+    /** O APK ja baixado e conferido desta versao, para "Instalar" de novo sem baixar tudo outra vez. */
+    @Volatile private var conferido: Pair<Int, File>? = null
+
     fun iniciar(ctx: Context, v: VersaoRemota) {
         if (tarefa?.isActive == true) return
         val app = ctx.applicationContext
+        // Fechou o instalador sem instalar e tocou em "Instalar": o arquivo ja esta aqui e conferido.
+        conferido?.let { (build, apk) ->
+            if (build == v.build && apk.exists()) {
+                try { instalar(app, apk); return } catch (e: Exception) { log("reabrir o instalador falhou: $e") }
+            }
+        }
         _estado.value = Estado.Baixando(0, 1)
         tarefa = escopo.launch {
             var ultimoErro = ""
@@ -111,6 +120,7 @@ object Atualizacao {
                 try {
                     val apk = baixar(app, tentativa, v)
                     conferir(app, apk, v)
+                    conferido = v.build to apk
                     _estado.value = Estado.Pronto
                     kotlinx.coroutines.withContext(Dispatchers.Main) { instalar(app, apk) }
                     return@launch

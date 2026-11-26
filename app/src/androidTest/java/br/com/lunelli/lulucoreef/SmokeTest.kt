@@ -6,6 +6,8 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onRoot
 import android.content.pm.ActivityInfo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -155,10 +157,10 @@ class SmokeTest {
             menu("Saúde e quarentena")
             compose.onNodeWithText("Nova observação ou tratamento", ignoreCase = true).performClick()
             compose.onNodeWithText("Título (ex.: Duncan fechado)", ignoreCase = true).performTextInput("Duncan fechado")
-            compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performClick()
-            // Respiro antes de esperar a ficha. O waitUntil sozinho falhou duas vezes seguidas aqui e
-            // passou com esta pausa; a causa exata nao foi isolada, entao fica o respiro e o prazo folgado.
-            Thread.sleep(1500)
+            // O teclado fica aberto depois de digitar o titulo e cobre o Salvar: o toque simulado caia
+            // no teclado e o formulario ficava parado (print falha_caso do build 121). O clique vai
+            // pela acao de acessibilidade, que nao depende de onde o botao esta desenhado.
+            compose.onNodeWithText("Salvar", ignoreCase = true).performScrollTo().performSemanticsAction(SemanticsActions.OnClick)
             try {
                 compose.waitUntil(20_000) { compose.onAllNodesWithText("Nova entrada", ignoreCase = true).fetchSemanticsNodes().isNotEmpty() }
             } catch (e: Throwable) {
