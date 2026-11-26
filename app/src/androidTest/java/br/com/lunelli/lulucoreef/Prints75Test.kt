@@ -132,6 +132,8 @@ class Prints75Test {
             png("registro_roletas")
 
             // 3. Quarentena: protocolos e o protocolo escolhido; depois o dia a dia
+            // (o teste de agua tem "Voltar" no lugar do menu)
+            step { compose.onNodeWithText("Voltar", ignoreCase = true).performClick() }
             step { menu("Saúde e quarentena") }
             step { compose.onNodeWithText("Quarentena", ignoreCase = true).performScrollTo() }
             png("quarentena_lista")
