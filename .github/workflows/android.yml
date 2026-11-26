@@ -187,6 +187,15 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Keystore fixa (para o APK de teste ter a assinatura da release)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/luluco.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/luluco.jks" >> "$GITHUB_ENV"
+          fi
+
       - name: Habilitar KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -195,6 +204,10 @@ jobs:
 
       - name: Testes instrumentados no emulador API 22
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         with:
           api-level: 22
           arch: x86
@@ -202,18 +215,7 @@ jobs:
           profile: Nexus 7
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
-          script: |
-            adb logcat -G 16M
-            adb shell settings put secure immersive_mode_confirmations confirmed
-            gradle --no-daemon connectedDebugAndroidTest; status=$?
-            # A captura vem antes do exit: build que quebrou e justamente o que a gente
-            # quer ver na tela, nao o que a gente quer ficar sem print.
-            # tee e nao redirecionamento: o artefato e o jeito bom de pegar as telas, mas o
-            # log continua sendo o unico jeito de ver um print de onde nao da para baixar zip.
-            adb logcat -d -v raw -s LULUCO_SHOT:I | tee capturas.log
-            echo "=== atualizacao e quedas ==="
-            adb logcat -d -v time -s LULUCO_UPD:I AndroidRuntime:E PackageInstaller:* ActivityManager:I | grep -E "LULUCO_UPD|FATAL|AndroidRuntime|Exception|at br\.com|PackageInstaller|install" | tail -80 || true
-            if [ $status -ne 0 ]; then adb logcat -d -t 400 '*:E'; exit $status; fi
+          script: bash tools/smoke_ci.sh
 
       - name: Montar as capturas de tela
         if: always()

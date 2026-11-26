@@ -25,6 +25,15 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         br.com.lunelli.lulucoreef.diag.Queda.instalar(this)
+        // So no APK de debug do CI: o teste de atualizacao de ponta a ponta cria este arquivo para
+        // o app abrir no Painel sem login de verdade e sem tentar sincronizar. Nunca existe na
+        // release, que e o que vai para o tablet.
+        if (BuildConfig.DEBUG && java.io.File(filesDir, "e2e").exists()) {
+            Api.offlineForTests = true
+            if (graph.session.refreshToken == null) {
+                graph.session.save(org.json.JSONObject("""{"access_token":"x","refresh_token":"y","expires_in":999999,"user":{"id":"00000000-0000-0000-0000-000000000001","email":"e2e@example.com"}}"""))
+            }
+        }
         SyncWorker.schedulePeriodic(this)
     }
 }
