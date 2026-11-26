@@ -48,13 +48,15 @@ class AtualizacaoTest {
     @After fun limpar() { Atualizacao.ignorarVersaoParaTeste = false }
 
     private fun shot(nome: String) {
-        val bmp = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
-        val out = ByteArrayOutputStream()
-        android.graphics.Bitmap.createScaledBitmap(bmp, 800, bmp.height * 800 / bmp.width, true)
-            .compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, out)
-        Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP).chunked(3000).forEachIndexed { i, c ->
-            android.util.Log.i("LULUCO_SHOT", "$nome ${"%03d".format(i)} $c")
-        }
+        Thread.sleep(800)
+        val full = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
+        val out = java.io.ByteArrayOutputStream()
+        full.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+        val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+        android.util.Log.i("LULUCO_SHOT", "PNG75 $nome INICIO ${full.width}x${full.height} ${out.size()}")
+        b64.chunked(3000).forEachIndexed { i, part -> android.util.Log.i("LULUCO_SHOT", "PNG75 $nome ${i.toString().padStart(4, '0')} $part") }
+        android.util.Log.i("LULUCO_SHOT", "PNG75 $nome FIM")
+    }
     }
 
     @Test fun tocarEmAtualizarChegaAoInstaladorSemDerrubarOApp() {

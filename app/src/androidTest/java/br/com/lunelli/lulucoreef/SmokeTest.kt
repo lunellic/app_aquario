@@ -235,15 +235,14 @@ class SmokeTest {
     /** Tira uma captura da tela e a escreve no logcat (base64) para conferencia visual a partir do log do CI. */
     private fun shot(name: String) {
         compose.waitForIdle()
-        Thread.sleep(1200) // deixa as animacoes de entrada terminarem
+        Thread.sleep(1200)
         val full = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
-        val w = 800
-        val bmp = android.graphics.Bitmap.createScaledBitmap(full, w, full.height * w / full.width, true)
         val out = java.io.ByteArrayOutputStream()
-        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 72, out)
+        full.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
         val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
-        b64.chunked(3000).forEachIndexed { i, part -> android.util.Log.i("LULUCO_SHOT", "$name ${i.toString().padStart(3, '0')} $part") }
-        android.util.Log.i("LULUCO_SHOT", "$name FIM")
+        android.util.Log.i("LULUCO_SHOT", "PNG75 $name INICIO ${full.width}x${full.height} ${out.size()}")
+        b64.chunked(3000).forEachIndexed { i, part -> android.util.Log.i("LULUCO_SHOT", "PNG75 $name ${i.toString().padStart(4, '0')} $part") }
+        android.util.Log.i("LULUCO_SHOT", "PNG75 $name FIM")
     }
 
     /** Dados parecidos com os reais do Lucas, para ver as telas como elas vao aparecer no tablet. */
