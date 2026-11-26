@@ -40,7 +40,11 @@ fun wheelValues(p: String): List<Double> {
 
 /** Roleta vertical (como a do iPhone): gira, encaixa no valor do meio. Sem teclado. */
 @Composable
-fun WheelPicker(items: List<String>, index: Int, onIndex: (Int) -> Unit, modifier: Modifier = Modifier, active: Boolean = true, onTouch: () -> Unit = {}) {
+fun WheelPicker(items: List<String>, index: Int, onIndex: (Int) -> Unit, modifier: Modifier = Modifier, active: Boolean = true, onTouch: () -> Unit = {}, linhas: Int = 3) {
+    // Linhas visiveis, sempre impar para haver uma do meio. Cada respiro em cima e embaixo e um
+    // item do mesmo tamanho dos numeros, e nao um espaco so: assim o item do topo da lista
+    // continua sendo, exatamente, o numero que esta na faixa do meio, e a conta do centro nao muda.
+    val respiro = (linhas.coerceAtLeast(3) - 1) / 2
     val itemH = 40.dp
     val itemHpx = with(androidx.compose.ui.platform.LocalDensity.current) { itemH.toPx() }
     val state = rememberLazyListState(initialFirstVisibleItemIndex = index.coerceIn(0, items.lastIndex))
@@ -73,12 +77,12 @@ fun WheelPicker(items: List<String>, index: Int, onIndex: (Int) -> Unit, modifie
     }
     LaunchedEffect(index) { if (!state.isScrollInProgress && centro != index) state.scrollToItem(index.coerceIn(0, items.lastIndex)) }
     val shape = RoundedCornerShape(12.dp)
-    Box(modifier.height(itemH * 3).clip(shape).background(Luluco.Solid)) {
+    Box(modifier.height(itemH * (respiro * 2 + 1)).clip(shape).background(Luluco.Solid)) {
         // faixa do meio
         Box(Modifier.align(Alignment.Center).fillMaxWidth().height(itemH).padding(horizontal = 6.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = if (active) 0.07f else 0.03f)))
         LazyColumn(state = state, flingBehavior = fling, modifier = Modifier.fillMaxSize()) {
             // um item vazio em cima e outro embaixo para o primeiro e o ultimo valor poderem ficar no meio
-            item { Spacer(Modifier.height(itemH)) }
+            items(respiro) { Spacer(Modifier.height(itemH)) }
             items(items.size) { i ->
                 val dist = abs(i - centro)
                 Box(Modifier.height(itemH).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -86,7 +90,7 @@ fun WheelPicker(items: List<String>, index: Int, onIndex: (Int) -> Unit, modifie
                         color = when { dist == 0 && active -> Luluco.Cream; dist == 0 -> Luluco.TextSoft; else -> Luluco.TextFaint })
                 }
             }
-            item { Spacer(Modifier.height(itemH)) }
+            items(respiro) { Spacer(Modifier.height(itemH)) }
         }
         // esmaecer em cima e embaixo
         Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(itemH).background(Brush.verticalGradient(listOf(Luluco.Solid, Luluco.Solid.copy(alpha = 0f)))))
@@ -96,7 +100,7 @@ fun WheelPicker(items: List<String>, index: Int, onIndex: (Int) -> Unit, modifie
 
 /** Parametro com roleta. Comeca no ultimo valor medido, apagado; girar marca como medido. */
 @Composable
-fun ParamWheel(p: String, value: String?, start: Double?, onChange: (String?) -> Unit, modifier: Modifier = Modifier) {
+fun ParamWheel(p: String, value: String?, start: Double?, onChange: (String?) -> Unit, modifier: Modifier = Modifier, linhas: Int = 3) {
     val vals = remember(p) { wheelValues(p) }
     val labels = remember(p) { vals.map { Params.format(p, it) } }
     val startIdx = remember(p, start) { start?.let { s -> vals.indices.minByOrNull { abs(vals[it] - s) } } ?: (vals.size / 2) }
@@ -111,6 +115,6 @@ fun ParamWheel(p: String, value: String?, start: Double?, onChange: (String?) ->
         Spacer(Modifier.height(6.dp))
         WheelPicker(labels, idx, { i -> idx = i; if (active) onChange(labels[i]) },
             Modifier.fillMaxWidth().then(if (active) Modifier.border(1.dp, Luluco.Pool.copy(alpha = 0.5f), RoundedCornerShape(12.dp)) else Modifier),
-            active = active, onTouch = { if (!active) onChange(labels[idx]) })
+            active = active, onTouch = { if (!active) onChange(labels[idx]) }, linhas = linhas)
     }
 }

@@ -292,6 +292,13 @@ class SmokeTest {
                     compose.onAllNodesWithText("Métricas principais", ignoreCase = true).fetchSemanticsNodes().isNotEmpty()
             }
             shot("painel")
+            // teste de um parametro so (toque no card do Calcio): roleta alta e historico ao lado
+            step {
+                compose.onNodeWithTag("card_ca").performScrollTo().performClick()
+                shot("teste_um")
+                compose.onNodeWithText("Voltar").performClick()
+                compose.waitForIdle()
+            }
             // calendario do Painel: toca num dia e ve a lista
             step { compose.onNodeWithText("Adicionar atividade neste dia", ignoreCase = true).performScrollTo() }
             shot("calendario")

@@ -21,6 +21,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import br.com.lunelli.lulucoreef.BuildConfig
@@ -153,7 +154,7 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
                                         val last = reliableTests.latestOf(p)
                                         val exit = remember(tests, ranges, now) { trendOf(tests, p, ranges[p], now)?.daysToExit }
                                         val series = remember(reliableTests, p) { reliableTests.filter { it.parametro == p }.sortedBy { it.medidoEm }.takeLast(12).map { it.medidoEm to it.valor } }
-                                        MetricCard(Modifier.weight(1f).clickable { nav.go(Screen.TestForm(only = p)) }, p, last?.valor, last?.medidoEm, ranges[p], exit, now, series)
+                                        MetricCard(Modifier.weight(1f).testTag("card_$p").clickable { nav.go(Screen.TestForm(only = p)) }, p, last?.valor, last?.medidoEm, ranges[p], exit, now, series)
                                     }
                                 }
                                 if (pair.size == 1) Spacer(Modifier.weight(1f))

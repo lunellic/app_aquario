@@ -118,18 +118,21 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?, only: String? = null
         ScreenHeader(if (edit != null) "Editar ${Params.label(edit.parametro)}" else "Teste de água", onBack = { nav.back() })
         val visible = if (edit != null || only != null) params else Params.MAIN + (if (more) Params.OPTIONAL else emptyList())
         @Composable
-        fun Roleta(p: String, modifier: Modifier) {
+        fun Roleta(p: String, modifier: Modifier, linhas: Int = 3) {
             val lastV = remember(tests, p) { tests.filter { it.parametro == p }.maxByOrNull { it.medidoEm }?.valor }
             ParamWheel(p, values[p], edit?.takeIf { it.parametro == p }?.valor ?: lastV,
-                { v -> foco = p; if (v == null) values.remove(p) else values[p] = v }, modifier)
+                { v -> foco = p; if (v == null) values.remove(p) else values[p] = v }, modifier, linhas = linhas)
         }
         if (visible.size == 1) {
             // Um parametro so: roleta a esquerda e o historico dele a direita, que e o espaco que
             // ficava vazio. Escolher o numero olhando as ultimas medicoes evita o erro classico de
             // girar ate um valor que nao faz sentido perto do que vinha sendo medido.
+            // Roleta de sete linhas, da mesma altura do historico ao lado. Com tres ela era um
+            // bloquinho no alto da esquerda e o historico um bloco alto na direita, e a tela
+            // ficava torta. O historico mostra cinco medicoes para os dois fecharem juntos.
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Roleta(visible.first(), Modifier.weight(0.42f))
-                HistoricoDoParametro(visible.first(), tests, ranges[visible.first()], Modifier.weight(0.58f))
+                Roleta(visible.first(), Modifier.weight(0.42f), linhas = 7)
+                HistoricoDoParametro(visible.first(), tests, ranges[visible.first()], Modifier.weight(0.58f), linhas = 5)
             }
         } else {
             // roletas lado a lado (sem teclado); cada uma comeca no ultimo valor medido
@@ -145,12 +148,15 @@ fun TestForm(vm: MainViewModel, nav: Nav, edit: WaterTest?, only: String? = null
         }
         if (edit == null && only == null && !more) TextButton(onClick = { more = true }) { Text("Mais parâmetros (NO3, PO4)") }
         DateTimeField("Medido em", at) { at = it }
-        TextInput("Observação (opcional)", obs) { obs = it }
-        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Checkbox(lowConfidence, { lowConfidence = it })
-            Column {
-                Text("Leitura de baixa confiança")
-                Muted("Fica vazada no gráfico e fora de projeção, alertas e nota de saúde.")
+        // Observacao e baixa confianca na mesma linha: uma linha a menos para rolar ate o Salvar.
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TextInput("Observação (opcional)", obs, Modifier.weight(1f)) { obs = it }
+            Row(Modifier.weight(1f), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Checkbox(lowConfidence, { lowConfidence = it })
+                Column {
+                    Text("Leitura de baixa confiança")
+                    Muted("Fica vazada no gráfico e fora de projeção, alertas e nota de saúde.")
+                }
             }
         }
         SaveRow(valid, onDelete = edit?.let { e -> { vm.delete(e); nav.back() } }) {
@@ -269,7 +275,7 @@ fun EventForm(vm: MainViewModel, nav: Nav, edit: Event?) {
  * ideal, e as ultimas medicoes em lista, com valor, zona e quanto mudou da anterior.
  */
 @Composable
-private fun HistoricoDoParametro(p: String, tests: List<WaterTest>, range: ParamRange?, modifier: Modifier = Modifier) {
+private fun HistoricoDoParametro(p: String, tests: List<WaterTest>, range: ParamRange?, modifier: Modifier = Modifier, linhas: Int = 6) {
     val agora = System.currentTimeMillis()
     val desde = agora - 30L * 24 * 3600 * 1000
     val todos = remember(tests, p) { tests.filter { it.parametro == p }.sortedByDescending { it.medidoEm } }
@@ -298,7 +304,7 @@ private fun HistoricoDoParametro(p: String, tests: List<WaterTest>, range: Param
             }
             Spacer(Modifier.height(6.dp))
         }
-        todos.take(6).forEachIndexed { i, t ->
+        todos.take(linhas).forEachIndexed { i, t ->
             val anterior = todos.drop(i + 1).firstOrNull { !it.baixaConfianca }
             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(fmtDayShort(t.medidoEm), fontSize = 13.sp, color = Luluco.TextSoft, modifier = Modifier.width(56.dp))
