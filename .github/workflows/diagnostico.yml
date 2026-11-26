@@ -47,7 +47,7 @@ jobs:
           sql="select timestamp, request.method as metodo, request.path as caminho, response.status_code as status, h.user_agent as agente, h.range as faixa, cf.country as pais from edge_logs cross join unnest(metadata) as m cross join unnest(m.request) as request cross join unnest(m.response) as response cross join unnest(request.headers) as h cross join unnest(request.cf) as cf where regexp_contains(request.path, '/storage/v1/object/public/app/') order by timestamp asc limit 1000"
           for janela in 48 24; do
             ini=$(date -u -d "-${janela} hours" +%Y-%m-%dT%H:%M:%SZ); fim=$(date -u -d "-$((janela-24)) hours" +%Y-%m-%dT%H:%M:%SZ)
-            code=$(curl -sS -G -o /tmp/logs.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs.all" \
+            code=$(curl -sS -G -o /tmp/logs.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
               --data-urlencode "sql=$sql" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
             echo "== de $ini a $fim (HTTP $code) =="
