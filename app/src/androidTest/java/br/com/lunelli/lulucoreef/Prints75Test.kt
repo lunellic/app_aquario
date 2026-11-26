@@ -49,6 +49,8 @@ class Prints75Test {
     @After fun restore() { Api.offlineForTests = false }
 
     private fun menu(label: String) {
+        // o botao do menu fica no cabecalho, que rola junto com a tela: traz de volta antes de tocar
+        runCatching { compose.onNodeWithContentDescription("Menu").performScrollTo() }
         compose.onNodeWithContentDescription("Menu").performClick()
         compose.onNodeWithTag("menu_$label").performScrollTo().performClick()
     }
@@ -119,8 +121,7 @@ class Prints75Test {
             // 1. Calculadora: secao "Correcao de KH, Ca e Mg" (ultima da tela), com os valores que o
             //    app preenche sozinho (ultimo teste e alvo padrao).
             step { menu("Calculadoras") }
-            step { compose.onNodeWithText("Litragem real", ignoreCase = true).performScrollTo() }
-            step { repeat(4) { compose.onRoot().performTouchInput { swipeUp() } } }
+            step { compose.onNodeWithText("Ordem: magnésio primeiro", substring = true, ignoreCase = true).performScrollTo() }
             png("calculadora")
             step { compose.onNodeWithText("Correção de KH, Ca e Mg", ignoreCase = true).performScrollTo() }
             png("calculadora_titulo")
