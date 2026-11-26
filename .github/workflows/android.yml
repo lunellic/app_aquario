@@ -131,7 +131,11 @@ jobs:
             adb root || true
             sleep 5
             adb wait-for-device
+            adb shell settings put global auto_time 0
+            adb shell settings put global auto_time_zone 0
+            adb shell setprop persist.sys.timezone America/Sao_Paulo
             adb shell date -s 20261119.181500 || true
             adb shell date
             gradle --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=br.com.lunelli.lulucoreef.Prints75Test || adb logcat -d -t 400 '*:E'
+            adb shell date
             adb logcat -d -v raw -s LULUCO_SHOT:I
