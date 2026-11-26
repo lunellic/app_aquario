@@ -241,7 +241,7 @@ class SmokeTest {
         full.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
         val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
         android.util.Log.i("LULUCO_SHOT", "PNG75 $name INICIO ${full.width}x${full.height} ${out.size()}")
-        b64.chunked(3000).forEachIndexed { i, part -> android.util.Log.i("LULUCO_SHOT", "PNG75 $name ${i.toString().padStart(4, '0')} $part") }
+        b64.chunked(3000).forEachIndexed { i, part -> Thread.sleep(3); android.util.Log.i("LULUCO_SHOT", "PNG75 $name ${i.toString().padStart(4, '0')} $part") }
         android.util.Log.i("LULUCO_SHOT", "PNG75 $name FIM")
     }
 
