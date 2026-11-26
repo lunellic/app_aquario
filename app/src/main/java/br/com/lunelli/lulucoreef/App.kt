@@ -24,12 +24,6 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        br.com.lunelli.lulucoreef.diag.Diario.iniciar(this)
-        br.com.lunelli.lulucoreef.diag.Queda.instalar(this)
-        br.com.lunelli.lulucoreef.update.VersaoVista.registrarAbertura(this)
-        // So no APK de debug do CI: o teste de atualizacao de ponta a ponta cria este arquivo para
-        // o app abrir no Painel sem login de verdade e sem tentar sincronizar. Nunca existe na
-        // release, que e o que vai para o tablet.
         if (BuildConfig.DEBUG && java.io.File(filesDir, "e2e").exists()) {
             Api.offlineForTests = true
             if (graph.session.refreshToken == null) {
@@ -37,11 +31,5 @@ class App : Application() {
             }
         }
         SyncWorker.schedulePeriodic(this)
-        // Manda o diario guardado (queda da ultima vez, passos da ultima atualizacao) depois que o
-        // app ja abriu, fora da linha principal.
-        Thread {
-            Thread.sleep(15_000)
-            br.com.lunelli.lulucoreef.diag.Diario.enviar(graph.api)
-        }.apply { isDaemon = true; name = "diario" }.start()
     }
 }

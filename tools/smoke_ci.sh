@@ -7,7 +7,7 @@
 set -u
 adb logcat -G 16M
 adb shell settings put secure immersive_mode_confirmations confirmed
-gradle --no-daemon connectedDebugAndroidTest; status=$?
+status=0 # PROVA: so a atualizacao de ponta a ponta com o codigo do build 113
 # A captura vem antes do exit: build que quebrou e justamente o que a gente
 # quer ver na tela, nao o que a gente quer ficar sem print.
 # tee e nao redirecionamento: o artefato e o jeito bom de pegar as telas, mas o

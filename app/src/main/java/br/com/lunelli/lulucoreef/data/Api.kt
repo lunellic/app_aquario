@@ -99,17 +99,6 @@ class Api(context: Context, private val session: SessionStore) {
         }
     }
 
-    /** Diario de diagnostico (quedas e passos da atualizacao). So insere. */
-    fun enviarDiagnosticos(jsonArray: String) {
-        authed({
-            Request.Builder().url("$base/rest/v1/app_diagnosticos")
-                .header("Prefer", "return=minimal")
-                .post(jsonArray.toRequestBody(jsonType))
-        }) { r ->
-            if (!r.isSuccessful) throw ApiException(r.code, "app_diagnosticos: ${errorMessage(r.body?.string().orEmpty())}")
-        }
-    }
-
     /** Chama uma Edge Function com o JWT do usuario. Erros vem como {"error": "..."}. */
     fun callFunction(name: String, body: JSONObject): JSONObject =
         authed({ Request.Builder().url("$base/functions/v1/$name").post(body.toString().toRequestBody(jsonType)) }) { r ->

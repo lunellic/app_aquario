@@ -31,29 +31,11 @@ data class VersaoRemota(
     val build: Int, val versao: String, val notas: String, val quando: String,
     val apk: String? = null, val tamanho: Long? = null, val sha256: String? = null,
 ) {
-    val nova: Boolean get() = build > BuildConfig.VERSION_CODE || Atualizacao.ignorarVersaoParaTeste
+    val nova: Boolean get() = build > BuildConfig.VERSION_CODE
 }
 
 object Atualizacao {
     private const val PASTA = "app"
-
-    /**
-     * So para o teste no emulador: deixa baixar e abrir o instalador com a mesma versao que esta
-     * instalada, para o fluxo inteiro (aviso, toque, download, conferencia, instalador) rodar no
-     * CI sem precisar de um APK mais novo que o proprio teste.
-     */
-    @Volatile var ignorarVersaoParaTeste = false
-
-    private fun log(msg: String) {
-        android.util.Log.i("LULUCO_UPD", msg)
-        br.com.lunelli.lulucoreef.diag.Diario.registrar("atualizacao", msg)
-    }
-
-    /** Manda o diario agora, sem esperar a proxima abertura (antes do instalador matar o app). */
-    private fun enviarDiario(ctx: Context) {
-        val app = ctx.applicationContext as? br.com.lunelli.lulucoreef.App ?: return
-        Thread { br.com.lunelli.lulucoreef.diag.Diario.enviar(app.graph.api) }.apply { isDaemon = true }.start()
-    }
     private fun base() = "${BuildConfig.SUPABASE_URL}/storage/v1/object/public/$PASTA"
 
     /** Le o versao.json publicado pelo CI. Devolve null se nao deu para checar. */
@@ -90,13 +72,8 @@ object Atualizacao {
         data object Pronto : Estado
     }
 
-    private val _estado = object {
-        val fluxo = kotlinx.coroutines.flow.MutableStateFlow<Estado>(Estado.Parado)
-        var value: Estado
-            get() = fluxo.value
-            set(v) { if (v !is Estado.Baixando || v.pct % 10 == 0) log("estado: $v"); fluxo.value = v }
-    }
-    val estado: kotlinx.coroutines.flow.StateFlow<Estado> = _estado.fluxo
+    private val _estado = kotlinx.coroutines.flow.MutableStateFlow<Estado>(Estado.Parado)
+    val estado: kotlinx.coroutines.flow.StateFlow<Estado> = _estado
 
     /** O descanso le isto para nao entrar no meio de um download. */
     val baixando: Boolean get() = _estado.value is Estado.Baixando
@@ -110,20 +87,9 @@ object Atualizacao {
     private val escopo = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     private var tarefa: kotlinx.coroutines.Job? = null
 
-    /** O APK ja baixado e conferido desta versao, para "Instalar" de novo sem baixar tudo outra vez. */
-    @Volatile private var conferido: Pair<Int, File>? = null
-
     fun iniciar(ctx: Context, v: VersaoRemota) {
         if (tarefa?.isActive == true) return
         val app = ctx.applicationContext
-        // Fechou o instalador sem instalar e tocou em "Instalar": o arquivo ja esta aqui e conferido.
-        conferido?.let { (build, apk) ->
-            if (build == v.build && apk.exists()) {
-                try { instalar(app, apk); return } catch (e: Exception) { log("reabrir o instalador falhou: $e") }
-            }
-        }
-        val pasta = app.getExternalFilesDir(null)
-        log("tocou em atualizar: ${BuildConfig.VERSION_CODE} -> ${v.build} (${v.apk}, ${v.tamanho} bytes); pasta ${pasta ?: "interna"}, livre ${(pasta ?: app.cacheDir).usableSpace / 1_048_576} MB")
         _estado.value = Estado.Baixando(0, 1)
         tarefa = escopo.launch {
             var ultimoErro = ""
@@ -131,15 +97,12 @@ object Atualizacao {
                 try {
                     val apk = baixar(app, tentativa, v)
                     conferir(app, apk, v)
-                    conferido = v.build to apk
                     _estado.value = Estado.Pronto
-                    enviarDiario(app)
                     kotlinx.coroutines.withContext(Dispatchers.Main) { instalar(app, apk) }
                     return@launch
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    log("tentativa $tentativa falhou: ${android.util.Log.getStackTraceString(e).take(600)}")
                     ultimoErro = e.message ?: e.javaClass.simpleName
                     TrustedHttp.client(app).connectionPool.evictAll()
                     if (tentativa < TENTATIVAS) kotlinx.coroutines.delay(3_000L * tentativa)
@@ -148,7 +111,6 @@ object Atualizacao {
             _estado.value = Estado.Falhou(
                 "Parou $TENTATIVAS vezes seguidas ($ultimoErro). O que já veio fica guardado: tocar de novo continua de onde parou.",
             )
-            enviarDiario(app)
         }
     }
 
@@ -241,7 +203,7 @@ object Atualizacao {
         @Suppress("DEPRECATION")
         val codigo = info.versionCode
         if (codigo != v.build) descarta("veio a versão 0.0.$codigo em vez da ${v.versao}")
-        if (codigo <= BuildConfig.VERSION_CODE && !ignorarVersaoParaTeste) descarta("o arquivo é a mesma versão que já está instalada")
+        if (codigo <= BuildConfig.VERSION_CODE) descarta("o arquivo é a mesma versão que já está instalada")
     }
 
     fun instalar(ctx: Context, apk: File) {
@@ -254,42 +216,6 @@ object Atualizacao {
         } else {
             intent.setDataAndType(Uri.fromFile(apk), tipo)
         }
-        log("abrindo o instalador: ${intent.data}")
         ctx.startActivity(intent)
-        log("instalador aberto")
-    }
-}
-
-/**
- * Lembra a ultima versao que abriu, para dizer na tela quando uma atualizacao deu certo.
- *
- * Na atualizacao o Android fecha o app para trocar os arquivos e ele volta sozinho em seguida.
- * Sem um aviso explicito, "fechou e voltou" parece "travou", e nao da para saber se a versao nova
- * entrou. Agora, na primeira abertura depois da troca, o Painel diz "Atualizado para a 0.0.N".
- */
-object VersaoVista {
-    private fun prefs(ctx: Context) = ctx.getSharedPreferences("versao", Context.MODE_PRIVATE)
-
-    /**
-     * Anota no diario a primeira abertura de cada versao: e a confirmacao, do lado de ca, de que a
-     * atualizacao entrou. Separado do aviso do Painel, que so le quando o Painel abre.
-     */
-    fun registrarAbertura(ctx: Context) {
-        val p = prefs(ctx)
-        val vista = p.getInt("diario", 0)
-        val agora = BuildConfig.VERSION_CODE
-        if (vista != agora) {
-            br.com.lunelli.lulucoreef.diag.Diario.registrar("abriu", if (vista == 0) "primeira abertura registrada" else "versao trocou: $vista -> $agora")
-            p.edit().putInt("diario", agora).apply()
-        }
-    }
-
-    /** A versao anterior, se esta e a primeira abertura depois de uma atualizacao; senao nulo. */
-    fun acabouDeAtualizar(ctx: Context): Int? {
-        val p = prefs(ctx)
-        val antes = p.getInt("ultima", 0)
-        val agora = BuildConfig.VERSION_CODE
-        if (antes != agora) p.edit().putInt("ultima", agora).apply()
-        return antes.takeIf { it in 1 until agora }
     }
 }

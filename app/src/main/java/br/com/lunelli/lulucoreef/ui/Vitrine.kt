@@ -36,8 +36,7 @@ import br.com.lunelli.lulucoreef.domain.allAlerts
 import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.formatDose
 import br.com.lunelli.lulucoreef.domain.healthScore
-import br.com.lunelli.lulucoreef.domain.diaDaAgenda
-import br.com.lunelli.lulucoreef.domain.rotuloHoje
+import br.com.lunelli.lulucoreef.domain.healthDelta
 import br.com.lunelli.lulucoreef.domain.latestOf
 import br.com.lunelli.lulucoreef.domain.occurrencesOn
 import br.com.lunelli.lulucoreef.domain.statusOf
@@ -87,10 +86,14 @@ fun VitrineScreen(vm: MainViewModel) {
     val dx = listOf(0, 6, 12, 6, 0, -6, -12, -6)[shift]
     val dy = listOf(0, 5, 0, -5, -10, -5, 0, 5)[shift]
 
-    val today = occurrencesOn(routines, logs, diaDaAgenda(now, zone), zone, now)
+    val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone, now)
     val alertas = allAlerts(allTests, ranges, changes, today, cases, entries, now).take(4)
     val saude = healthScore(allTests, ranges, changes, routines, logs, cases, now, zone)
     val score = saude.score
+    // Recalculada uma vez por hora: e a nota de sete dias atras, nao muda de minuto em minuto.
+    val variacao = remember(allTests, ranges, changes, routines, logs, cases, now / 3_600_000) {
+        healthDelta(now, 7, allTests, ranges, changes, routines, logs, cases, zone)
+    }
     val foto = tank?.fotoVitrinePath
 
     val shown = Params.ALL.filter { it in settings.shownParams }
@@ -115,29 +118,14 @@ fun VitrineScreen(vm: MainViewModel) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     // Encostado a esquerda, alinhado com a data e os parametros embaixo. Centrado
                     // numa caixa de 62% da coluna ele flutuava no meio, sem ancora nenhuma.
-                    // Topo: relogio e data a esquerda; saude e ultima TPA a direita deles, encostados
-                    // na lista. A coluna da direita fica inteira para o que fazer.
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.92f), maxFont = 124f, alinhamento = Alignment.CenterStart)
-                            Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            VIndicador("Saúde", scoreColor(score, saude.critico), score?.toString() ?: "-", null)
-                            val dias = lastTpa?.let { ((now - it.feitaEm) / DAY_MS).toInt() }
-                            VIndicador("Última TPA", corDaTpa(dias), dias?.let { if (it == 1) "1 dia" else "$it dias" } ?: "-",
-                                lastTpa?.let { "${numShort(it.litros)} L trocados" })
-                        }
-                    }
+                    GlassClock(fmtTime(now), Modifier.fillMaxWidth(0.7f), maxFont = 124f, alinhamento = Alignment.CenterStart)
+                    Eyebrow(zdt.format(DateTimeFormatter.ofPattern("EEEE · d 'de' MMMM", PtBr)), Modifier.padding(start = 4.dp))
                     Spacer(Modifier.height(12.dp))
                     // Os quatro parametros mais relogio mais avisos nao cabiam em 500 px de
                     // altura: a segunda linha de numeros saia cortada ao meio. Alem de encolher
                     // o conteudo, o bloco agora recorta no proprio limite, para um dado a mais
                     // nunca voltar a invadir o bloco de baixo sem ninguem perceber.
-                    // Com ate quatro parametros eles descem para o meio da altura que sobra; com NO3
-                    // ou PO4 ligados (cinco ou seis) precisam do espaco todo e voltam a encostar em cima.
-                    if (shown.isNotEmpty()) Column(Modifier.weight(1f).clipToBounds(),
-                        verticalArrangement = if (shown.size <= 4) Arrangement.spacedBy(22.dp, Alignment.CenterVertically) else Arrangement.spacedBy(14.dp)) {
+                    if (shown.isNotEmpty()) Column(Modifier.weight(1f).clipToBounds(), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         shown.chunked(2).forEach { linha ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                                 linha.forEach { p ->
@@ -174,7 +162,7 @@ fun VitrineScreen(vm: MainViewModel) {
                   // A lista ocupa o que sobra e recorta no limite: num dia com dez rotinas ela nao
                   // pode empurrar a saude e a TPA para fora da tela.
                   Column(Modifier.weight(1f).clipToBounds()) {
-                    Eyebrow(rotuloHoje(now, zone) + if (today.isEmpty()) "" else "  ·  $doneToday/${today.size}")
+                    Eyebrow(if (today.isEmpty()) "Hoje" else "Hoje  ·  $doneToday/${today.size}")
                     Spacer(Modifier.height(8.dp))
                     if (today.isEmpty()) Text("Nada para hoje.", fontSize = 15.sp, color = Luluco.TextSoft)
                     today.forEachIndexed { i, o ->
@@ -199,7 +187,24 @@ fun VitrineScreen(vm: MainViewModel) {
                             VRow(whenText(item.dueAt, now, zone), item.routine.titulo, null, done = false, late = item.late, wide = true)
                         }
                     }
+                    // Saude e ultima TPA desceram para baixo da lista. No rodape da tela inteira
+                    // elas roubavam uma faixa de altura da coluna dos parametros, que era a parte
+                    // apertada; aqui embaixo da lista sobra espaco.
                   }
+                    HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        Column {
+                            VStat("Saúde", score?.toString() ?: "-", null, scoreColor(score, saude.critico))
+                            if (variacao != null) Box(Modifier.padding(top = 4.dp)) {
+                                // Na saude a cor tem sinal: subir e bom e descer e ruim, ao contrario
+                                // dos parametros de agua, onde subir pode ser piorar.
+                                DeltaBadge("${kotlin.math.abs(variacao)} em 7 dias", variacao.coerceIn(-1, 1), comSinal = true)
+                            }
+                        }
+                        VStat("Última TPA", lastTpa?.let { "${(now - it.feitaEm) / DAY_MS}d" } ?: "-", lastTpa?.let { numShort(it.litros) + " L" },
+                            if (lastTpa != null && now - lastTpa.feitaEm > 9 * DAY_MS) Luluco.ZoneWarn else null)
+                    }
                 }
             }
         }
@@ -312,30 +317,4 @@ fun setBrightness(activity: Activity?, value: Float) {
     val lp = w.attributes
     lp.screenBrightness = value
     w.attributes = lp
-}
-
-/**
- * Indicador do descanso: bolinha na cor do estado, rotulo pequeno, numero grande e, se houver, um
- * detalhe numa linha propria embaixo. Antes "3d" e "10 L" ficavam colados na mesma linha e liam
- * como uma coisa so.
- */
-@Composable
-private fun VIndicador(rotulo: String, cor: Color, valor: String, detalhe: String?) {
-    Column(horizontalAlignment = Alignment.Start) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(cor))
-            Spacer(Modifier.width(7.dp))
-            Eyebrow(rotulo)
-        }
-        Text(valor, fontFamily = Display, fontWeight = FontWeight.SemiBold, fontSize = 30.sp, letterSpacing = (-0.8).sp, color = Luluco.Cream, maxLines = 1)
-        if (detalhe != null) Text(detalhe, fontSize = 12.sp, color = Luluco.TextSoft, maxLines = 1)
-    }
-}
-
-/** Ate 5 dias da ultima TPA, verde; 6 e 7, laranja; a partir de 8, vermelho: hora de trocar. */
-fun corDaTpa(dias: Int?): Color = when {
-    dias == null -> Luluco.ZoneNone
-    dias <= 5 -> Luluco.ZoneIdeal
-    dias <= 7 -> Luluco.ZoneWarn
-    else -> Luluco.ZoneCrit
 }

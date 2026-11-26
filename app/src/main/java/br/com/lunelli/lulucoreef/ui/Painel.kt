@@ -55,8 +55,6 @@ import br.com.lunelli.lulucoreef.domain.compliance
 import br.com.lunelli.lulucoreef.domain.doseFor
 import br.com.lunelli.lulucoreef.domain.formatDose
 import br.com.lunelli.lulucoreef.domain.healthScore
-import br.com.lunelli.lulucoreef.domain.diaDaAgenda
-import br.com.lunelli.lulucoreef.domain.rotuloHoje
 import br.com.lunelli.lulucoreef.domain.healthDelta
 import br.com.lunelli.lulucoreef.domain.intervalDays
 import br.com.lunelli.lulucoreef.domain.isInterval
@@ -94,11 +92,10 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
     val volume = tank?.volumeDosagemL ?: 100.0
     val productById = remember(products) { products.associateBy { it.id } }
 
-    // "hoje" da agenda vira as 6h, nao a meia-noite (ver diaDaAgenda)
-    val today = remember(routines, logs, now) { occurrencesOn(routines, logs, diaDaAgenda(now, zone), zone, now) }
+    val today = remember(routines, logs, now) { occurrencesOn(routines, logs, now.toLocalDate(zone), zone, now) }
     // Navegacao de dias no "Hoje": voltar para marcar o que ficou de ontem (ex.: dose feita de madrugada) ou ver amanha.
     var dayOffset by remember { mutableIntStateOf(0) }
-    val realToday = diaDaAgenda(now, zone)
+    val realToday = now.toLocalDate(zone)
     val selDate = realToday.plusDays(dayOffset.toLong())
     val dayList = remember(routines, logs, now, dayOffset) { if (dayOffset == 0) today else occurrencesOn(routines, logs, selDate, zone, now) }
     val yesterdayOpen = remember(routines, logs, now) { occurrencesOn(routines, logs, realToday.minusDays(1), zone).count { it.open && it.dueAt.toLocalDate(zone) == realToday.minusDays(1) } }
@@ -116,14 +113,13 @@ fun PainelScreen(vm: MainViewModel, nav: Nav) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Header(Modifier.cascade(0), tank?.nome ?: "Luluco Reef", tank?.fotoVitrinePath, now, health, healthVar, volume, livestock.filter { it.status == "ativo" }.sumOf { it.quantidade }) { showScore = true }
 
-            AvisoDeQueda()
             AvisoDeAtualizacao()
 
             val hoje: @Composable (Modifier) -> Unit = { m ->
                 Column(m, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { dayOffset-- }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Dia anterior", tint = Luluco.Cream) }
-                        SectionTitle(dayLabel(dayOffset, selDate, now, zone))
+                        SectionTitle(dayLabel(dayOffset, selDate))
                         IconButton(onClick = { dayOffset++ }) { Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Próximo dia", tint = Luluco.Cream) }
                         Spacer(Modifier.weight(1f))
                         if (dayOffset != 0) TextButton(onClick = { dayOffset = 0 }) { Text("Voltar para hoje") }
@@ -299,9 +295,9 @@ private fun AnchorQuestion(vm: MainViewModel, r: Routine) {
     }
 }
 
-/** "Hoje" (ou "Ainda quarta" de madrugada), "Ontem", "Amanhã" ou "Seg, 16/11". */
-private fun dayLabel(offset: Int, date: java.time.LocalDate, now: Long, zone: java.time.ZoneId): String = when (offset) {
-    0 -> rotuloHoje(now, zone)
+/** "Hoje", "Ontem", "Amanhã" ou "Seg, 16/11". */
+private fun dayLabel(offset: Int, date: java.time.LocalDate): String = when (offset) {
+    0 -> "Hoje"
     -1 -> "Ontem"
     1 -> "Amanhã"
     else -> date.format(DateTimeFormatter.ofPattern("EEE, dd/MM", PtBr)).replaceFirstChar { it.uppercase() }.replace(".", "")
@@ -309,7 +305,7 @@ private fun dayLabel(offset: Int, date: java.time.LocalDate, now: Long, zone: ja
 
 @Composable
 private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Product?, volume: Double, now: Long, day: java.time.LocalDate) {
-    val isToday = day == diaDaAgenda(now, vm.zone)
+    val isToday = day == now.toLocalDate(vm.zone)
     val due = o.isDue(now)
     val detail = when {
         o.routine.tipo == "dosagem" && product != null -> formatDose(doseFor(product, volume), product.doseUnidade)
@@ -522,25 +518,8 @@ private fun AvisoDeAtualizacao() {
     val ctx = LocalContext.current
     var versao by remember { mutableStateOf<VersaoRemota?>(null) }
     val estado by Atualizacao.estado.collectAsStateWithLifecycle()
-    // lido uma vez por abertura do app, e nao a cada volta ao Painel
-    val anterior = remember { br.com.lunelli.lulucoreef.update.VersaoVista.acabouDeAtualizar(ctx.applicationContext) }
-    var mostrarConfirmacao by remember { mutableStateOf(anterior != null) }
 
     LaunchedEffect(Unit) { versao = Atualizacao.checar(ctx)?.takeIf { it.nova } }
-
-    if (mostrarConfirmacao && versao == null) {
-        Panel(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(Luluco.ZoneIdeal))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Atualizado para a ${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
-                    Text("Estava na 0.0.$anterior. O app fechou e abriu sozinho para trocar de versão: é o normal.", fontSize = 13.sp, color = Luluco.TextSoft)
-                }
-                TextButton(onClick = { mostrarConfirmacao = false }) { Text("Ok") }
-            }
-        }
-    }
 
     val v = versao ?: return
     Panel(Modifier.fillMaxWidth().cascade(0)) {
@@ -559,14 +538,10 @@ private fun AvisoDeAtualizacao() {
                     Atualizacao.Estado.Parado -> (v.notas.ifBlank { "Você está na ${BuildConfig.VERSION_NAME}." }) to Luluco.TextSoft
                 }
                 Text(detalhe, fontSize = 13.sp, color = cor, maxLines = 3)
-                // A porcentagem e lida AQUI, na composicao, e nao dentro do lambda do progresso.
-                // O lambda e chamado no desenho e na acessibilidade, que podem rodar depois de o
-                // estado ja ter virado "Pronto": um "estado as Baixando" ali derruba o app.
-                val pct = (estado as? Atualizacao.Estado.Baixando)?.pct
-                if (pct != null) {
+                if (estado is Atualizacao.Estado.Baixando) {
                     Spacer(Modifier.height(6.dp))
                     LinearProgressIndicator(
-                        progress = { pct / 100f },
+                        progress = { (estado as Atualizacao.Estado.Baixando).pct / 100f },
                         modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                         color = Luluco.Pool, trackColor = Luluco.Solid,
                     )
@@ -580,28 +555,5 @@ private fun AvisoDeAtualizacao() {
                 Atualizacao.Estado.Parado -> Button(onClick = { Atualizacao.iniciar(ctx, v) }) { Text("Atualizar") }
             }
         }
-    }
-}
-
-/**
- * Se o app caiu da ultima vez, mostra o erro no alto do Painel ate ser dispensado. E o unico jeito
- * de ver por que ele fechou sozinho no tablet, sem cabo nem computador: tira um print e manda.
- */
-@Composable
-private fun AvisoDeQueda() {
-    val ctx = LocalContext.current
-    var texto by remember { mutableStateOf(br.com.lunelli.lulucoreef.diag.Queda.ultima(ctx)) }
-    val t = texto ?: return
-    Panel(Modifier.fillMaxWidth(), borderColor = Luluco.ZoneWarn.copy(alpha = 0.5f)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("O app fechou sozinho da última vez", fontWeight = FontWeight.SemiBold, color = Luluco.Cream)
-                Text("Tire um print desta caixa e mande no chat: é o motivo exato.", fontSize = 12.sp, color = Luluco.TextSoft)
-            }
-            TextButton(onClick = { br.com.lunelli.lulucoreef.diag.Queda.limpar(ctx); texto = null }) { Text("Dispensar") }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(t.lines().take(9).joinToString("\n"), fontSize = 11.sp, color = Luluco.ZoneWarn, lineHeight = 14.sp,
-            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
     }
 }
