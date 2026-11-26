@@ -216,6 +216,9 @@ jobs:
           arch: x86
           target: default
           profile: Nexus 7
+          # Com cartao de memoria, como o Fire: o APK baixado vai para a pasta externa do app, que e
+          # o caminho do tablet. Sem isto o emulador caia na pasta interna e testava outro caminho.
+          sdcard-path-or-size: 256M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           script: bash tools/smoke_ci.sh

@@ -16,15 +16,16 @@ adb logcat -d -v raw -s LULUCO_SHOT:I | tee capturas.log
 echo "=== atualizacao e quedas ==="
 adb logcat -d -v time -s LULUCO_UPD:I AndroidRuntime:E PackageInstaller:* ActivityManager:I | grep -E "LULUCO_UPD|FATAL|AndroidRuntime|Exception|at br\.com|PackageInstaller|install" | tail -80 || true
 if [ $status -ne 0 ]; then adb logcat -d -t 400 '*:E'; fi
-# Atualizacao de ponta a ponta, tocando nos botoes: um APK "versao 1" com a
-# assinatura da release, que tem que achar a versao publicada, baixar, instalar por
-# cima e voltar sozinho para a frente.
+# Atualizacao de ponta a ponta, tocando na tela: um APK "versao 1" com a assinatura
+# da release; o script toca em Atualizar no Painel e em Instalar no instalador do
+# sistema, e confere que a versao trocou e que o app voltou sozinho.
 echo "=== atualizacao de ponta a ponta ==="
 GITHUB_RUN_NUMBER=1 gradle --no-daemon -q assembleDebug
 adb uninstall br.com.lunelli.lulucoreef >/dev/null 2>&1 || true
 adb install app/build/outputs/apk/debug/app-debug.apk
 adb shell run-as br.com.lunelli.lulucoreef mkdir -p files
 adb shell run-as br.com.lunelli.lulucoreef touch files/e2e
+python3 -m pip install --quiet --disable-pip-version-check pillow >/dev/null 2>&1 || pip3 install --quiet pillow >/dev/null 2>&1 || true
 adb logcat -c
 SUPABASE_URL=$(grep "^SUPABASE_URL=" gradle.properties | cut -d= -f2-) python3 tools/e2e_atualizacao.py | tee e2e.log; e2e=${PIPESTATUS[0]}
 adb logcat -d -v time | grep -E "LULUCO_UPD|FATAL|AndroidRuntime|PackageManager.*lulucoreef|INSTALL_FAILED|BootReceiver|MY_PACKAGE_REPLACED" | tail -60 || true
