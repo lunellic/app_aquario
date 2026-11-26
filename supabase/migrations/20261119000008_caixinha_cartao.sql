@@ -6,4 +6,4 @@ alter table public.finance_entries add column if not exists grupo uuid;
 alter table public.finance_entries drop constraint if exists finance_entries_tipo_check;
 alter table public.finance_entries add constraint finance_entries_tipo_check check (tipo in ('despesa', 'receita', 'aporte', 'retirada'));
 alter table public.finance_entries drop constraint if exists finance_entries_forma_check;
-alter table public.finance_entries add constraint finance_entries_forma_check check (forma in ('pix', 'cartao'));
+alter table public.finance_entries add constraint finance_entries_forma_check check (forma in ('pix', 'pix_conta', 'cartao'));
