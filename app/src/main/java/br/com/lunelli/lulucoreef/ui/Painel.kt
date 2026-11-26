@@ -563,10 +563,10 @@ private fun AvisoDeAtualizacao() {
                 // O lambda e chamado no desenho e na acessibilidade, que podem rodar depois de o
                 // estado ja ter virado "Pronto": um "estado as Baixando" ali derruba o app.
                 val pct = (estado as? Atualizacao.Estado.Baixando)?.pct
-                if (pct != null) {
+                if (estado is Atualizacao.Estado.Baixando) {
                     Spacer(Modifier.height(6.dp))
                     LinearProgressIndicator(
-                        progress = { pct / 100f },
+                        progress = { (estado as Atualizacao.Estado.Baixando).pct / 100f },
                         modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                         color = Luluco.Pool, trackColor = Luluco.Solid,
                     )
