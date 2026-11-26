@@ -43,10 +43,10 @@ jobs:
         continue-on-error: true
         run: |
           ini=$(date -u -d "-24 hours" +%Y-%m-%dT%H:%M:%SZ); fim=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          for t in storage_logs api_logs logs gateway_logs; do
+          for t in "timestamp, event_message" "timestamp, event_message, source" "timestamp, event_message, body"; do
             sleep 3
             curl -sS -G -o /tmp/p.json "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
-              --data-urlencode "sql=select timestamp, event_message, metadata from $t where regexp_contains(event_message, 'public/app/') limit 2" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
+              --data-urlencode "sql=select $t from logs where regexp_contains(event_message, 'public/app/luluco') limit 3" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
             echo "$t: $(head -c 2500 /tmp/p.json)"
           done
