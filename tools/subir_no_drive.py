@@ -67,4 +67,19 @@ def main(caminho: str, pasta: str, descricao: str) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1], sys.argv[2], sys.argv[3]))
+    # Nunca derruba o build: o APK ja esta publicado na release e no Storage, o Drive e copia
+    # de conveniencia. Mas o motivo sai escrito no log, para nao falhar calado.
+    try:
+        raise SystemExit(main(sys.argv[1], sys.argv[2], sys.argv[3]))
+    except SystemExit:
+        raise
+    except Exception as e:  # noqa: BLE001
+        msg = str(e)
+        if "storageQuotaExceeded" in msg or "do not have storage quota" in msg:
+            # Conta de servico nao tem espaco proprio no Drive pessoal: ela consegue TROCAR o
+            # conteudo de um arquivo que ja e do Lucas, mas nao CRIAR um arquivo novo.
+            print("::warning::O Drive recusou criar o arquivo. Deixe um luluco-reef.apk na pasta "
+                  "(qualquer versao) e o proximo build passa a atualizar esse arquivo.")
+        else:
+            print(f"::warning::Nao subiu para o Drive: {msg[:300]}")
+        raise SystemExit(0)
