@@ -22,6 +22,7 @@ anterior não precisa ser copiada de novo.
 | `build-100` | 23/11/2026 | Identidade v0.5: acento actínico |
 | `build-109` | 25/11/2026 | Standby rearrumado, variação da saúde, histórico no teste de água |
 | `build-113` | 26/11/2026 | Roleta proporcional; PWA com aquário, equipamentos, produtos e sal |
+| `build-128` | 26/11/2026 | Descanso com a lista inteira à direita, TPA com bolinha; atualização pelo app consertada (antes e depois) |
 
 Toda vez que o Lucas pedir o prompt de levantamento para o post, o estado atual do app
 vira um checkpoint aqui antes de qualquer outra mudança.

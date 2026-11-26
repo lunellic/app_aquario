@@ -140,7 +140,9 @@ jobs:
           curl -sS -o /dev/null -X POST "$BASE/bucket" \
             -H "Authorization: Bearer $KEY" -H "apikey: $KEY" -H "Content-Type: application/json" \
             -d '{"id":"app","name":"app","public":true}' || true
-          NOTAS=$(git log -1 --pretty=%s)
+          # A nota do aviso no tablet e a ultima mudanca no APP, nao o ultimo commit (que pode ser
+          # de CI ou de prints e nao diz nada a quem vai atualizar).
+          NOTAS=$(git log -1 --pretty=%s -- app/src/main)
           QUANDO=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           TAMANHO=$(stat -c %s luluco-reef.apk)
           SHA=$(sha256sum luluco-reef.apk | cut -d' ' -f1)
