@@ -57,7 +57,6 @@ class AtualizacaoTest {
         b64.chunked(3000).forEachIndexed { i, part -> android.util.Log.i("LULUCO_SHOT", "PNG75 $nome ${i.toString().padStart(4, '0')} $part") }
         android.util.Log.i("LULUCO_SHOT", "PNG75 $nome FIM")
     }
-    }
 
     @Test fun tocarEmAtualizarChegaAoInstaladorSemDerrubarOApp() {
         runBlocking { app.graph.db.tankConfig().upsert(TankConfig(volumeDosagemL = 125.0)) }
