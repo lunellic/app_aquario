@@ -43,13 +43,23 @@ jobs:
         continue-on-error: true
         run: |
           ini=$(date -u -d "-24 hours" +%Y-%m-%dT%H:%M:%SZ); fim=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          for t in "timestamp, source, event_message"; do
+          q() {
             sleep 3
             curl -sS -G -o /tmp/p.json "https://api.supabase.com/v1/projects/$PROJECT_REF/analytics/endpoints/logs" \
-              --data-urlencode "sql=select $t from logs where event_message like '%public/app/%' order by timestamp asc limit 300" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
+              --data-urlencode "sql=$1" --data-urlencode "iso_timestamp_start=$ini" --data-urlencode "iso_timestamp_end=$fim" \
               -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
-            echo "$t: $(head -c 400 /tmp/p.json)"; jq -r '.result[]? | "\(.timestamp) \(.source) \(.event_message[0:300])"' /tmp/p.json
+          }
+          for c in log_attributes attributes resource_attributes request; do
+            q "select timestamp, $c from logs where event_message like '%.apk%' limit 1"; echo "$c: $(head -c 1500 /tmp/p.json)"
           done
+          echo "=== APKs ==="
+          q "select timestamp, source, event_message from logs where event_message like '%.apk%' order by timestamp asc limit 300"
+          head -c 300 /tmp/p.json; echo
+          jq -r '.result[]? | "\(.timestamp) \(.source) \(.event_message[0:260])"' /tmp/p.json
+          echo "=== versao.json depois de 06:40 UTC ==="
+          q "select timestamp, source, event_message from logs where event_message like '%versao.json%' and timestamp > '2026-11-26 06:40:00' order by timestamp asc limit 300"
+          head -c 300 /tmp/p.json; echo
+          jq -r '.result[]? | "\(.timestamp) \(.source) \(.event_message[0:200])"' /tmp/p.json
 
       - name: Downloads do APK e consultas de versao (registro do Storage, ultimas 48 h)
         run: |
