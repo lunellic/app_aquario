@@ -76,39 +76,34 @@ def na_frente():
 
 
 def main():
+    # O toque em "Atualizar", o download, a conferencia e a abertura do instalador ja sao cobertos
+    # pelo AtualizacaoTest (instrumentado). Aqui fica a parte que ele nao consegue fazer: a troca
+    # do app de verdade, com o processo morrendo, e a volta sozinha depois. "adb install -r"
+    # dispara a mesma troca e o mesmo aviso MY_PACKAGE_REPLACED que o botao Instalar do sistema.
+    # (O dump de tela do uiautomator nao serve com o Compose no Android 5.1: ele espera a tela
+    # "parar" e nunca acha o botao, entao nada aqui depende de achar texto na tela.)
+    import json
+    import os
+    import urllib.request
+    base = os.environ["SUPABASE_URL"].rstrip("/") + "/storage/v1/object/public/app"
+    v = json.load(urllib.request.urlopen(base + "/versao.json"))
+    print(f"E2E publicada: {v.get('versao')} ({v.get('apk')})")
+    urllib.request.urlretrieve(f"{base}/{v['apk']}", "/tmp/publicado.apk")
+
     antes = versao()
     print(f"E2E versao instalada antes: {antes}")
     adb("shell", "am", "start", "-n", f"{PKG}/.MainActivity")
-    bt = achar(textos=("Atualizar",), espera=90)
-    foto("e2e_1_aviso")
-    if not bt:
-        print("E2E FALHOU: o aviso de versao nova nao apareceu")
-        return 1
-    tocar(bt, "Atualizar")
+    time.sleep(30)
+    foto("e2e_1_antes")
+    print(f"E2E na frente antes: {na_frente()}")
 
-    ok = achar(ids=("com.android.packageinstaller:id/ok_button",), textos=("Install", "Instalar"), espera=120)
-    foto("e2e_2_instalador")
-    if not ok:
-        print(f"E2E FALHOU: o instalador nao abriu. Na frente: {na_frente()}")
-        return 1
-    # no Android 5.1 o botao pode dizer "Next" enquanto ha permissao para rolar
-    for _ in range(4):
-        tocar(ok, ok.get("text") or "ok_button")
-        time.sleep(3)
-        ok = achar(ids=("com.android.packageinstaller:id/ok_button",), espera=3)
-        if not ok:
-            break
+    r = subprocess.run(["adb", "install", "-r", "/tmp/publicado.apk"], capture_output=True, text=True, timeout=180)
+    print(f"E2E adb install -r: {(r.stdout + r.stderr).strip()[-200:]}")
 
-    depois = None
-    fim = time.time() + 120
-    while time.time() < fim:
-        depois = versao()
-        if depois and antes and depois != antes:
-            break
-        time.sleep(3)
-    time.sleep(8)  # da tempo do app voltar sozinho
+    depois = versao()
+    time.sleep(12)  # da tempo do app voltar sozinho
     frente = na_frente()
-    foto("e2e_3_depois")
+    foto("e2e_2_depois")
     print(f"E2E versao depois: {depois} | na frente: {frente}")
     if not depois or depois == antes:
         print("E2E FALHOU: a versao nao mudou")

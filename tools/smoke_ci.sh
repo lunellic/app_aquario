@@ -26,7 +26,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 adb shell run-as br.com.lunelli.lulucoreef mkdir -p files
 adb shell run-as br.com.lunelli.lulucoreef touch files/e2e
 adb logcat -c
-python3 tools/e2e_atualizacao.py | tee e2e.log; e2e=${PIPESTATUS[0]}
+SUPABASE_URL=$(grep "^SUPABASE_URL=" gradle.properties | cut -d= -f2-) python3 tools/e2e_atualizacao.py | tee e2e.log; e2e=${PIPESTATUS[0]}
 adb logcat -d -v time | grep -E "LULUCO_UPD|FATAL|AndroidRuntime|PackageManager.*lulucoreef|INSTALL_FAILED|BootReceiver|MY_PACKAGE_REPLACED" | tail -60 || true
 cat e2e.log >> capturas.log
 echo "=== resultado: testes instrumentados $status, atualizacao de ponta a ponta $e2e ==="
