@@ -18,7 +18,7 @@ class Converters {
 
 @Database(
     entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class, FinanceEntry::class, ShoppingItem::class, Alarm::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -65,7 +65,7 @@ abstract class AppDb : RoomDatabase() {
 
     companion object {
         fun build(context: Context): AppDb =
-            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
 
         /** v2: water_tests.baixaConfianca. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -89,6 +89,13 @@ abstract class AppDb : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE finance_entries ADD COLUMN `pago` INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("CREATE TABLE IF NOT EXISTS `alarms` (`id` TEXT NOT NULL, `titulo` TEXT NOT NULL, `hora` INTEGER NOT NULL, `minuto` INTEGER NOT NULL, `recorrencia` TEXT NOT NULL, `diasSemana` TEXT, `alto` INTEGER NOT NULL, `ativo` INTEGER NOT NULL, `diaUnico` INTEGER, PRIMARY KEY(`id`))")
+            }
+        }
+
+        /** v6: rotina sem horario. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE routines ADD COLUMN `comHorario` INTEGER NOT NULL DEFAULT 1")
             }
         }
 

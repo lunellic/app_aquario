@@ -184,7 +184,7 @@ fun CalendarioScreen(vm: MainViewModel, nav: Nav, dia: String?) {
                         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(7.dp).clip(CircleShape).background(routineColor(o.routine.tipo)))
                             Spacer(Modifier.width(10.dp))
-                            Text(fmtTime(o.dueAt), color = Luluco.TextSoft, fontSize = 14.sp, modifier = Modifier.width(48.dp))
+                            Text(if (o.semHorario) "" else fmtTime(o.dueAt), color = Luluco.TextSoft, fontSize = 14.sp, modifier = Modifier.width(48.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(o.routine.titulo, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (o.state == OccState.PULADO) Luluco.TextFaint else Luluco.Cream,
                                     textDecoration = if (o.state == OccState.PULADO) TextDecoration.LineThrough else null)
@@ -193,7 +193,7 @@ fun CalendarioScreen(vm: MainViewModel, nav: Nav, dia: String?) {
                             when (o.state) {
                                 OccState.FEITO -> Badge("feito", Luluco.Ok)
                                 OccState.PULADO -> Badge("retirada", Luluco.Neutral)
-                                else -> if (o.dueAt < now) Badge("pendente", Luluco.CoralText)
+                                else -> if (o.lateAt < now) Badge("pendente", Luluco.CoralText)
                             }
                             if (o.state != OccState.FEITO && o.state != OccState.PULADO) IconButton(onClick = { removing = o }) { Icon(Icons.Rounded.Close, "Retirar", tint = Luluco.TextSoft) }
                             else if (o.state == OccState.PULADO) TextButton(onClick = { vm.undo(o) }) { Text("Voltar") }

@@ -17,7 +17,7 @@ enum class OccState { PENDENTE, ADIADO, FEITO, PULADO }
  * Uma ocorrencia da rotina. `carried` marca a pendencia arrastada de um dia anterior:
  * a rotina nao estava marcada para hoje, mas ficou em aberto e continua cobrando.
  */
-data class Occurrence(val routine: Routine, val dueAt: Long, val log: RoutineLog?, val carried: Boolean = false) {
+data class Occurrence(val routine: Routine, val dueAt: Long, val log: RoutineLog?, val carried: Boolean = false, val zone: ZoneId = ZoneId.systemDefault()) {
     val state: OccState
         get() = when (log?.status) {
             "feito" -> OccState.FEITO
@@ -29,9 +29,23 @@ data class Occurrence(val routine: Routine, val dueAt: Long, val log: RoutineLog
     /** Momento em que passa a cobrar: o horario previsto ou, se adiado, 30 min apos o ultimo adiamento. */
     val effectiveDueAt: Long get() = if (state == OccState.ADIADO) log!!.updatedAt + SNOOZE_MS else dueAt
     val open: Boolean get() = state == OccState.PENDENTE || state == OccState.ADIADO
-    fun isDue(now: Long) = open && now >= effectiveDueAt
-    fun isLate(now: Long, toleranceMs: Long = 0) = open && now - effectiveDueAt > toleranceMs
+
+    /** Tarefa sem horario: vale para o dia inteiro. */
+    val semHorario: Boolean get() = !routine.comHorario
+
+    /**
+     * Quando passa a contar como atrasada. Com horario, na hora dela. Sem horario, quando o dia
+     * vira de verdade (meia-noite): "faço quando der" nao atrasa as 9h da manha.
+     */
+    val lateAt: Long get() = if (semHorario) inicioDoDia(dueAt, zone) + DIA_MS else effectiveDueAt
+
+    fun isDue(now: Long) = open && now >= lateAt
+    fun isLate(now: Long, toleranceMs: Long = 0) = open && now - lateAt > toleranceMs
 }
+
+private const val DIA_MS = 86_400_000L
+private fun inicioDoDia(ms: Long, zone: ZoneId): Long =
+    Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().atStartOfDay(zone).toInstant().toEpochMilli()
 
 fun Routine.time(): LocalTime = try {
     LocalTime.parse(horario.take(5))
@@ -113,7 +127,7 @@ fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDa
     val byKey = logs.filter { it.deletedAt == null }.groupBy { it.routineId to it.previstoPara }
     val doDia = routines.mapNotNull { r ->
         val due = dueOn(r, date, zone) ?: return@mapNotNull null
-        val o = Occurrence(r, due, byKey[r.id to due]?.maxByOrNull { it.updatedAt })
+        val o = Occurrence(r, due, byKey[r.id to due]?.maxByOrNull { it.updatedAt }, zone = zone)
         // atividade de uma vez ja concluida (feita ou pulada): aparece so no dia em que foi resolvida
         if (r.isOnce() && !o.open && (o.log!!.feitoEm ?: o.log.updatedAt).toLocalDate(zone) != date) null else o
     }
@@ -151,7 +165,7 @@ private fun carriedInto(
         val d = date.minusDays(i.toLong())
         val due = dueOn(r, d, zone) ?: continue
         val log = byKey[r.id to due]?.maxByOrNull { it.updatedAt }
-        val o = Occurrence(r, due, log, carried = true)
+        val o = Occurrence(r, due, log, carried = true, zone = zone)
         return@mapNotNull if (o.open) o else null
     }
     null
@@ -160,6 +174,8 @@ private fun carriedInto(
 /** Proxima ocorrencia estritamente depois de `after` (para o alarme). */
 fun nextDueAfter(r: Routine, after: Long, zone: ZoneId): Long? {
     if (!r.ativa || r.deletedAt != null) return null
+    // sem horario nao tem alarme: so o resumo da noite cobra
+    if (!r.comHorario) return null
     if (r.isAnchored()) return r.proximaEm?.takeIf { it > after }
     var date = after.toLocalDate(zone)
     repeat(8) {
@@ -235,14 +251,14 @@ fun formatDose(q: Double?, unit: String?): String {
 
 fun recurrenceText(r: Routine): String {
     val names = listOf("seg", "ter", "qua", "qui", "sex", "sáb", "dom")
-    val h = r.horario.take(5)
+    val h = if (r.comHorario) ", " + r.horario.take(5) else ", sem horário"
     return when (r.recorrencia) {
-        "diaria" -> "todos os dias, $h"
-        "dias_da_semana" -> r.diasSemana.orEmpty().sorted().joinToString(", ") { names.getOrElse(it - 1) { "?" } } + ", $h"
-        "a_cada_n_dias" -> "a cada ${r.intervaloN ?: 1} dias, $h"
-        "a_cada_n_semanas" -> "a cada ${r.intervaloN ?: 1} semanas, $h"
-        "unica" -> "uma vez só, $h"
-        else -> h
+        "diaria" -> "todos os dias$h"
+        "dias_da_semana" -> r.diasSemana.orEmpty().sorted().joinToString(", ") { names.getOrElse(it - 1) { "?" } } + h
+        "a_cada_n_dias" -> "a cada ${r.intervaloN ?: 1} dias$h"
+        "a_cada_n_semanas" -> "a cada ${r.intervaloN ?: 1} semanas$h"
+        "unica" -> "uma vez só$h"
+        else -> h.removePrefix(", ")
     }
 }
 
@@ -266,6 +282,20 @@ fun agendaOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDate, z
     return routines.mapNotNull { r ->
         if (!r.ativa || r.deletedAt != null) return@mapNotNull null
         val due = if (r.isAnchored()) r.proximaEm?.takeIf { it.toLocalDate(zone) == date } else dueOn(r, date, zone)
-        due?.let { Occurrence(r, it, byKey[r.id to it]?.maxByOrNull { l -> l.updatedAt }) }
+        due?.let { Occurrence(r, it, byKey[r.id to it]?.maxByOrNull { l -> l.updatedAt }, zone = zone) }
     }.sortedWith(compareBy({ it.dueAt }, { it.routine.titulo }))
+}
+
+/** Hora do resumo da noite: o que ainda falta do dia. */
+const val RESUMO_NOITE_H = 23
+const val RESUMO_NOITE_M = 30
+
+/** Texto do resumo da noite: as tarefas de hoje (e arrastadas) que ainda estao em aberto. */
+fun resumoDaNoite(today: List<Occurrence>, products: Map<String, Product>, volumeL: Double): String? {
+    val faltam = today.filter { it.open }
+    if (faltam.isEmpty()) return null
+    return "Falta ${faltam.size} ${if (faltam.size == 1) "tarefa" else "tarefas"} de hoje: " + faltam.joinToString(", ") { o ->
+        val p = o.routine.productId?.let { products[it] }
+        if (o.routine.tipo == "dosagem" && p != null) "${o.routine.titulo} (${formatDose(doseFor(p, volumeL), p.doseUnidade)})" else o.routine.titulo
+    }
 }

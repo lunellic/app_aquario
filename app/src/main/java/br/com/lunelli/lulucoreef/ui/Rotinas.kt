@@ -200,6 +200,7 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: St
     var proxima by remember { mutableStateOf(edit?.proximaEm?.toLocalDate(vm.zone)?.toString() ?: onceDate) }
     var instrucao by remember { mutableStateOf(edit?.instrucao.orEmpty()) }
     var ativa by remember { mutableStateOf(edit?.ativa ?: true) }
+    var comHorario by remember { mutableStateOf(edit?.comHorario ?: true) }
     var confirmDelete by remember { mutableStateOf(false) }
     val interval = rec == "a_cada_n_dias" || rec == "a_cada_n_semanas"
     val once = rec == "unica"
@@ -238,12 +239,16 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: St
             Muted("Atividade de uma vez só, como um compromisso: aparece no calendário, nos próximos passos e no \"Hoje\" do dia marcado. Se não for feita, fica como atrasada até você marcar feito ou pular.")
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Horário", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            OutlinedButton(onClick = {
-                val t = try { java.time.LocalTime.parse(horario) } catch (_: Exception) { java.time.LocalTime.of(20, 0) }
-                TimePickerDialog(ctx, { _, h, m -> horario = "%02d:%02d".format(h, m) }, t.hour, t.minute, true).show()
-            }) { Text(horario) }
+            Switch(comHorario, { comHorario = it }); Spacer(Modifier.width(2.dp)); Text("Com horário")
+            if (comHorario) {
+                Spacer(Modifier.width(12.dp))
+                OutlinedButton(onClick = {
+                    val t = try { java.time.LocalTime.parse(horario) } catch (_: Exception) { java.time.LocalTime.of(20, 0) }
+                    TimePickerDialog(ctx, { _, h, m -> horario = "%02d:%02d".format(h, m) }, t.hour, t.minute, true).show()
+                }) { Text(horario) }
+            }
         }
+        if (!comHorario) Muted("Vale para o dia todo: sem alarme, só fica atrasada depois da meia-noite. O resumo das 23h30 lembra o que faltar.")
         TextInput("Instrução (opcional)", instrucao, singleLine = false) { instrucao = it }
         Row(verticalAlignment = Alignment.CenterVertically) { Switch(ativa, { ativa = it }); Spacer(Modifier.width(10.dp)); Text("Ativa") }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -254,7 +259,7 @@ fun RoutineForm(vm: MainViewModel, nav: Nav, id: String?, equipmentIdInicial: St
                 vm.save(b.copy(titulo = titulo.trim(), tipo = tipo, productId = if (tipo == "dosagem") productId else null,
                     equipmentId = if (tipo == "manutencao") equipmentId else null, recorrencia = rec,
                     diasSemana = if (rec == "dias_da_semana") dias.sorted() else null, intervaloN = if (interval) n.toIntOrNull() else null,
-                    horario = horario, proximaEm = anchor, instrucao = instrucao.trim().ifBlank { null }, ativa = ativa))
+                    horario = horario, proximaEm = anchor, instrucao = instrucao.trim().ifBlank { null }, ativa = ativa, comHorario = comHorario))
                 nav.back()
             }
             if (edit != null) BigButton("Apagar", Modifier.width(140.dp), color = Luluco.Critical) { confirmDelete = true }

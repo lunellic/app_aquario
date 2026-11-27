@@ -48,7 +48,7 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
 
   // rotinas vencidas e nao marcadas, agrupadas por horario (nao envia no modo noite)
   if (!night) {
-    const late = occurrencesOn(c.routines, c.logs, local(now).date).filter((o) => o.open && now - o.effectiveDueAt >= LATE_AFTER_MS);
+    const late = occurrencesOn(c.routines, c.logs, local(now).date).filter((o) => o.open && o.routine.com_horario !== false && now - o.effectiveDueAt >= LATE_AFTER_MS);
     const groups = new Map<number, typeof late>();
     for (const o of late) groups.set(Math.floor(o.effectiveDueAt / 60_000), [...(groups.get(Math.floor(o.effectiveDueAt / 60_000)) ?? []), o]);
     for (const group of groups.values()) {

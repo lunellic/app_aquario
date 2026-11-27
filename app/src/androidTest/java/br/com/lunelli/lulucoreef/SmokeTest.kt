@@ -193,6 +193,7 @@ class SmokeTest {
             .addMigrations(
                 br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3,
                 br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_3_4, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_4_5,
+                br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_5_6,
             ).build()
         open().apply { openHelper.writableDatabase; close() }
 
@@ -205,6 +206,13 @@ class SmokeTest {
         raw.execSQL("DROP TABLE finance_entries")
         raw.execSQL("DROP TABLE shopping_items")
         raw.execSQL("DROP TABLE IF EXISTS alarms")
+        // routines volta sem a coluna da v6 (comHorario), que a migracao 5->6 acrescenta
+        val rsql = raw.rawQuery("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'routines'", null).use { it.moveToFirst(); it.getString(0) }
+        val rv5 = rsql.replace(", `comHorario` INTEGER NOT NULL", "").replace("`comHorario` INTEGER NOT NULL, ", "")
+        assertTrue("comHorario nao encontrada em: $rsql", rv5 != rsql)
+        raw.execSQL("DROP TABLE routines")
+        raw.execSQL(rv5)
+        raw.execSQL("INSERT INTO routines (titulo, id, tipo, recorrencia, horario, ativa, createdAt, updatedAt, pending) VALUES ('TPA', 'r1', 'tpa', 'diaria', '19:00', 1, 1000, 1000, 0)")
         raw.execSQL(v1)
         raw.execSQL("INSERT INTO water_tests (medidoEm, parametro, valor, unidade, id, createdAt, updatedAt, pending) VALUES (1000, 'kh', 8.2, 'dKH', 'abc', 1000, 1000, 1)")
         raw.version = 1
@@ -224,6 +232,8 @@ class SmokeTest {
             assertEquals(false, db.finance().get(e.id)!!.pago)
             db.finance().upsert(e.copy(pago = true))
             assertTrue(db.finance().get(e.id)!!.pago)
+            // v6: rotina antiga continua com horario
+            assertTrue(db.routines().all().first().single { it.id == "r1" }.comHorario)
             val a = br.com.lunelli.lulucoreef.data.Alarm(titulo = "Religar a bomba", hora = 21, minuto = 30)
             db.alarms().put(a)
             assertEquals("Religar a bomba", db.alarms().get(a.id)!!.titulo)

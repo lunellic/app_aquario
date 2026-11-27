@@ -158,6 +158,12 @@ data class Routine(
     @Serializable(with = TsSerializer::class) val proximaEm: Long? = null,
     val instrucao: String? = null,
     val ativa: Boolean = true,
+    /**
+     * Falso: a tarefa vale para o dia, sem hora marcada ("faço quando der"). Nao toca alarme, nao
+     * mostra hora e so fica atrasada quando o dia passa (meia-noite). O `horario` continua gravado
+     * porque e ele que compoe a chave da ocorrencia nos registros ja feitos.
+     */
+    val comHorario: Boolean = true,
     @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,

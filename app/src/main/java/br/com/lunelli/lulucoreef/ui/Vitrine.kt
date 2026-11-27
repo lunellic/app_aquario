@@ -186,6 +186,7 @@ fun VitrineScreen(vm: MainViewModel) {
                             o.state == OccState.FEITO -> "feito"
                             o.state == OccState.PULADO -> "pulou"
                             o.carried -> fmtDayShort(o.dueAt)
+                            o.semHorario -> "hoje"
                             else -> fmtTime(o.effectiveDueAt)
                         }
                         VRow(quando, o.routine.titulo, dose, done = !o.open, late = o.isDue(now))
@@ -196,7 +197,7 @@ fun VitrineScreen(vm: MainViewModel) {
                         Spacer(Modifier.height(8.dp))
                         next.forEachIndexed { i, item ->
                             if (i > 0) HorizontalDivider(color = Luluco.Divider, thickness = 1.dp)
-                            VRow(whenText(item.dueAt, now, zone), item.routine.titulo, null, done = false, late = item.late, wide = true)
+                            VRow(whenText(item.dueAt, now, zone, item.routine.comHorario), item.routine.titulo, null, done = false, late = item.late, wide = true)
                         }
                     }
                   }

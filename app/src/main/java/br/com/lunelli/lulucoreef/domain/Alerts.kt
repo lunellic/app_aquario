@@ -82,7 +82,7 @@ fun tpaAlert(changes: List<WaterChange>, now: Long): Alert? {
 fun lateRoutineAlerts(today: List<Occurrence>, now: Long): List<Alert> =
     today.filter { it.isLate(now, 2 * HOUR_MS) }.map {
         // com o arrasto das pendencias o atraso passa a contar dias; "atrasada ha 103 h" nao se le
-        val atraso = now - it.effectiveDueAt
+        val atraso = now - it.lateAt
         val quanto = if (atraso >= 2 * DAY_MS) "${atraso / DAY_MS} dias" else "${atraso / HOUR_MS} h"
         Alert(Status.ATENCAO, "routine_${it.routine.id}", "Rotina \"${it.routine.titulo}\" atrasada há $quanto.", "Marque como feita, adie ou pule no Painel.")
     }

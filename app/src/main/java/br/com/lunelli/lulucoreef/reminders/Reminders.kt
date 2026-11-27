@@ -17,6 +17,10 @@ import br.com.lunelli.lulucoreef.MainActivity
 import br.com.lunelli.lulucoreef.R
 import br.com.lunelli.lulucoreef.data.Settings
 import br.com.lunelli.lulucoreef.domain.Occurrence
+import br.com.lunelli.lulucoreef.domain.RESUMO_NOITE_H
+import br.com.lunelli.lulucoreef.domain.RESUMO_NOITE_M
+import br.com.lunelli.lulucoreef.domain.diaDaAgenda
+import br.com.lunelli.lulucoreef.domain.resumoDaNoite
 import br.com.lunelli.lulucoreef.domain.nextDueAfter
 import br.com.lunelli.lulucoreef.domain.occurrencesOn
 import br.com.lunelli.lulucoreef.domain.reminderText
@@ -56,7 +60,8 @@ object Reminders {
         val logs = graph.db.routineLogs().all().first()
         val today = occurrencesOn(routines, logs, now.toLocalDate(zone), zone)
         val candidates = routines.mapNotNull { nextDueAfter(it, now, zone) } +
-            today.filter { it.open && it.effectiveDueAt > now }.map { it.effectiveDueAt }
+            today.filter { it.open && it.routine.comHorario && it.effectiveDueAt > now }.map { it.effectiveDueAt } +
+            proximoResumo(now, zone)
         return Triple(today, candidates.minOrNull(), zone)
     }
 
@@ -88,7 +93,7 @@ object Reminders {
             val prefs = context.getSharedPreferences("reminders", Context.MODE_PRIVATE)
             val notified = prefs.getStringSet("notified", emptySet())!!
             // vence agora (com 1 min de folga) e ainda nao foi avisado neste horario
-            val due = today.filter { it.open && it.effectiveDueAt <= now + 60_000 }
+            val due = today.filter { it.open && it.routine.comHorario && it.effectiveDueAt <= now + 60_000 }
             val fresh = due.filter { "${it.routine.id}|${it.effectiveDueAt}" !in notified }
             if (fresh.isNotEmpty()) {
                 val products = graph.db.products().all().first().associateBy { it.id }
@@ -103,9 +108,45 @@ object Reminders {
                 if (!night) bringToFront(context)
                 prefs.edit().putStringSet("notified", due.map { "${it.routine.id}|${it.effectiveDueAt}" }.toSet()).apply()
             }
+            resumoSeForHora(context, now, zone)
         } finally {
             scheduleNext(context, now + 60_000)
         }
+    }
+
+    private fun resumoDe(now: Long, zone: ZoneId): Long {
+        val d = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+        return d.atTime(RESUMO_NOITE_H, RESUMO_NOITE_M).atZone(zone).toInstant().toEpochMilli()
+    }
+
+    /** Proximo 23h30, para o alarme acordar nessa hora mesmo sem nenhuma tarefa com horario. */
+    private fun proximoResumo(now: Long, zone: ZoneId): Long {
+        val hoje = resumoDe(now, zone)
+        return if (hoje > now) hoje else hoje + 86_400_000L
+    }
+
+    /**
+     * As 23h30, o que ainda falta do dia, com as atrasadas arrastadas. Uma vez por dia. As tarefas sem
+     * horario nao tem alarme proprio: e este aviso que cobra.
+     */
+    private suspend fun resumoSeForHora(context: Context, now: Long, zone: ZoneId) {
+        val alvo = resumoDe(now, zone)
+        if (now < alvo - 60_000 || now > alvo + 30 * 60_000) return
+        val prefs = context.getSharedPreferences("reminders", Context.MODE_PRIVATE)
+        val chave = Instant.ofEpochMilli(alvo).atZone(zone).toLocalDate().toString()
+        if (prefs.getString("resumo", null) == chave) return
+        prefs.edit().putString("resumo", chave).apply()
+        val graph = (context as App).graph
+        val routines = graph.db.routines().all().first()
+        val logs = graph.db.routineLogs().all().first()
+        val today = occurrencesOn(routines, logs, diaDaAgenda(now, zone), zone, now)
+        val products = graph.db.products().all().first().associateBy { it.id }
+        val volume = graph.db.tankConfig().all().first().firstOrNull()?.volumeDosagemL ?: 100.0
+        val text = resumoDaNoite(today, products, volume) ?: return
+        notify(context, "23h30. $text")
+        val s = graph.settings.state.value
+        if (s.soundOn) playSound(context, s.soundVolume)
+        bringToFront(context)
     }
 
     /** Abre o app na frente. No Android 10+ o sistema pode bloquear; no Fire (5.1) e no S8 (9) funciona. */

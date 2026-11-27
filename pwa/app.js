@@ -501,7 +501,9 @@ function desenharHoje() {
   lista.forEach((o) => {
     const st = estado(o);
     const resolvido = st === 'feito' || st === 'pulado';
-    const atrasada = !resolvido && agora >= o.due;
+    // sem horario ("faco quando der") so atrasa quando o dia vira, a meia-noite
+    const semHora = o.rotina.com_horario === false;
+    const atrasada = !resolvido && agora >= (semHora ? diaDe(o.due).getTime() + DIA_MS : o.due);
     const item = el('div', 'item');
     const [ic, cor] = areaDaRotina(o.rotina.tipo);
     item.appendChild(selo(ic, resolvido ? '#5B6573' : cor));
@@ -510,7 +512,11 @@ function desenharHoje() {
     // em duas linhas. A hora e o estado descem para a linha de baixo, que ja existe.
     const corpo = el('div', 'corpo');
     corpo.appendChild(el('div', `titulo${resolvido ? ' feito' : ''}`, o.rotina.titulo));
-    const partes = [hhmm(o.due)];
+    const partes = semHora ? [] : [hhmm(o.due)];
+    if (o.rotina.tipo === 'tpa' && dados.tpas && dados.tpas.length) {
+      const d = Math.round((diaDe(agora).getTime() - diaDe(new Date(dados.tpas[0].feita_em).getTime()).getTime()) / DIA_MS);
+      partes.push(`última TPA ${d === 0 ? 'hoje' : d === 1 ? 'ontem' : `há ${d} dias`}`);
+    }
     const prod = o.rotina.product_id ? porId[o.rotina.product_id] : null;
     if (o.rotina.tipo === 'dosagem' && prod) {
       const q = doseDe(prod, volume());
@@ -708,6 +714,12 @@ async function salvarTpa() {
       sal: (dados.tanque && dados.tanque.sal_atual) || null,
       observacao: $('#tpa-obs').value.trim() || null,
     });
+    // fecha a TPA que estiver cobrando (do dia ou arrastada), como no tablet
+    const aberta = ocorrenciasDeHoje(dados.rotinas, dados.logs, Date.now())
+      .find((o) => o.rotina.tipo === 'tpa' && (!o.log || o.log.status === 'adiado'));
+    if (aberta) {
+      await inserir('routine_logs', { routine_id: aberta.rotina.id, previsto_para: new Date(aberta.due).toISOString(), status: 'feito', feito_em: new Date().toISOString() });
+    }
     $('#tpa-litros').value = '';
     $('#tpa-obs').value = '';
     await recarregar();

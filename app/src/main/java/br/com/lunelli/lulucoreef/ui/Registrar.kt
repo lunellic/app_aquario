@@ -189,6 +189,9 @@ fun TpaForm(vm: MainViewModel, nav: Nav, edit: WaterChange?, occurrence: Occurre
         vm.save(base.copy(feitaEm = at, litros = l!!, sal = sal.ifBlank { null }, salinidadeNovaAgua = parseParam("salinidade", salin), temperaturaNovaAgua = parseNum(temp),
             metodo = metodo.ifBlank { null }, observacao = obs.ifBlank { null }))
         if (occurrence != null) vm.markDone(occurrence, createDosing = false)
+        // TPA nova registrada por fora do lembrete (Painel, Registrar): fecha a TPA em aberto, de hoje
+        // ou arrastada, para o aviso parar de cobrar uma troca que ja foi feita
+        else if (edit == null) vm.fecharTpaAberta()
         nav.back()
     }
 

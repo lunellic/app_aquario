@@ -162,6 +162,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Parametros que a rotina de teste pede (pelo titulo), entre KH, Ca e Mg; todos medidos hoje? */
+    /** Marca como feita a TPA que estiver cobrando hoje (do dia ou arrastada), se houver. */
+    fun fecharTpaAberta() {
+        val now = ts()
+        br.com.lunelli.lulucoreef.domain.occurrencesOn(routines.value, logs.value, br.com.lunelli.lulucoreef.domain.diaDaAgenda(now, zone), zone, now)
+            .firstOrNull { it.routine.tipo == "tpa" && it.open }
+            ?.let { markDone(it, createDosing = false) }
+    }
+
     fun testsDoneToday(r: br.com.lunelli.lulucoreef.data.Routine): Boolean {
         val t = r.titulo.lowercase()
         val pedidos = listOfNotNull("kh".takeIf { "kh" in t }, "ca".takeIf { Regex("\\bca\\b|cálcio|calcio").containsMatchIn(t) }, "mg".takeIf { Regex("\\bmg\\b|magn").containsMatchIn(t) })

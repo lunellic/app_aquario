@@ -26,7 +26,7 @@ fun upcoming(routines: List<Routine>, logs: List<RoutineLog>, now: Long, zone: Z
         val due = r.proximaEm ?: continue
         // atividade de uma vez ja feita ou pulada nao volta a aparecer
         if (r.isOnce() && logs.any { it.deletedAt == null && it.routineId == r.id && it.previstoPara == due && (it.status == "feito" || it.status == "pulado") }) continue
-        out.getOrPut(r.id to due) { UpcomingItem(r, due, due < now) }
+        out.getOrPut(r.id to due) { UpcomingItem(r, due, if (r.comHorario) due < now else due.toLocalDate(zone).isBefore(today)) }
     }
     return out.values.sortedBy { it.dueAt }.take(limit)
 }
@@ -34,9 +34,20 @@ fun upcoming(routines: List<Routine>, logs: List<RoutineLog>, now: Long, zone: Z
 private val WEEKDAYS = listOf("Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo")
 
 /** "Hoje, 19h", "Amanhã, 19h", "Quarta, 19h", "12/12 (em 25 dias)" ou "Atrasada desde 10/11". */
-fun whenText(dueAt: Long, now: Long, zone: ZoneId): String {
+fun whenText(dueAt: Long, now: Long, zone: ZoneId, comHorario: Boolean = true): String {
     val due = Instant.ofEpochMilli(dueAt).atZone(zone)
     val hour = if (due.minute == 0) "${due.hour}h" else "${due.hour}h${due.minute.toString().padStart(2, '0')}"
+    if (!comHorario) {
+        val d = ChronoUnit.DAYS.between(now.toLocalDate(zone), due.toLocalDate())
+        val dm = "${due.dayOfMonth.toString().padStart(2, '0')}/${due.monthValue.toString().padStart(2, '0')}"
+        return when {
+            d < 0 -> "Atrasada desde $dm"
+            d == 0L -> "Hoje"
+            d == 1L -> "Amanhã"
+            d < 7 -> WEEKDAYS[due.dayOfWeek.value - 1]
+            else -> "$dm (em $d dias)"
+        }
+    }
     val diff = ChronoUnit.DAYS.between(now.toLocalDate(zone), due.toLocalDate())
     val ddmm = "${due.dayOfMonth.toString().padStart(2, '0')}/${due.monthValue.toString().padStart(2, '0')}"
     return when {

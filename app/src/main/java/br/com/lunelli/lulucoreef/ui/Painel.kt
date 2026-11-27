@@ -313,13 +313,21 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
     val due = o.isDue(now)
     val detail = when {
         o.routine.tipo == "dosagem" && product != null -> formatDose(doseFor(product, volume), product.doseUnidade)
+        // TPA: quanto tempo desde a ultima, para decidir se faz ou pula (a da semana pode ter sido feita em outro dia)
+        o.routine.tipo == "tpa" -> listOfNotNull(
+            vm.changes.value.maxOfOrNull { it.feitaEm }?.let { u ->
+                val d = java.time.temporal.ChronoUnit.DAYS.between(u.toLocalDate(vm.zone), now.toLocalDate(vm.zone))
+                "última TPA " + when (d) { 0L -> "hoje"; 1L -> "ontem"; else -> "há $d dias" }
+            },
+            o.routine.instrucao,
+        ).joinToString(" · ")
         else -> o.routine.instrucao.orEmpty()
     }
     var editar by remember { mutableStateOf(false) }
     if (editar) DoneDialog(vm, o) { editar = false }
     Column(Modifier.fillMaxWidth().then(if (!o.open) Modifier.clickable { editar = true } else Modifier).padding(horizontal = 16.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(fmtTime(o.dueAt), fontSize = 17.sp, fontWeight = FontWeight.Medium, color = if (due) Luluco.CoralText else if (o.open) Luluco.Cream else Luluco.TextFaint, modifier = Modifier.width(62.dp))
+            Text(if (o.semHorario) "" else fmtTime(o.dueAt), fontSize = 17.sp, fontWeight = FontWeight.Medium, color = if (due) Luluco.CoralText else if (o.open) Luluco.Cream else Luluco.TextFaint, modifier = Modifier.width(62.dp))
             Column(Modifier.weight(1f)) {
                 Text(o.routine.titulo, fontWeight = FontWeight.Medium, color = if (o.open) Luluco.Cream else Luluco.TextSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (detail.isNotEmpty()) Muted(detail, maxLines = 2)
@@ -345,7 +353,8 @@ private fun TodayItem(vm: MainViewModel, nav: Nav, o: Occurrence, product: Produ
                         else -> vm.markDone(o)
                     }
                 }
-                if (isToday) BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.Solid) { vm.snooze(o) }
+                // sem horario nao tem o que adiar: a tarefa ja vale para o dia todo
+                if (isToday && !o.semHorario) BigButton("Adiar 30 min", Modifier.weight(1.4f), color = Luluco.Solid) { vm.snooze(o) }
                 BigButton("Pular", Modifier.weight(0.8f), color = Luluco.Solid) { vm.skip(o) }
             }
         }

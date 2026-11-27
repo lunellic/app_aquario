@@ -563,3 +563,39 @@ class ViradaDoDiaTest {
         assertTrue(lista.first().open)
     }
 }
+
+class SemHorarioTest {
+    private val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    private fun em(dataHora: String) = java.time.LocalDateTime.parse(dataHora).atZone(zone).toInstant().toEpochMilli()
+    private val tpa = br.com.lunelli.lulucoreef.data.Routine("TPA", tipo = "tpa", recorrencia = "dias_da_semana", diasSemana = listOf(4), horario = "19:00", comHorario = false)
+
+    private fun naLista(agora: Long) = br.com.lunelli.lulucoreef.domain.occurrencesOn(listOf(tpa), emptyList(),
+        br.com.lunelli.lulucoreef.domain.diaDaAgenda(agora, zone), zone, agora).single()
+
+    @org.junit.Test fun semHorarioNaoAtrasaNoProprioDia() {
+        // quinta, 23h50: ainda e o dia dela
+        assertFalse(naLista(em("2026-12-03T23:50")).isDue(em("2026-12-03T23:50")))
+    }
+
+    @org.junit.Test fun semHorarioAtrasaDepoisDaMeiaNoite() {
+        // sexta, 0h10: a lista ainda e a de quinta (vira as 6h), mas a tarefa ja conta como atrasada
+        val agora = em("2026-12-04T00:10")
+        assertTrue(naLista(agora).isDue(agora))
+        // e continua cobrando no sabado, arrastada
+        val sabado = em("2026-12-05T10:00")
+        val o = naLista(sabado)
+        assertTrue(o.carried && o.isDue(sabado))
+    }
+
+    @org.junit.Test fun semHorarioNaoTemAlarme() {
+        assertEquals(null, br.com.lunelli.lulucoreef.domain.nextDueAfter(tpa, em("2026-12-01T10:00"), zone))
+        assertTrue(br.com.lunelli.lulucoreef.domain.nextDueAfter(tpa.copy(comHorario = true), em("2026-12-01T10:00"), zone) != null)
+    }
+
+    @org.junit.Test fun resumoDaNoiteListaOQueFalta() {
+        val agora = em("2026-12-03T23:30")
+        val lista = br.com.lunelli.lulucoreef.domain.occurrencesOn(listOf(tpa), emptyList(), java.time.LocalDate.parse("2026-12-03"), zone, agora)
+        assertEquals("Falta 1 tarefa de hoje: TPA", br.com.lunelli.lulucoreef.domain.resumoDaNoite(lista, emptyMap(), 125.0))
+        assertEquals(null, br.com.lunelli.lulucoreef.domain.resumoDaNoite(emptyList(), emptyMap(), 125.0))
+    }
+}
