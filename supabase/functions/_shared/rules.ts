@@ -213,6 +213,24 @@ export function resumoDaNoite(routines: Row[], logs: Row[], products: Row[], vol
   }).join(", ");
 }
 
+/**
+ * Texto do aviso das 23h30 no iPhone. Faltando algo, so o que falta de hoje. Tudo resolvido, o que
+ * vem amanha (com a dose e, se a rotina tiver horario, a hora), para ele saber o que o espera.
+ */
+export function textoDaNoite(routines: Row[], logs: Row[], products: Row[], volume: number, now: number): string {
+  const falta = resumoDaNoite(routines, logs, products, volume, now);
+  if (falta) return falta;
+  const amanha = occurrencesOn(routines, logs, addDays(local(now).date, 1)).filter((o) => o.open);
+  if (!amanha.length) return "Tudo feito hoje. Amanhã está livre.";
+  return "Tudo feito hoje. Amanhã: " + amanha.map((o) => {
+    const p = products.find((x) => x.id === o.routine.product_id);
+    const nome = o.routine.tipo === "dosagem" && p ? `${o.routine.titulo} (${formatDose(doseFor(p, volume), p.dose_unidade)})` : String(o.routine.titulo);
+    if (o.routine.com_horario === false) return nome;
+    const t = local(o.dueAt);
+    return `${nome} às ${t.hour}h${t.minute ? String(t.minute).padStart(2, "0") : ""}`;
+  }).join(", ") + ".";
+}
+
 // ---- alertas criticos (para push imediato) ----
 
 export interface Critical { key: string; fato: string }

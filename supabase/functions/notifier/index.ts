@@ -4,7 +4,7 @@
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ANALYSIS_REQUEST, askClaude, checkLimit, CORS, json } from "../_shared/ai.ts";
 import { loadCtx, summarize } from "../_shared/context.ts";
-import { compliance, criticalAlerts, DAY_MS, fmt, healthScore, isNight, LABEL, latest, local, MAIN, ms, numShort, occurrencesOn, reminderText, resumoDaNoite, statusOf } from "../_shared/rules.ts";
+import { compliance, criticalAlerts, DAY_MS, fmt, healthScore, isNight, LABEL, latest, local, MAIN, ms, numShort, occurrencesOn, reminderText, statusOf, textoDaNoite } from "../_shared/rules.ts";
 // @deno-types="npm:@types/web-push@3.6.4"
 import webpush from "npm:web-push@3.6.7";
 
@@ -124,16 +124,15 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
   if (t.hour === 23 && t.minute >= 30) {
     const key = `resumo|${t.date}`;
     if (await firstTime(service, userId, key)) {
-      const texto = resumoDaNoite(c.routines, c.logs, c.products, vol, now);
-      if (texto) {
-        try {
-          await enviar("Luluco Reef: 23h30", texto, 4, ["memo"], "resumo");
-        } catch (e) {
-          await unmark([key]);
-          throw e;
-        }
-        sent.push(key);
+      // sempre chega: o que falta de hoje ou, com tudo feito, o que vem amanha
+      const texto = textoDaNoite(c.routines, c.logs, c.products, vol, now);
+      try {
+        await enviar("Luluco Reef: 23h30", texto, 4, ["memo"], "resumo");
+      } catch (e) {
+        await unmark([key]);
+        throw e;
       }
+      sent.push(key);
     }
   }
   return sent;
@@ -275,6 +274,20 @@ Deno.serve(async (req) => {
           console.error(t.user_id, e);
           results[t.user_id] = `erro: ${e instanceof Error ? e.message : e}`;
         }
+      }
+      return json({ ok: true, results });
+    }
+
+    // previa do aviso das 23h30 no iPhone, com os dados de agora (disparada a mao pelo diagnostico)
+    if (mode === "resumo_previa") {
+      if (!isCron) return json({ error: "Não autorizado." }, 401);
+      const { data: tanks, error } = await service.from("tank_config").select("user_id").is("deleted_at", null);
+      if (error) throw new Error(error.message);
+      const results: Record<string, unknown> = {};
+      for (const t of tanks ?? []) {
+        const c = await loadCtx(service, t.user_id, now);
+        const vol = Number(c.tank?.volume_dosagem_l ?? 100);
+        results[t.user_id] = await pushAll(service, t.user_id, "Luluco Reef: 23h30 (prévia)", textoDaNoite(c.routines, c.logs, c.products, vol, now), "resumo");
       }
       return json({ ok: true, results });
     }

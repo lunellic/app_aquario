@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 const assertEquals = (a: unknown, b: unknown) => assert.deepStrictEqual(a, b);
-import { compliance, criticalAlerts, doseFor, fmt, formatDose, healthScore, isNight, local, localToMs, occurrencesOn, reminderText, resumoDaNoite } from "./rules.ts";
+import { compliance, criticalAlerts, doseFor, fmt, formatDose, healthScore, isNight, local, localToMs, occurrencesOn, reminderText, resumoDaNoite, textoDaNoite } from "./rules.ts";
 
 const at = (date: string, time = "12:00") => localToMs(date, time);
 const iso = (t: number) => new Date(t).toISOString();
@@ -113,4 +113,17 @@ Deno.test("mudar horario ou dia da rotina nao faz voltar o que ja foi feito", ()
   const dose = { id: "x", titulo: "Dose", tipo: "dosagem", recorrencia: "diaria", horario: "22:30", ativa: true };
   assertEquals(occurrencesOn([dose], logs, "2026-11-26")[0].open, true);
   assertEquals(occurrencesOn([dose], logs, "2026-11-25")[0].open, false);
+});
+
+Deno.test("aviso das 23h30: falta de hoje ou, tudo feito, o que vem amanha", () => {
+  const dose = { id: "d", titulo: "Goni Supreme", tipo: "dosagem", product_id: "g", recorrencia: "diaria", horario: "22:30", com_horario: false, ativa: true };
+  const testes = { id: "x", titulo: "Testes", tipo: "teste", recorrencia: "dias_da_semana", dias_semana: [6], horario: "15:00", ativa: true };
+  const prods = [{ id: "g", nome: "Goni", dose_quantidade: 1, dose_base_litros: 100, dose_unidade: "ml" }];
+  const now = at("2026-12-04", "23:30"); // sexta; sabado tem teste as 15h
+  // o teste do sabado anterior foi feito, senao viria arrastado
+  const sab = { routine_id: "x", previsto_para: iso(at("2026-11-28", "15:00")), status: "feito", updated_at: iso(now) };
+  assertEquals(textoDaNoite([dose, testes], [sab], prods, 100, now), "Falta 1 tarefa de hoje: Goni Supreme (1 ml)");
+  const feita = [sab, { routine_id: "d", previsto_para: iso(at("2026-12-04", "22:30")), status: "feito", updated_at: iso(now) }];
+  assertEquals(textoDaNoite([dose, testes], feita, prods, 100, now), "Tudo feito hoje. Amanhã: Testes às 15h, Goni Supreme (1 ml).");
+  assertEquals(textoDaNoite([], [], prods, 100, now), "Tudo feito hoje. Amanhã está livre.");
 });

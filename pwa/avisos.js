@@ -64,7 +64,7 @@ function desenharAvisos(caixa) {
   const card = el('div', 'card');
   caixa.appendChild(card);
   const explica = el('div', 'sub');
-  explica.textContent = 'Chega aqui: às 23h30, o que ainda falta do dia; rotina com horário que passou da hora; e alerta crítico de parâmetro.';
+  explica.textContent = 'Chega aqui: às 23h30, o que ainda falta do dia (ou, com tudo feito, o que vem amanhã); rotina com horário que passou da hora; e alerta crítico de parâmetro.';
   card.appendChild(explica);
 
   if (!avisosSuportados() || (AVISOS_IOS && !AVISOS_INSTALADO)) {
