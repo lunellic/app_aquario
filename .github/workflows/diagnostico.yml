@@ -26,39 +26,10 @@ jobs:
       PROJECT_REF: gzfkcryebczjmuzckxuv
       LINHAS: ${{ github.event.inputs.linhas || '80' }}
     steps:
-      - name: Rotinas sem horario (ajuste unico de 27/11)
+      - name: Conferir TPA e perlon
         run: |
-          cat > /tmp/sql.txt <<'SQL'
-          with
-          a as (update public.routines set com_horario = false, updated_at = now()
-                where deleted_at is null and com_horario and titulo not ilike 'testes%' returning 1),
-          b as (update public.routines set horario = '15:00', updated_at = now()
-                where deleted_at is null and titulo ilike 'testes%' and horario <> '15:00' returning 1),
-          c as (update public.routines set dias_semana = '{4}', updated_at = now()
-                where deleted_at is null and tipo = 'tpa' and recorrencia = 'dias_da_semana' and titulo not ilike '%baiacu%'
-                  and dias_semana <> '{4}' returning 1),
-          d as (update public.routines set dias_semana = '{4}', updated_at = now()
-                where deleted_at is null and titulo ilike 'troca do perlon%' and recorrencia = 'dias_da_semana'
-                  and dias_semana <> '{4}' returning 1),
-          e as (insert into public.routine_logs (user_id, routine_id, previsto_para, status, observacao)
-                select r.user_id, r.id, timestamptz '2026-11-26 22:00:00+00', 'pulado', 'TPA feita no domingo 23/11'
-                from public.routines r
-                where r.deleted_at is null and r.recorrencia = 'dias_da_semana'
-                  and ((r.tipo = 'tpa' and r.titulo not ilike '%baiacu%') or r.titulo ilike 'troca do perlon%')
-                  and not exists (select 1 from public.routine_logs l where l.routine_id = r.id
-                                  and l.previsto_para = timestamptz '2026-11-26 22:00:00+00' and l.deleted_at is null)
-                returning 1)
-          select (select count(*) from a) sem_horario, (select count(*) from b) testes_15h,
-                 (select count(*) from c) tpa_quinta, (select count(*) from d) perlon_quinta, (select count(*) from e) pulados
-          SQL
-          sed -i 's/^          //' /tmp/sql.txt
-          jq -n --rawfile q /tmp/sql.txt '{query: $q}' > /tmp/q.json
-          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json)
-          if [ "$code" -ge 300 ]; then echo "::error::ajuste falhou (HTTP $code)"; head -c 1500 /tmp/out.json; exit 1; fi
-          cat /tmp/out.json; echo
-          q2="select count(*) filter (where com_horario) com_horario, count(*) filter (where not com_horario) sem_horario from public.routines where deleted_at is null and ativa"
-          jq -n --arg q "$q2" '{query: $q}' > /tmp/q.json
+          q="select titulo, tipo, recorrencia, dias_semana::text d, com_horario, horario::text h, pg_typeof(dias_semana)::text t from public.routines where deleted_at is null and ativa and (tipo = 'tpa' or titulo ilike '%perlon%' or titulo ilike 'testes%')"
+          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
           curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
 
