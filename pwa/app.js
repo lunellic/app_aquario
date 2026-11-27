@@ -140,17 +140,46 @@ function vencimento(rotina, dia) {
 }
 
 /**
+ * Registro que vale para a ocorrencia (mesma regra do tablet, domain/Routines.kt registroDe): o feito
+ * ou pulado desde o dia seguinte a vez anterior da rotina ate o dia dela, nao so o da hora exata.
+ * Mudar horario ou dia da rotina nao faz voltar o que ja foi feito. Sem resolvido, o do proprio dia.
+ */
+function registroDe(r, due, logsDaRotina) {
+  if (!logsDaRotina || !logsDaRotina.length) return null;
+  const dia = diaDe(due).getTime();
+  let desde = dia - DIA_MS;
+  if (r.recorrencia === 'dias_da_semana') {
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(dia); d.setDate(d.getDate() - i);
+      if (vencimento(r, d) != null) { desde = diaDe(d.getTime()).getTime(); break; }
+    }
+  }
+  let resolvido = null;
+  let doDia = null;
+  logsDaRotina.forEach((l) => {
+    const d = diaDe(new Date(l.previsto_para).getTime()).getTime();
+    if (d > dia || d <= desde) return;
+    const novo = (x) => !x || new Date(l.updated_at) > new Date(x.updated_at);
+    if ((l.status === 'feito' || l.status === 'pulado') && novo(resolvido)) resolvido = l;
+    if (d === dia && novo(doDia)) doDia = l;
+  });
+  return resolvido || doDia;
+}
+
+function logsPorRotina(logs) {
+  const m = {};
+  logs.filter((l) => !l.deleted_at).forEach((l) => { (m[l.routine_id] = m[l.routine_id] || []).push(l); });
+  return m;
+}
+
+/**
  * Quantas rotinas venceram nos ultimos `dias` dias e quantas foram feitas. Mesma conta do
  * compliance() do tablet, linha por linha, para a nota de saude dar o mesmo numero nos dois:
  * cada (rotina, horario) conta uma vez so, nada do futuro entra, e atividade de uma vez so que ja
  * foi resolvida conta apenas no dia em que foi resolvida.
  */
 function cumprimento(rotinas, logs, agora, dias = 7) {
-  const porChave = {};
-  logs.filter((l) => !l.deleted_at).forEach((l) => {
-    const k = `${l.routine_id}|${new Date(l.previsto_para).getTime()}`;
-    if (!porChave[k] || new Date(l.updated_at) > new Date(porChave[k].updated_at)) porChave[k] = l;
-  });
+  const porRotina = logsPorRotina(logs);
   let feito = 0;
   let esperado = 0;
   const visto = new Set();
@@ -161,7 +190,7 @@ function cumprimento(rotinas, logs, agora, dias = 7) {
       const due = vencimento(r, dia);
       if (due == null || due > agora) return;
       const k = `${r.id}|${due}`;
-      const log = porChave[k] || null;
+      const log = registroDe(r, due, porRotina[r.id]);
       const aberto = !log || log.status === 'pendente' || log.status === 'adiado';
       if (r.recorrencia === 'unica' && !aberto) {
         const resolvido = new Date(log.feito_em || log.updated_at).getTime();
@@ -185,12 +214,8 @@ function cumprimento(rotinas, logs, agora, dias = 7) {
  */
 function ocorrenciasDeHoje(rotinas, logs, agora) {
   const hoje = diaDaAgenda(agora);
-  const porChave = {};
-  logs.filter((l) => !l.deleted_at).forEach((l) => {
-    const k = `${l.routine_id}|${new Date(l.previsto_para).getTime()}`;
-    if (!porChave[k] || new Date(l.updated_at) > new Date(porChave[k].updated_at)) porChave[k] = l;
-  });
-  const achar = (r, due) => porChave[`${r.id}|${due}`] || null;
+  const porRotina = logsPorRotina(logs);
+  const achar = (r, due) => registroDe(r, due, porRotina[r.id]);
   const aberto = (log) => !log || log.status === 'adiado';
 
   const lista = [];
@@ -235,6 +260,7 @@ function ocorrenciasDoDia(rotinas, logs, dia, agora) {
   if (diaDe(dia.getTime()).getTime() === diaDaAgenda(agora).getTime()) return ocorrenciasDeHoje(rotinas, logs, agora);
   const alvo = diaDe(dia.getTime());
   const fimDoDia = alvo.getTime() + DIA_MS;
+  const porRotina = logsPorRotina(logs);
   const porChave = {};
   logs.filter((l) => !l.deleted_at).forEach((l) => {
     const k = `${l.routine_id}|${new Date(l.previsto_para).getTime()}`;
@@ -253,8 +279,10 @@ function ocorrenciasDoDia(rotinas, logs, dia, agora) {
       if (t >= alvo.getTime() && t < fimDoDia) due = t;
     }
     if (due == null) return;
+    const log = registroDe(r, due, porRotina[r.id]);
     visto.add(`${r.id}|${due}`);
-    lista.push({ rotina: r, due, log: porChave[`${r.id}|${due}`] || null, arrastada: false });
+    if (log) visto.add(`${r.id}|${new Date(log.previsto_para).getTime()}`);
+    lista.push({ rotina: r, due, log, arrastada: false });
   });
   const porId = {};
   rotinas.forEach((r) => { porId[r.id] = r; });
@@ -731,7 +759,7 @@ async function salvarTpa() {
     });
     // fecha a TPA que estiver cobrando (do dia ou arrastada), como no tablet
     const aberta = ocorrenciasDeHoje(dados.rotinas, dados.logs, Date.now())
-      .find((o) => o.rotina.tipo === 'tpa' && (!o.log || o.log.status === 'adiado'));
+      .find((o) => o.rotina.tipo === 'tpa' && !/baiac/i.test(o.rotina.titulo || '') && (!o.log || o.log.status === 'adiado'));
     if (aberta) {
       await inserir('routine_logs', { routine_id: aberta.rotina.id, previsto_para: new Date(aberta.due).toISOString(), status: 'feito', feito_em: new Date().toISOString() });
     }

@@ -89,16 +89,37 @@ export function dueOn(r: Row, date: string): number | null {
   return local(anchor).date <= date ? anchor : null;
 }
 
+/**
+ * Registro que vale para a ocorrencia (mesma regra do tablet, domain/Routines.kt registroDe): o feito
+ * ou pulado desde o dia seguinte a vez anterior da rotina ate o dia dela, nao so o da hora exata.
+ * Mudar horario ou dia da rotina nao faz voltar o que ja foi feito. Sem resolvido, o do proprio dia.
+ */
+export function registroDe(r: Row, date: string, logs: Row[]): Row | null {
+  let desde = addDays(date, -1);
+  if (r.recorrencia === "dias_da_semana") {
+    for (let i = 1; i <= 7; i++) {
+      const d = addDays(date, -i);
+      if (dueOn(r, d) != null) { desde = d; break; }
+    }
+  }
+  let resolvido: Row | null = null, doDia: Row | null = null;
+  for (const l of logs) {
+    if (l.deleted_at || l.routine_id !== r.id) continue;
+    const d = local(ms(l.previsto_para)).date;
+    if (d > date || d <= desde) continue;
+    if ((l.status === "feito" || l.status === "pulado") && (!resolvido || ms(l.updated_at) > ms(resolvido.updated_at))) resolvido = l;
+    if (d === date && (!doDia || ms(l.updated_at) > ms(doDia.updated_at))) doDia = l;
+  }
+  return resolvido ?? doDia;
+}
+
 export function occurrencesOn(routines: Row[], logs: Row[], date: string): Occurrence[] {
   const out: Occurrence[] = [];
   for (const r of routines) {
     const dueAt = dueOn(r, date);
     if (dueAt == null) continue;
-    let log: Row | null = null;
-    for (const l of logs) {
-      if (l.deleted_at || l.routine_id !== r.id || ms(l.previsto_para) !== dueAt) continue;
-      if (!log || ms(l.updated_at) > ms(log.updated_at)) log = l;
-    }
+    // o dia da ocorrencia, nao o consultado: rotina por intervalo vence na ancora e segue aberta depois
+    const log = registroDe(r, local(dueAt).date, logs);
     const state = log?.status === "feito" ? "feito" : log?.status === "pulado" ? "pulado" : log?.status === "adiado" ? "adiado" : "pendente";
     const effectiveDueAt = state === "adiado" ? ms(log!.updated_at) + SNOOZE_MS : dueAt;
     // atividade de uma vez ja concluida: aparece so no dia em que foi resolvida

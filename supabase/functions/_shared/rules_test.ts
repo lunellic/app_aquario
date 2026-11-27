@@ -99,3 +99,18 @@ Deno.test("resumo das 23h30: o que falta do dia e a TPA arrastada, sem dose de o
   const feita = [...logs, { routine_id: "d", previsto_para: iso(at("2026-12-04", "22:30")), status: "feito", updated_at: iso(now) }];
   assertEquals(resumoDaNoite([tpa, dose], feita, prods, 100, now), null);
 });
+
+Deno.test("mudar horario ou dia da rotina nao faz voltar o que ja foi feito", () => {
+  const testes = { id: "x", titulo: "Testes", tipo: "teste", recorrencia: "dias_da_semana", dias_semana: [3], horario: "15:00", ativa: true };
+  // feito na quarta 25/11 quando a rotina era as 18h
+  const logs = [{ routine_id: "x", previsto_para: iso(at("2026-11-25", "18:00")), status: "feito", updated_at: iso(at("2026-11-25", "18:30")) }];
+  assertEquals(occurrencesOn([testes], logs, "2026-11-25")[0].open, false);
+  // rotina passada para quinta: a quinta 26/11 ja conta como feita, a quinta seguinte nao
+  const quinta = { ...testes, dias_semana: [4] };
+  assertEquals(occurrencesOn([quinta], logs, "2026-11-26")[0].open, false);
+  assertEquals(occurrencesOn([quinta], logs, "2026-12-03")[0].open, true);
+  // diaria: o feito de ontem nao vale para hoje
+  const dose = { id: "x", titulo: "Dose", tipo: "dosagem", recorrencia: "diaria", horario: "22:30", ativa: true };
+  assertEquals(occurrencesOn([dose], logs, "2026-11-26")[0].open, true);
+  assertEquals(occurrencesOn([dose], logs, "2026-11-25")[0].open, false);
+});

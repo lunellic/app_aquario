@@ -107,6 +107,43 @@ fun dueOn(r: Routine, date: LocalDate, zone: ZoneId): Long? {
     }
 }
 
+/**
+ * Registro que vale para a ocorrencia de `r` que vence em `due`.
+ *
+ * Nao exige a hora exata: vale o registro feito ou pulado desde o dia seguinte a vez anterior da
+ * rotina ate o dia dela. Assim, mudar o horario ou o dia da rotina nao faz voltar o que ja foi
+ * feito (os testes feitos na quarta, rotina passada para quinta: a quinta ja conta como feita),
+ * e fazer antes do dia (a TPA na terca) tambem resolve a da semana. Rotina diaria, por intervalo
+ * ou de uma vez so: so o proprio dia. Sem registro resolvido, vale o do proprio dia (adiado).
+ * Os registros antigos ficam como estao, com a hora em que foram feitos.
+ */
+internal fun registroDe(r: Routine, due: Long, logsDaRotina: List<RoutineLog>, zone: ZoneId): RoutineLog? {
+    if (logsDaRotina.isEmpty()) return null
+    val dia = due.toLocalDate(zone)
+    val desde = vezAnterior(r, dia, zone) ?: dia.minusDays(1)
+    var resolvido: RoutineLog? = null
+    var doDia: RoutineLog? = null
+    for (l in logsDaRotina) {
+        val d = l.previstoPara.toLocalDate(zone)
+        if (d.isAfter(dia) || !d.isAfter(desde)) continue
+        if ((l.status == "feito" || l.status == "pulado") && (resolvido == null || l.updatedAt > resolvido.updatedAt)) resolvido = l
+        if (d == dia && (doDia == null || l.updatedAt > doDia.updatedAt)) doDia = l
+    }
+    return resolvido ?: doDia
+}
+
+/** Dia da vez anterior de uma rotina por dias da semana (ate 7 dias antes); null nas outras. */
+private fun vezAnterior(r: Routine, dia: LocalDate, zone: ZoneId): LocalDate? {
+    if (r.recorrencia != "dias_da_semana") return null
+    for (i in 1..7) {
+        val d = dia.minusDays(i.toLong())
+        if (dueOn(r, d, zone) != null) return d
+    }
+    return null
+}
+
+private fun porRotina(logs: List<RoutineLog>) = logs.filter { it.deletedAt == null }.groupBy { it.routineId }
+
 /** Quantos dias para tras procurar pendencia em aberto de uma rotina por dias da semana. */
 const val CARRY_DAYS = 30
 
@@ -124,10 +161,10 @@ const val CARRY_DAYS = 30
  * `proximaEm` fica no passado e `dueOn` as devolve em todos os dias.
  */
 fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDate, zone: ZoneId, now: Long? = null): List<Occurrence> {
-    val byKey = logs.filter { it.deletedAt == null }.groupBy { it.routineId to it.previstoPara }
+    val byKey = porRotina(logs)
     val doDia = routines.mapNotNull { r ->
         val due = dueOn(r, date, zone) ?: return@mapNotNull null
-        val o = Occurrence(r, due, byKey[r.id to due]?.maxByOrNull { it.updatedAt }, zone = zone)
+        val o = Occurrence(r, due, registroDe(r, due, byKey[r.id].orEmpty(), zone), zone = zone)
         // atividade de uma vez ja concluida (feita ou pulada): aparece so no dia em que foi resolvida
         if (r.isOnce() && !o.open && (o.log!!.feitoEm ?: o.log.updatedAt).toLocalDate(zone) != date) null else o
     }
@@ -146,7 +183,7 @@ fun occurrencesOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDa
  */
 private fun carriedInto(
     routines: List<Routine>,
-    byKey: Map<Pair<String, Long>, List<RoutineLog>>,
+    byKey: Map<String, List<RoutineLog>>,
     date: LocalDate,
     zone: ZoneId,
     jaNoDia: Set<String>,
@@ -164,7 +201,7 @@ private fun carriedInto(
     for (i in 1..CARRY_DAYS) {
         val d = date.minusDays(i.toLong())
         val due = dueOn(r, d, zone) ?: continue
-        val log = byKey[r.id to due]?.maxByOrNull { it.updatedAt }
+        val log = registroDe(r, due, byKey[r.id].orEmpty(), zone)
         val o = Occurrence(r, due, log, carried = true, zone = zone)
         return@mapNotNull if (o.open) o else null
     }
@@ -278,11 +315,11 @@ fun reminderText(items: List<Occurrence>, products: Map<String, Product>, volume
  * Diferente de occurrencesOn, rotinas com data (intervalo ou uma vez) aparecem so no dia marcado.
  */
 fun agendaOn(routines: List<Routine>, logs: List<RoutineLog>, date: LocalDate, zone: ZoneId): List<Occurrence> {
-    val byKey = logs.filter { it.deletedAt == null }.groupBy { it.routineId to it.previstoPara }
+    val byKey = porRotina(logs)
     return routines.mapNotNull { r ->
         if (!r.ativa || r.deletedAt != null) return@mapNotNull null
         val due = if (r.isAnchored()) r.proximaEm?.takeIf { it.toLocalDate(zone) == date } else dueOn(r, date, zone)
-        due?.let { Occurrence(r, it, byKey[r.id to it]?.maxByOrNull { l -> l.updatedAt }, zone = zone) }
+        due?.let { Occurrence(r, it, registroDe(r, it, byKey[r.id].orEmpty(), zone), zone = zone) }
     }.sortedWith(compareBy({ it.dueAt }, { it.routine.titulo }))
 }
 

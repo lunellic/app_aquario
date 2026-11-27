@@ -166,7 +166,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun fecharTpaAberta() {
         val now = ts()
         br.com.lunelli.lulucoreef.domain.occurrencesOn(routines.value, logs.value, br.com.lunelli.lulucoreef.domain.diaDaAgenda(now, zone), zone, now)
-            .firstOrNull { it.routine.tipo == "tpa" && it.open }
+            // a do aquario de reef: a TPA dos baiacus e de outro aquario e nao entra no registro de TPA
+            .firstOrNull { it.routine.tipo == "tpa" && it.open && !it.routine.titulo.contains("baiac", ignoreCase = true) }
             ?.let { markDone(it, createDosing = false) }
     }
 

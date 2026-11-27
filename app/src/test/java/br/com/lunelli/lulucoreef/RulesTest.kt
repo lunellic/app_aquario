@@ -599,3 +599,30 @@ class SemHorarioTest {
         assertEquals(null, br.com.lunelli.lulucoreef.domain.resumoDaNoite(emptyList(), emptyMap(), 125.0))
     }
 }
+
+class MudancaDeHorarioTest {
+    private val zone = java.time.ZoneId.of("America/Sao_Paulo")
+    private fun em(dataHora: String) = java.time.LocalDateTime.parse(dataHora).atZone(zone).toInstant().toEpochMilli()
+    private val testes = br.com.lunelli.lulucoreef.data.Routine("Testes", id = "x", tipo = "teste", recorrencia = "dias_da_semana", diasSemana = listOf(3), horario = "15:00")
+    // feito na quarta 25/11, quando a rotina era as 18h
+    private val logs = listOf(br.com.lunelli.lulucoreef.data.RoutineLog("x", em("2026-11-25T18:00"), "feito", feitoEm = em("2026-11-25T16:54")))
+    private fun naData(r: br.com.lunelli.lulucoreef.data.Routine, d: String) =
+        br.com.lunelli.lulucoreef.domain.occurrencesOn(listOf(r), logs, java.time.LocalDate.parse(d), zone).single()
+
+    @org.junit.Test fun novoHorarioNoMesmoDiaContinuaFeito() = assertFalse(naData(testes, "2026-11-25").open)
+
+    @org.junit.Test fun novoDiaNaMesmaSemanaContinuaFeito() {
+        val quinta = testes.copy(diasSemana = listOf(4))
+        assertFalse(naData(quinta, "2026-11-26").open)
+        assertTrue(naData(quinta, "2026-12-03").open)
+        // e nao arrasta para a sexta
+        val sexta = em("2026-11-27T10:00")
+        assertTrue(br.com.lunelli.lulucoreef.domain.occurrencesOn(listOf(quinta), logs, java.time.LocalDate.parse("2026-11-27"), zone, sexta).isEmpty())
+    }
+
+    @org.junit.Test fun diariaNaoAproveitaOFeitoDeOntem() {
+        val dose = testes.copy(tipo = "dosagem", recorrencia = "diaria", diasSemana = null)
+        assertTrue(naData(dose, "2026-11-26").open)
+        assertFalse(naData(dose, "2026-11-25").open)
+    }
+}
