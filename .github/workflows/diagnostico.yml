@@ -26,15 +26,6 @@ jobs:
       PROJECT_REF: gzfkcryebczjmuzckxuv
       LINHAS: ${{ github.event.inputs.linhas || '80' }}
     steps:
-      - name: Conferir o notifier depois do Web Push
-        run: |
-          echo "sem login (espera 401): $(curl -sS -o /dev/null -w '%{http_code}' -X POST "https://$PROJECT_REF.supabase.co/functions/v1/notifier" -H 'Content-Type: application/json' -d '{"mode":"push_key"}')"
-          sleep 330
-          q="select to_char(created at time zone 'America/Sao_Paulo','HH24:MI') h, status_code, (content like '%erro%') tem_erro, (content like '%sem canal%') sem_canal from net._http_response order by created desc limit 3"
-          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
-          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
-
       - name: Ler o diario
         continue-on-error: true
         run: |
