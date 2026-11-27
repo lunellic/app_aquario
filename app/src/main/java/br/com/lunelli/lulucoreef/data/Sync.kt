@@ -81,7 +81,14 @@ class SyncEngine(context: Context, private val db: AppDb, private val api: Api, 
 
     private suspend fun rodada() {
         val tables = db.syncTables()
+        // Banco local de versao nova (coluna nova numa tabela): o que foi puxado pela versao antiga do
+        // app veio sem a coluna e o cursor ja tinha passado dessas linhas. Zera os cursores uma vez
+        // para puxar tudo de novo; linha sem alteracao local e sobrescrita pela do servidor.
+        val esquema = db.openHelper.readableDatabase.version
+        val refazer = prefs.getInt("esquema", 0) != esquema
+        if (refazer) prefs.edit().apply { tables.forEach { remove("cursor_${it.name}") } }.apply()
         tables.forEach { pull(it) }
+        if (refazer) prefs.edit().putInt("esquema", esquema).apply()
         tables.forEach { push(it) }
         photos.uploadPending()
     }
