@@ -26,13 +26,6 @@ jobs:
       PROJECT_REF: gzfkcryebczjmuzckxuv
       LINHAS: ${{ github.event.inputs.linhas || '80' }}
     steps:
-      - name: TPA e perlon na quinta
-        run: |
-          q="update public.routines set dias_semana = '{4}', updated_at = now() where deleted_at is null and ativa and recorrencia = 'dias_da_semana' and dias_semana = '{5}' and ((tipo = 'tpa' and titulo not ilike '%baiacu%') or titulo ilike 'troca do perlon%') returning titulo, dias_semana::text"
-          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
-          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
-
       - name: Ler o diario
         continue-on-error: true
         run: |
