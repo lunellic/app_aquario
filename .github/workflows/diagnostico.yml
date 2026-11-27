@@ -26,6 +26,23 @@ jobs:
       PROJECT_REF: gzfkcryebczjmuzckxuv
       LINHAS: ${{ github.event.inputs.linhas || '80' }}
     steps:
+      - name: Previa do aviso das 23h30
+        run: |
+          cat > /tmp/sql.txt <<'SQL'
+          do $$ declare c text; begin
+            select command into c from cron.job where jobname = 'luluco_tick';
+            c := replace(c, '{"mode":"tick"}', '{"mode":"resumo_previa"}');
+            execute c;
+          end $$;
+          SQL
+          sed -i 's/^          //' /tmp/sql.txt
+          jq -n --rawfile q /tmp/sql.txt '{query: $q}' > /tmp/q.json
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
+          sleep 15
+          q="select status_code, (content like '%\"ok\":1%') entregue, (content like '%falhas\":0%') sem_falha from net._http_response order by created desc limit 1"
+          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
+
       - name: Ler o diario
         continue-on-error: true
         run: |
