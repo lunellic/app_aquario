@@ -26,6 +26,15 @@ jobs:
       PROJECT_REF: gzfkcryebczjmuzckxuv
       LINHAS: ${{ github.event.inputs.linhas || '80' }}
     steps:
+      - name: Registros dos testes
+        run: |
+          q="select to_char(l.previsto_para at time zone 'America/Sao_Paulo','DD/MM HH24:MI') previsto, l.status, to_char(l.feito_em at time zone 'America/Sao_Paulo','DD/MM HH24:MI') feito, l.deleted_at is not null apagado from public.routine_logs l join public.routines r on r.id = l.routine_id where r.titulo ilike 'testes%' and l.previsto_para > now() - interval '20 days' order by l.previsto_para"
+          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
+          q="select parametro, count(*) n, to_char(max(medido_em) at time zone 'America/Sao_Paulo','DD/MM HH24:MI') ultimo from public.water_tests where deleted_at is null and medido_em > now() - interval '5 days' group by parametro"
+          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
+          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
+
       - name: Ler o diario
         continue-on-error: true
         run: |
