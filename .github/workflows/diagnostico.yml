@@ -26,13 +26,6 @@ jobs:
       PROJECT_REF: gzfkcryebczjmuzckxuv
       LINHAS: ${{ github.event.inputs.linhas || '80' }}
     steps:
-      - name: Reenviar rotinas para o tablet puxar com com_horario
-        run: |
-          q="update public.routines set updated_at = now() where deleted_at is null returning 1"
-          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
-          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json | jq length
-
       - name: Ler o diario
         continue-on-error: true
         run: |
