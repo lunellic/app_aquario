@@ -26,17 +26,6 @@ jobs:
       PROJECT_REF: gzfkcryebczjmuzckxuv
       LINHAS: ${{ github.event.inputs.linhas || '80' }}
     steps:
-      - name: Desligar o ntfy (pedido de 27/11)
-        run: |
-          q="update public.tank_config set ntfy_ativo = false, updated_at = now() where deleted_at is null and ntfy_ativo returning 1"
-          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
-          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
-          q="select count(*) filter (where ntfy_ativo) ligado, count(*) filter (where not ntfy_ativo) desligado from public.tank_config where deleted_at is null"
-          jq -n --arg q "$q" '{query: $q}' > /tmp/q.json
-          curl -sS -X POST "https://api.supabase.com/v1/projects/$PROJECT_REF/database/query" \
-            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" --data-binary @/tmp/q.json; echo
-
       - name: Ler o diario
         continue-on-error: true
         run: |
