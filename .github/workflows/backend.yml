@@ -76,6 +76,24 @@ jobs:
           supabase functions deploy assistant --project-ref "$PROJECT_REF" --yes
           supabase functions deploy notifier --project-ref "$PROJECT_REF" --no-verify-jwt --yes
 
+      - name: Chaves dos avisos no iPhone (Web Push), geradas uma vez só
+        if: steps.check.outputs.go == 'true'
+        run: |
+          # Trocar as chaves desligaria todos os iPhones inscritos, entao so gera se ainda nao existir.
+          # A chave privada nunca aparece no log: vai direto para os secrets das funcoes.
+          nomes=$(curl -sS --fail "https://api.supabase.com/v1/projects/$PROJECT_REF/secrets" -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" | jq -r '.[].name')
+          if printf '%s\n' "$nomes" | grep -qx VAPID_PRIVATE_KEY && printf '%s\n' "$nomes" | grep -qx VAPID_PUBLIC_KEY; then
+            echo "chaves VAPID ja existem"
+          else
+            npx --yes web-push@3.6.7 generate-vapid-keys --json > /tmp/vapid.json
+            priv=$(jq -r .privateKey /tmp/vapid.json); pub=$(jq -r .publicKey /tmp/vapid.json)
+            echo "::add-mask::$priv"
+            printf 'VAPID_PUBLIC_KEY=%s\nVAPID_PRIVATE_KEY=%s\n' "$pub" "$priv" > /tmp/vapid.env
+            supabase secrets set --project-ref "$PROJECT_REF" --env-file /tmp/vapid.env --yes
+            rm -f /tmp/vapid.json /tmp/vapid.env
+            echo "chaves VAPID geradas"
+          fi
+
       - name: Gravar secrets das funções e agendar o cron
         if: steps.check.outputs.go == 'true'
         run: |

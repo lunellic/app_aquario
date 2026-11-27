@@ -574,3 +574,7 @@ button.perigo { color: var(--critico); }
 
 /* rotulo em cima de uma fileira de chips ("Pagou com") */
 .rot-chips { flex-basis: 100%; margin-bottom: 2px; }
+
+/* avisos no iPhone: os dois botoes lado a lado */
+.botoes-avisos { display: flex; gap: 10px; }
+.botoes-avisos button { flex: 1; }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 const assertEquals = (a: unknown, b: unknown) => assert.deepStrictEqual(a, b);
-import { compliance, criticalAlerts, doseFor, fmt, formatDose, healthScore, isNight, local, localToMs, occurrencesOn, reminderText } from "./rules.ts";
+import { compliance, criticalAlerts, doseFor, fmt, formatDose, healthScore, isNight, local, localToMs, occurrencesOn, reminderText, resumoDaNoite } from "./rules.ts";
 
 const at = (date: string, time = "12:00") => localToMs(date, time);
 const iso = (t: number) => new Date(t).toISOString();
@@ -84,4 +84,18 @@ Deno.test("alertas criticos e modo noite", () => {
   const swing = criticalAlerts([t("kh", 8, 1, "x1"), t("kh", 9.3, 0.5, "x2")], ranges, now);
   assertEquals(swing.map((x) => x.key), ["crit|kh_swing|x2"]);
   assertEquals([isNight(3, 0, 7), isNight(7, 0, 7), isNight(23, 22, 6), isNight(12, 22, 6)], [true, false, true, false]);
+});
+
+Deno.test("resumo das 23h30: o que falta do dia e a TPA arrastada, sem dose de ontem", () => {
+  const tpa = { id: "t", titulo: "TPA", tipo: "tpa", recorrencia: "dias_da_semana", dias_semana: [4], horario: "19:00", com_horario: false, ativa: true };
+  const dose = { id: "d", titulo: "Goni Supreme", tipo: "dosagem", product_id: "g", recorrencia: "diaria", horario: "22:30", com_horario: false, ativa: true };
+  const prods = [{ id: "g", nome: "Goni", dose_quantidade: 1, dose_base_litros: 100, dose_unidade: "ml" }];
+  // sexta 04/12, 23h30: a dose de hoje esta aberta e a TPA de quinta 03/12 nao foi feita
+  const now = at("2026-12-04", "23:30");
+  assertEquals(resumoDaNoite([tpa, dose], [], prods, 100, now), "Falta 2 tarefas de hoje: Goni Supreme (1 ml), TPA");
+  // TPA de quinta marcada: so a dose
+  const logs = [{ routine_id: "t", previsto_para: iso(at("2026-12-03", "19:00")), status: "feito", updated_at: iso(now) }];
+  assertEquals(resumoDaNoite([tpa, dose], logs, prods, 100, now), "Falta 1 tarefa de hoje: Goni Supreme (1 ml)");
+  const feita = [...logs, { routine_id: "d", previsto_para: iso(at("2026-12-04", "22:30")), status: "feito", updated_at: iso(now) }];
+  assertEquals(resumoDaNoite([tpa, dose], feita, prods, 100, now), null);
 });

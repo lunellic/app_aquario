@@ -1,9 +1,12 @@
-// Edge Function `notifier` (spec 12): push pelo ntfy (rotinas atrasadas e alertas criticos) e e-mail semanal pelo Resend.
+// Edge Function `notifier` (spec 12): avisos (rotinas atrasadas, alertas criticos e o resumo das 23h30) pelo ntfy e
+// pelo Web Push do PWA no iPhone, e e-mail semanal pelo Resend.
 // Chamada pelo pg_cron (header x-cron-secret) ou pelo app nos botoes de teste (JWT do usuario).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { ANALYSIS_REQUEST, askClaude, checkLimit, CORS, json } from "../_shared/ai.ts";
 import { loadCtx, summarize } from "../_shared/context.ts";
-import { compliance, criticalAlerts, DAY_MS, fmt, healthScore, isNight, LABEL, latest, local, MAIN, ms, numShort, occurrencesOn, reminderText, statusOf } from "../_shared/rules.ts";
+import { compliance, criticalAlerts, DAY_MS, fmt, healthScore, isNight, LABEL, latest, local, MAIN, ms, numShort, occurrencesOn, reminderText, resumoDaNoite, statusOf } from "../_shared/rules.ts";
+// @deno-types="npm:@types/web-push@3.6.4"
+import webpush from "npm:web-push@3.6.7";
 
 const LATE_AFTER_MS = 15 * 60_000; // da tempo de marcar no tablet antes de avisar o iPhone
 
@@ -12,6 +15,42 @@ async function ntfy(title: string, message: string, priority: number, tags: stri
   if (!topic) throw new Error("NTFY_TOPIC não configurado nas Edge Functions.");
   const res = await fetch("https://ntfy.sh", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ topic, title, message, priority, tags }) });
   if (!res.ok) throw new Error(`ntfy ${res.status}: ${await res.text()}`);
+}
+
+// ---- Web Push (PWA no iPhone) ----
+// As chaves VAPID sao geradas uma vez pelo workflow de backend e ficam so nos secrets das funcoes.
+// O "subject" e o endereco do proprio PWA: a Apple exige um, e assim nenhum e-mail fica no repositorio.
+const VAPID_SUBJECT = "https://lunellic.github.io/app_aquario/";
+
+function vapidPronto(): boolean {
+  const pub = Deno.env.get("VAPID_PUBLIC_KEY"), priv = Deno.env.get("VAPID_PRIVATE_KEY");
+  if (!pub || !priv) return false;
+  webpush.setVapidDetails(VAPID_SUBJECT, pub, priv);
+  return true;
+}
+
+/**
+ * Manda para todos os iPhones inscritos do usuario. Devolve quantos receberam e quantos falharam.
+ * Inscricao que a Apple diz que nao existe mais (404/410: PWA apagado, permissao tirada) sai da tabela.
+ */
+async function pushAll(service: SupabaseClient, userId: string, title: string, body: string, tag: string): Promise<{ ok: number; falhas: number }> {
+  if (!vapidPronto()) return { ok: 0, falhas: 0 };
+  const { data: subs, error } = await service.from("push_subscriptions").select("id, endpoint, p256dh, auth").eq("user_id", userId);
+  if (error) throw new Error(`push_subscriptions: ${error.message}`);
+  let ok = 0, falhas = 0;
+  const payload = JSON.stringify({ title, body, tag });
+  for (const s of subs ?? []) {
+    try {
+      await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 6 * 3600, urgency: "high" });
+      ok++;
+      await service.from("push_subscriptions").update({ usado_em: new Date().toISOString() }).eq("id", s.id);
+    } catch (e) {
+      const code = (e as { statusCode?: number }).statusCode;
+      if (code === 404 || code === 410) await service.from("push_subscriptions").delete().eq("id", s.id);
+      else { falhas++; console.error("web push", code, (e as { body?: string }).body ?? e); }
+    }
+  }
+  return { ok, falhas };
 }
 
 /** true se a chave ainda nao tinha sido enviada (e marca como enviada). */
@@ -25,9 +64,22 @@ async function firstTime(service: SupabaseClient, userId: string, chave: string)
 async function tick(service: SupabaseClient, userId: string, now: number): Promise<string[]> {
   const sent: string[] = [];
   const c = await loadCtx(service, userId, now);
-  if (!c.tank || c.tank.ntfy_ativo === false) return sent;
-  // sem topico configurado nao ha para onde enviar: nao marca nada como avisado
-  if (!Deno.env.get("NTFY_TOPIC")) return ["sem NTFY_TOPIC"];
+  if (!c.tank) return sent;
+  // dois canais: o ntfy (se ligado no app e com topico) e o Web Push do iPhone (se houver inscricao)
+  const ntfyOn = c.tank.ntfy_ativo !== false && !!Deno.env.get("NTFY_TOPIC");
+  const { count: nSubs } = await service.from("push_subscriptions").select("id", { count: "exact", head: true }).eq("user_id", userId);
+  const pushOn = (nSubs ?? 0) > 0 && vapidPronto();
+  // sem canal nao ha para onde enviar: nao marca nada como avisado
+  if (!ntfyOn && !pushOn) return ["sem canal"];
+  /** Manda pelos canais ligados. Falha so se todos falharem: um iPhone sem sinal nao reenvia o ntfy. */
+  const enviar = async (title: string, message: string, priority: number, tags: string[], tag: string) => {
+    let entregue = false, erro: unknown = null;
+    if (ntfyOn) { try { await ntfy(title, message, priority, tags); entregue = true; } catch (e) { erro = e; } }
+    if (pushOn) {
+      try { const r = await pushAll(service, userId, title, message, tag); if (r.ok) entregue = true; else if (r.falhas && !erro) erro = new Error("web push falhou"); } catch (e) { erro = erro ?? e; }
+    }
+    if (!entregue && erro) throw erro;
+  };
   // se o envio falhar, desfaz a marca para tentar de novo no proximo ciclo
   const unmark = (keys: string[]) => service.from("notify_log").delete().eq("user_id", userId).in("chave", keys);
   const night = isNight(local(now).hour, c.tank.noite_inicio ?? 0, c.tank.noite_fim ?? 7);
@@ -37,7 +89,7 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
   for (const a of criticalAlerts(c.tests, c.ranges, now)) {
     if (await firstTime(service, userId, a.key)) {
       try {
-        await ntfy("Luluco Reef: alerta crítico", `${a.fato} Reteste para confirmar e corrija devagar.`, 5, ["rotating_light"]);
+        await enviar("Luluco Reef: alerta crítico", `${a.fato} Reteste para confirmar e corrija devagar.`, 5, ["rotating_light"], a.key);
       } catch (e) {
         await unmark([a.key]);
         throw e;
@@ -56,12 +108,31 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
       for (const o of group) if (await firstTime(service, userId, `rot|${o.routine.id}|${o.effectiveDueAt}`)) fresh.push(o);
       if (fresh.length) {
         try {
-          await ntfy("Luluco Reef: rotina atrasada", reminderText(fresh, c.products, vol), 3, ["alarm_clock"]);
+          await enviar("Luluco Reef: rotina atrasada", reminderText(fresh, c.products, vol), 3, ["alarm_clock"], "atrasada");
         } catch (e) {
           await unmark(fresh.map((o) => `rot|${o.routine.id}|${o.effectiveDueAt}`));
           throw e;
         }
         sent.push(...fresh.map((o) => `rot|${o.routine.titulo}`));
+      }
+    }
+  }
+  // resumo das 23h30: o que ainda falta do dia, inclusive o que nao tem horario (sai mesmo no modo noite,
+  // e o lembrete que o Lucas pediu para todo dia). O tick roda de 5 em 5 minutos; a chave do dia
+  // garante um so. Depois da meia-noite nao manda mais: aquilo ja virou atrasado.
+  const t = local(now);
+  if (t.hour === 23 && t.minute >= 30) {
+    const key = `resumo|${t.date}`;
+    if (await firstTime(service, userId, key)) {
+      const texto = resumoDaNoite(c.routines, c.logs, c.products, vol, now);
+      if (texto) {
+        try {
+          await enviar("Luluco Reef: 23h30", texto, 4, ["memo"], "resumo");
+        } catch (e) {
+          await unmark([key]);
+          throw e;
+        }
+        sent.push(key);
       }
     }
   }
@@ -232,6 +303,31 @@ Deno.serve(async (req) => {
     const { data: u } = await service.auth.getUser(token);
     const userId = u?.user?.id;
     if (!userId) return json({ error: "Não autenticado." }, 401);
+    // inscricao do PWA do iPhone no Web Push
+    if (mode === "push_key") {
+      const key = Deno.env.get("VAPID_PUBLIC_KEY");
+      if (!key) return json({ error: "Avisos no iPhone ainda não configurados no servidor." }, 503);
+      return json({ ok: true, key });
+    }
+    if (mode === "push_subscribe") {
+      const sub = body.subscription ?? {};
+      const endpoint = String(sub.endpoint ?? ""), p256dh = String(sub.keys?.p256dh ?? ""), auth = String(sub.keys?.auth ?? "");
+      if (!/^https:\/\//.test(endpoint) || !p256dh || !auth) return json({ error: "Inscrição inválida." }, 400);
+      const { error } = await service.from("push_subscriptions").upsert(
+        { user_id: userId, endpoint, p256dh, auth, aparelho: String(body.aparelho ?? "").slice(0, 160) || null },
+        { onConflict: "endpoint" });
+      if (error) throw new Error(error.message);
+      return json({ ok: true });
+    }
+    if (mode === "push_unsubscribe") {
+      await service.from("push_subscriptions").delete().eq("user_id", userId).eq("endpoint", String(body.endpoint ?? ""));
+      return json({ ok: true });
+    }
+    if (mode === "push_test") {
+      const r = await pushAll(service, userId, "Luluco Reef: teste", "Se chegou, os avisos estão ligados neste iPhone.", "teste");
+      if (!r.ok) return json({ error: r.falhas ? "A Apple recusou o envio. Desligue e ligue os avisos de novo." : "Nenhum iPhone inscrito." }, 400);
+      return json({ ok: true, message: `Aviso de teste enviado (${r.ok}).` });
+    }
     if (mode === "test_ntfy") {
       await ntfy("Luluco Reef: teste", "Push de teste. Se chegou no iPhone, está tudo certo.", 3, ["tropical_fish"]);
       return json({ ok: true, message: "Push de teste enviado." });

@@ -56,6 +56,21 @@ async function renovar() {
 
 // ---------------------------------------------------------------- api
 
+/** Chamada a Edge Function notifier com o token do usuario (avisos no iPhone). */
+async function funcao(mode, extra = {}, repetir = true) {
+  if (sessao && sessao.expira && Date.now() > sessao.expira - 60000) await renovar();
+  if (!sessao) throw new Error('sem sessão');
+  const r = await fetch(`${CONFIG.url}/functions/v1/notifier`, {
+    method: 'POST',
+    headers: { apikey: CONFIG.key, Authorization: `Bearer ${sessao.access}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode, ...extra }),
+  });
+  if (r.status === 401 && repetir && await renovar()) return funcao(mode, extra, false);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `erro ${r.status}`);
+  return j;
+}
+
 /** Chamada ao REST com o token. Em 401 renova uma vez e repete; nunca repete duas. */
 async function api(caminho, opcoes = {}, repetir = true) {
   if (sessao && sessao.expira && Date.now() > sessao.expira - 60000) await renovar();
@@ -804,6 +819,7 @@ async function iniciar() {
   ocupado(true);
   try {
     await recarregar();
+    avisosRenovar();
   } catch (e) {
     toast(`Não deu para carregar: ${e.message}`, true);
     if (String(e.message).includes('sessão')) { gravarSessao(null); mostrarApp(false); }

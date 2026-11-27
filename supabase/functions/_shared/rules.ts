@@ -166,6 +166,32 @@ export function reminderText(items: Occurrence[], products: Row[], volume: numbe
   }).join(", ");
 }
 
+/**
+ * O que ainda falta do dia, para o resumo das 23h30 (o mesmo texto do tablet, domain/Routines.kt).
+ * Entra o que vence hoje e esta aberto, mais o que veio arrastado: rotina por dia da semana que nao e
+ * dosagem e cuja ocorrencia mais recente, dos ultimos 30 dias, ainda esta aberta. Dose nao arrasta.
+ */
+export function resumoDaNoite(routines: Row[], logs: Row[], products: Row[], volume: number, now: number): string | null {
+  const hoje = local(now).date;
+  const doDia = occurrencesOn(routines, logs, hoje);
+  const faltam = doDia.filter((o) => o.open);
+  const ja = new Set(doDia.map((o) => o.routine.id));
+  for (const r of routines) {
+    if (!r.ativa || r.deleted_at || r.recorrencia !== "dias_da_semana" || r.tipo === "dosagem" || ja.has(r.id)) continue;
+    for (let i = 1; i <= 30; i++) {
+      const o = occurrencesOn([r], logs, addDays(hoje, -i))[0];
+      if (!o) continue;
+      if (o.open) faltam.push(o);
+      break;
+    }
+  }
+  if (!faltam.length) return null;
+  return `Falta ${faltam.length} ${faltam.length === 1 ? "tarefa" : "tarefas"} de hoje: ` + faltam.map((o) => {
+    const p = products.find((x) => x.id === o.routine.product_id);
+    return o.routine.tipo === "dosagem" && p ? `${o.routine.titulo} (${formatDose(doseFor(p, volume), p.dose_unidade)})` : o.routine.titulo;
+  }).join(", ");
+}
+
 // ---- alertas criticos (para push imediato) ----
 
 export interface Critical { key: string; fato: string }
