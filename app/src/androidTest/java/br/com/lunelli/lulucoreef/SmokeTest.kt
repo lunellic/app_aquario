@@ -186,6 +186,34 @@ class SmokeTest {
     }
 
     /** Quem ja tem o app instalado (banco v1) atualiza sem perder dados: v1 -> v2 cria water_tests.baixaConfianca. */
+    /** Editar um alarme abre no horario dele e salvar nao troca a hora (abria sempre em 07:00). */
+    @Test fun editarAlarmeMantemOHorario() {
+        val a = br.com.lunelli.lulucoreef.data.Alarm(titulo = "Comida", hora = 8, minuto = 20, recorrencia = "diaria")
+        runBlocking {
+            app.graph.db.tankConfig().upsert(TankConfig())
+            app.graph.db.alarms().put(a)
+        }
+        app.graph.session.save(JSONObject("""{"access_token":"x","refresh_token":"y","expires_in":999999,"user":{"id":"00000000-0000-0000-0000-000000000001","email":"teste@example.com"}}"""))
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { it.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE }
+            compose.waitForIdle()
+            // o bloco de alarmes do Painel leva para a lista
+            compose.onNodeWithTag("bloco_alarmes").performScrollTo().performClick()
+            compose.waitForIdle()
+            compose.onNodeWithText("08:20").performClick()
+            compose.waitForIdle()
+            Thread.sleep(1500) // deixa as roletas assentarem, que era quando a hora virava 07:00
+            compose.onNodeWithText("Salvar").performScrollTo().performClick()
+            compose.waitForIdle()
+            runBlocking {
+                val salvo = app.graph.db.alarms().get(a.id)!!
+                assertEquals(8, salvo.hora)
+                assertEquals(20, salvo.minuto)
+                assertTrue(!salvo.avisarIphone)
+            }
+        }
+    }
+
     @Test fun migracaoDoBancoLocalPreservaDados() {
         val name = "migracao_teste.db"
         app.deleteDatabase(name)
@@ -193,7 +221,7 @@ class SmokeTest {
             .addMigrations(
                 br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3,
                 br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_3_4, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_4_5,
-                br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_5_6,
+                br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_5_6, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_6_7,
             ).build()
         open().apply { openHelper.writableDatabase; close() }
 

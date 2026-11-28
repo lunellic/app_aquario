@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,7 +65,11 @@ fun TimerBlock(nav: Nav, compact: Boolean = true) {
                 Spacer(Modifier.width(10.dp))
                 Eyebrow("Timer")
                 Spacer(Modifier.weight(1f))
-                if (compact) TextButton(onClick = { nav.top(Screen.Timers) }) { Text("Alarme") }
+                // avisa tambem no iPhone quando acabar (ele sai de perto do aquario e nao ouve o tablet)
+                var iphone by remember { mutableStateOf(Clocks.timerNoIphone(ctx)) }
+                Text("Avisar no iPhone", color = Luluco.TextSoft, fontSize = 13.sp)
+                Spacer(Modifier.width(6.dp))
+                Switch(iphone, { iphone = it; Clocks.timerNoIphone(ctx, it) }, Modifier.testTag("timer_iphone"))
             }
             // Tres tempos no Painel, cinco na tela propria. Com seis botoes na coluna estreita do
             // Painel cada um ficava com uns 50 px e o rotulo quebrava no meio: "5 mi", "1 0",
@@ -86,6 +92,18 @@ fun TimerBlock(nav: Nav, compact: Boolean = true) {
                         TextButton(onClick = { Clocks.cancelTimer(ctx, t.id) }) { Text("Cancelar") }
                     }
                 }
+            }
+            // alarmes num bloco proprio dentro do mesmo cartao: antes era so a palavra "Alarme" no
+            // canto e ele quase nao achava
+            if (compact) Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Luluco.Solid)
+                    .clickable { nav.top(Screen.Timers) }.padding(horizontal = 14.dp, vertical = 12.dp).testTag("bloco_alarmes"),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconeRedondo(Icons.Outlined.Notifications, Luluco.AreaTpa)
+                Spacer(Modifier.width(10.dp))
+                Text("Alarmes", color = Luluco.Cream, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                Text("criar ou editar ›", color = Luluco.TextSoft, fontSize = 13.sp)
             }
         }
     }
@@ -165,13 +183,18 @@ fun AlarmForm(vm: MainViewModel, nav: Nav, id: String?) {
     var recorrencia by remember { mutableStateOf("diaria") }
     var dias by remember { mutableStateOf(listOf(3)) }
     var alto by remember { mutableStateOf(true) }
+    var iphone by remember { mutableStateOf(false) }
     LaunchedEffect(atual) {
         if (atual != null && !carregado) {
             titulo = atual.titulo; hora = atual.hora; minuto = atual.minuto
             recorrencia = atual.recorrencia; dias = atual.diasSemana.orEmpty().ifEmpty { listOf(3) }; alto = atual.alto
+            iphone = atual.avisarIphone
             carregado = true
         }
     }
+    // As roletas so entram depois de carregar o alarme. Antes elas nasciam em 07:00 e, ao assentar,
+    // gravavam 07:00 por cima do horario que acabara de ser lido: editar um alarme das 8h20 abria em 7h.
+    val pronto = id == null || carregado
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ScreenHeader(if (atual == null) "Novo alarme" else "Alarme", onBack = { nav.back() })
@@ -181,7 +204,7 @@ fun AlarmForm(vm: MainViewModel, nav: Nav, id: String?) {
         }
 
         SectionTitle("Horário")
-        Panel(Modifier.fillMaxWidth()) {
+        if (pronto) Panel(Modifier.fillMaxWidth()) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f)) {
                     Eyebrow("Hora")
@@ -223,14 +246,23 @@ fun AlarmForm(vm: MainViewModel, nav: Nav, id: String?) {
             Muted("Usa o som de alarme do próprio tablet, em laço, até você apertar Parar. No alto o volume de alarme vai ao máximo.")
         }
 
+        SectionTitle("iPhone")
+        Panel(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Avisar também no iPhone", Modifier.weight(1f), color = Luluco.Cream)
+                Switch(iphone, { iphone = it }, Modifier.testTag("alarme_iphone"))
+            }
+            Muted("Chega no iPhone na hora em que tocar aqui. Precisa dos avisos ligados no app do iPhone.")
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            BigButton("Salvar", Modifier.weight(1f), color = Luluco.Pool, enabled = recorrencia != "dias_da_semana" || dias.isNotEmpty()) {
+            BigButton("Salvar", Modifier.weight(1f), color = Luluco.Pool, enabled = pronto && (recorrencia != "dias_da_semana" || dias.isNotEmpty())) {
                 val base = atual ?: Alarm()
                 vm.save(
                     base.copy(
                         titulo = titulo.trim(), hora = hora, minuto = minuto, recorrencia = recorrencia,
                         diasSemana = if (recorrencia == "dias_da_semana") dias.sorted() else null,
-                        alto = alto, ativo = true,
+                        alto = alto, ativo = true, avisarIphone = iphone,
                         diaUnico = if (recorrencia == "unica") System.currentTimeMillis() else null,
                     ),
                 )

@@ -349,4 +349,6 @@ data class Alarm(
     val ativo: Boolean = true,
     /** Para "unica": o dia em que deve tocar (epoch ms). Depois de tocar, o alarme se desliga. */
     val diaUnico: Long? = null,
+    /** Avisa tambem no iPhone (Web Push do PWA) na hora em que tocar. Desligado por padrao. */
+    val avisarIphone: Boolean = false,
 )

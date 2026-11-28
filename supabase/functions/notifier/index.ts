@@ -336,6 +336,13 @@ Deno.serve(async (req) => {
       await service.from("push_subscriptions").delete().eq("user_id", userId).eq("endpoint", String(body.endpoint ?? ""));
       return json({ ok: true });
     }
+    // timer ou alarme do tablet que acabou de tocar: o mesmo aviso no iPhone, na hora
+    if (mode === "push_agora") {
+      const title = String(body.title ?? "Luluco Reef").slice(0, 80);
+      const texto = String(body.body ?? "").slice(0, 200);
+      const r = await pushAll(service, userId, title, texto, `agora-${Date.now()}`);
+      return json({ ok: true, enviados: r.ok, falhas: r.falhas });
+    }
     if (mode === "push_test") {
       const r = await pushAll(service, userId, "Luluco Reef: teste", "Se chegou, os avisos estão ligados neste iPhone.", "teste");
       if (!r.ok) return json({ error: r.falhas ? "A Apple recusou o envio. Desligue e ligue os avisos de novo." : "Nenhum iPhone inscrito." }, 400);

@@ -27,8 +27,8 @@ import java.time.ZoneId
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Um timer em contagem: nome opcional e quando acaba. */
-data class Timer(val id: String, val label: String, val endAt: Long)
+/** Um timer em contagem: nome opcional, quando acaba e se avisa tambem no iPhone. */
+data class Timer(val id: String, val label: String, val endAt: Long, val iphone: Boolean = false)
 
 /** O que esta tocando agora. */
 data class Ringing(val titulo: String, val alarmId: String?)
@@ -50,6 +50,7 @@ object Clocks {
     private const val NOTIF_ID = 1002
     private const val PREFS = "clocks"
     private const val KEY_TIMERS = "timers"
+    private const val KEY_TIMER_IPHONE = "timer_iphone"
     const val ACTION_STOP = "br.com.lunelli.lulucoreef.STOP_RINGING"
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -71,8 +72,12 @@ object Clocks {
         reschedule(context)
     }
 
+    /** Timer novo avisa no iPhone? Ligado por padrao; a escolha fica guardada para os proximos. */
+    fun timerNoIphone(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TIMER_IPHONE, true)
+    fun timerNoIphone(context: Context, on: Boolean) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_TIMER_IPHONE, on).apply()
+
     fun startTimer(context: Context, minutes: Int, label: String = "") {
-        val t = Timer(java.util.UUID.randomUUID().toString(), label, System.currentTimeMillis() + minutes * 60_000L)
+        val t = Timer(java.util.UUID.randomUUID().toString(), label, System.currentTimeMillis() + minutes * 60_000L, timerNoIphone(context))
         writeTimers(context, readTimers(context).filter { it.endAt > System.currentTimeMillis() } + t)
         load(context)
     }
@@ -88,7 +93,7 @@ object Clocks {
             val arr = JSONArray(raw)
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
-                Timer(o.getString("id"), o.optString("label", ""), o.getLong("endAt"))
+                Timer(o.getString("id"), o.optString("label", ""), o.getLong("endAt"), o.optBoolean("iphone", false))
             }
         } catch (_: Exception) {
             emptyList()
@@ -97,7 +102,7 @@ object Clocks {
 
     private fun writeTimers(context: Context, list: List<Timer>) {
         val arr = JSONArray()
-        list.forEach { arr.put(JSONObject().put("id", it.id).put("label", it.label).put("endAt", it.endAt)) }
+        list.forEach { arr.put(JSONObject().put("id", it.id).put("label", it.label).put("endAt", it.endAt).put("iphone", it.iphone)) }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_TIMERS, arr.toString()).apply()
     }
 
@@ -151,7 +156,9 @@ object Clocks {
                 writeTimers(app, readTimers(app).filter { it.endAt > now + 60_000 })
                 _timers.value = readTimers(app)
                 val nome = vencidos.firstOrNull { it.label.isNotBlank() }?.label
-                ring(app, if (nome != null) "Timer: $nome" else "Timer acabou", null, alto = true)
+                val titulo = if (nome != null) "Timer: $nome" else "Timer acabou"
+                ring(app, titulo, null, alto = true)
+                if (vencidos.any { it.iphone }) avisarIphone(app, titulo, "Terminou às ${hhmm(now, zone)}.")
             }
             // alarmes que venceram neste minuto
             val alarmes = try { (app as App).graph.db.alarms().list() } catch (_: Exception) { emptyList() }
@@ -161,6 +168,7 @@ object Clocks {
             }
             tocando.firstOrNull()?.let { a ->
                 ring(app, a.titulo.ifBlank { "Alarme" }, a.id, a.alto)
+                if (a.avisarIphone) avisarIphone(app, a.titulo.ifBlank { "Alarme" }, "Alarme das ${"%02d:%02d".format(a.hora, a.minuto)}.")
                 // alarme de uma vez so nao volta: desliga depois de tocar
                 if (a.recorrencia == "unica") {
                     try { (app as App).graph.db.alarms().put(a.copy(ativo = false)) } catch (_: Exception) { }
@@ -168,6 +176,25 @@ object Clocks {
             }
         } finally {
             reschedule(app)
+        }
+    }
+
+    // ---------------------------------------------------------------- iPhone
+
+    private fun hhmm(ms: Long, zone: ZoneId) = java.time.Instant.ofEpochMilli(ms).atZone(zone).let { "%02d:%02d".format(it.hour, it.minute) }
+
+    /**
+     * Manda o mesmo aviso para o iPhone, pelo servidor (Web Push do PWA), na hora em que toca aqui.
+     * Em segundo plano para nao atrasar o som; sem internet no tablet o aviso do iPhone se perde
+     * (o tablet toca do mesmo jeito).
+     */
+    private fun avisarIphone(app: Context, titulo: String, texto: String) {
+        scope.launch(Dispatchers.IO) {
+            try {
+                (app as App).graph.api.callFunction("notifier", JSONObject().put("mode", "push_agora").put("title", "Luluco Reef: $titulo").put("body", texto))
+            } catch (e: Exception) {
+                android.util.Log.w("Clocks", "aviso no iPhone falhou: ${e.message}")
+            }
         }
     }
 
