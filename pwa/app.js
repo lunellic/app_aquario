@@ -848,6 +848,7 @@ async function iniciar() {
   try {
     await recarregar();
     avisosRenovar();
+    if (location.hash === '#relogios') { history.replaceState(null, '', location.pathname); abrirRelogios(); }
   } catch (e) {
     toast(`Não deu para carregar: ${e.message}`, true);
     if (String(e.message).includes('sessão')) { gravarSessao(null); mostrarApp(false); }

@@ -3,7 +3,7 @@
  * Os dados nunca entram no cache: parametro e rotina desatualizados sao pior que tela vazia, e o
  * PWA serve justamente para ver como esta agora. Sem rede ele abre e avisa que nao carregou.
  */
-const CACHE = 'luluco-casca-v14';
+const CACHE = 'luluco-casca-v15';
 const CASCA = ['./', './index.html', './style.css', './ui.js', './app.js', './graficos.js', './agenda.js', './financas.js', './relatorios.js', './aquario.js', './avisos.js', './relogios.js', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', (e) => {
@@ -39,21 +39,34 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(d.title || 'Luluco Reef', {
-    body: d.body || '',
-    tag: d.tag || undefined,
-    icon: './icon-192.png',
-    badge: './icon-192.png',
-    data: { url: './' },
-  }));
+  const url = d.url || './';
+  e.waitUntil(Promise.all([
+    self.registration.showNotification(d.title || 'Luluco Reef', {
+      body: d.body || '',
+      tag: d.tag || undefined,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      requireInteraction: true,
+      data: { url },
+    }),
+    // app aberto na tela: timer e alarme tambem tocam aqui, ate apertar Parar
+    url.includes('#relogios')
+      ? self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => cs.forEach((c) => c.postMessage({ tocar: d.title || 'Timer', texto: d.body || '' })))
+      : null,
+  ]));
 });
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
       const aberto = cs.find((c) => 'focus' in c);
-      return aberto ? aberto.focus() : self.clients.openWindow('./');
+      if (aberto) {
+        if (url.includes('#relogios')) aberto.postMessage({ abrir: 'relogios' });
+        return aberto.focus();
+      }
+      return self.clients.openWindow(url);
     }),
   );
 });

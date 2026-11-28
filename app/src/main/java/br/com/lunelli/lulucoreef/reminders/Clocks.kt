@@ -32,7 +32,7 @@ import org.json.JSONObject
 data class Timer(val id: String, val label: String, val endAt: Long, val iphone: Boolean = false)
 
 /** O que esta tocando agora. */
-data class Ringing(val titulo: String, val alarmId: String?)
+data class Ringing(val titulo: String, val alarmId: String?, val desde: Long = System.currentTimeMillis())
 
 /**
  * Timers e alarmes do tablet.
@@ -106,13 +106,19 @@ object Clocks {
         scope.launch { try { (app as App).graph.sync.syncRapido() } catch (_: Exception) { } }
     }
 
-    /** Timer novo avisa no iPhone? Ligado por padrao; a escolha fica guardada para os proximos. */
-    fun timerNoIphone(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_TIMER_IPHONE, true)
-    fun timerNoIphone(context: Context, on: Boolean) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_TIMER_IPHONE, on).apply()
+    /** Esta tocando agora? A sincronizacao rapida confere mais vezes enquanto toca. */
+    val tocando: Boolean get() = _ringing.value != null
+
+    /** O iPhone pediu para parar depois que o toque comecou: para aqui. */
+    suspend fun conferirParada(context: Context) {
+        val r = _ringing.value ?: return
+        val pedido = try { db(context).tankConfig().list().maxOfOrNull { it.pararToqueEm ?: 0L } ?: 0L } catch (_: Exception) { 0L }
+        if (pedido >= r.desde) stop(context.applicationContext)
+    }
 
     fun startTimer(context: Context, minutes: Int, label: String = "") {
         val app = context.applicationContext
-        val t = TimerRow(label = label, terminaEm = System.currentTimeMillis() + minutes * 60_000L, iphone = timerNoIphone(app), pending = true)
+        val t = TimerRow(label = label, terminaEm = System.currentTimeMillis() + minutes * 60_000L, iphone = true, pending = true)
         // aparece na hora na tela; o banco e o envio vem logo atras
         _timers.value = _timers.value + Timer(t.id, t.label, t.terminaEm, t.iphone)
         scope.launch {
@@ -203,7 +209,8 @@ object Clocks {
                 val nome = vencidos.firstOrNull { it.label.isNotBlank() }?.label
                 val titulo = if (nome != null) "Timer: $nome" else "Timer acabou"
                 ring(app, titulo, null, alto = true)
-                if (vencidos.any { it.iphone }) avisarIphone(app, titulo, "Terminou às ${hhmm(now, zone)}.")
+                // timer sempre avisa (e toca) no iPhone tambem
+                avisarIphone(app, titulo, "Terminou às ${hhmm(now, zone)}. Toque para parar o som no tablet.")
             }
             // alarmes que venceram neste minuto
             val alarmes = try { (app as App).graph.db.alarms().list() } catch (_: Exception) { emptyList() }
@@ -213,7 +220,7 @@ object Clocks {
             }
             tocando.firstOrNull()?.let { a ->
                 ring(app, a.titulo.ifBlank { "Alarme" }, a.id, a.alto)
-                if (a.avisarIphone) avisarIphone(app, a.titulo.ifBlank { "Alarme" }, "Alarme das ${"%02d:%02d".format(a.hora, a.minuto)}.")
+                if (a.avisarIphone) avisarIphone(app, a.titulo.ifBlank { "Alarme" }, "Alarme das ${"%02d:%02d".format(a.hora, a.minuto)}. Toque para parar o som no tablet.")
                 // alarme de uma vez so nao volta: desliga depois de tocar
                 if (a.recorrencia == "unica") {
                     try { db(app).alarms().upsert(a.copy(ativo = false, updatedAt = System.currentTimeMillis(), pending = true)); enviar(app) } catch (_: Exception) { }

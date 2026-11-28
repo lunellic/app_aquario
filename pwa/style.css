@@ -589,3 +589,9 @@ input[type=time] {
   background: var(--solido); border: 1px solid var(--borda); border-radius: 12px; color: var(--creme);
   padding: 13px 14px; width: 100%; -webkit-appearance: none; appearance: none; min-height: 48px;
 }
+
+button.parar-toque { width: 100%; background: var(--critico); color: #0B0616; margin-bottom: 4px; }
+#tocando { position: fixed; inset: 0; z-index: 40; background: rgba(11, 6, 22, 0.96); display: grid; align-content: center; gap: 14px; padding: 28px; text-align: center; }
+#tocando.hidden { display: none; }
+.tocando-titulo { font-size: 30px; font-weight: 700; color: var(--creme); }
+.tocando-texto { font-size: 16px; color: var(--suave); margin-bottom: 10px; }

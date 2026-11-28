@@ -20,6 +20,7 @@ interface SyncDao<T> {
 @Dao
 interface TankConfigDao : SyncDao<TankConfig> {
     @Query("SELECT * FROM tank_config WHERE deletedAt IS NULL ORDER BY createdAt ASC") fun all(): Flow<List<TankConfig>>
+    @Query("SELECT * FROM tank_config WHERE deletedAt IS NULL") suspend fun list(): List<TankConfig>
     @Query("SELECT * FROM tank_config WHERE pending = 1") override suspend fun pending(): List<TankConfig>
     @Query("SELECT * FROM tank_config WHERE id = :id") override suspend fun get(id: String): TankConfig?
     @Query("UPDATE tank_config SET pending = 0 WHERE id = :id AND updatedAt = :updatedAt") override suspend fun markSynced(id: String, updatedAt: Long)

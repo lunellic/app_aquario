@@ -235,6 +235,12 @@ class SmokeTest {
         raw.execSQL("DROP TABLE shopping_items")
         raw.execSQL("DROP TABLE IF EXISTS alarms")
         raw.execSQL("DROP TABLE IF EXISTS timers")
+        // tank_config volta sem a coluna da v8 (pararToqueEm), que a migracao 7->8 acrescenta
+        val tsql = raw.rawQuery("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tank_config'", null).use { it.moveToFirst(); it.getString(0) }
+        val tv7 = tsql.replace(", `pararToqueEm` INTEGER", "").replace("`pararToqueEm` INTEGER, ", "")
+        assertTrue("pararToqueEm nao encontrada em: $tsql", tv7 != tsql)
+        raw.execSQL("DROP TABLE tank_config")
+        raw.execSQL(tv7)
         // routines volta sem a coluna da v6 (comHorario), que a migracao 5->6 acrescenta
         val rsql = raw.rawQuery("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'routines'", null).use { it.moveToFirst(); it.getString(0) }
         val rv5 = rsql.replace(", `comHorario` INTEGER NOT NULL", "").replace("`comHorario` INTEGER NOT NULL, ", "")

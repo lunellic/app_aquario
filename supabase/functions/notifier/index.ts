@@ -33,12 +33,12 @@ function vapidPronto(): boolean {
  * Manda para todos os iPhones inscritos do usuario. Devolve quantos receberam e quantos falharam.
  * Inscricao que a Apple diz que nao existe mais (404/410: PWA apagado, permissao tirada) sai da tabela.
  */
-async function pushAll(service: SupabaseClient, userId: string, title: string, body: string, tag: string): Promise<{ ok: number; falhas: number }> {
+async function pushAll(service: SupabaseClient, userId: string, title: string, body: string, tag: string, url = "./"): Promise<{ ok: number; falhas: number }> {
   if (!vapidPronto()) return { ok: 0, falhas: 0 };
   const { data: subs, error } = await service.from("push_subscriptions").select("id, endpoint, p256dh, auth").eq("user_id", userId);
   if (error) throw new Error(`push_subscriptions: ${error.message}`);
   let ok = 0, falhas = 0;
-  const payload = JSON.stringify({ title, body, tag });
+  const payload = JSON.stringify({ title, body, tag, url });
   for (const s of subs ?? []) {
     try {
       await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 6 * 3600, urgency: "high" });
@@ -117,16 +117,16 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
       }
     }
   }
-  // Timer com aviso no iPhone que ja acabou e o tablet nao encerrou (sem internet, desligado): o
+  // Timer que ja acabou e o tablet nao encerrou (sem internet, desligado): o
   // servidor avisa no lugar dele. O tablet tem 90 s para encerrar sozinho; depois de 1 h nao avisa mais.
   if (pushOn) {
     const { data: perdidos } = await service.from("timers").select("id, label, termina_em")
-      .eq("user_id", userId).eq("iphone", true).is("encerrado_em", null).is("deleted_at", null)
+      .eq("user_id", userId).is("encerrado_em", null).is("deleted_at", null)
       .lt("termina_em", new Date(now - 90_000).toISOString()).gt("termina_em", new Date(now - 3600_000).toISOString());
     for (const t of perdidos ?? []) {
       const quando = local(ms(t.termina_em));
       await pushAll(service, userId, t.label ? `Luluco Reef: Timer: ${t.label}` : "Luluco Reef: Timer acabou",
-        `Terminou às ${String(quando.hour).padStart(2, "0")}:${String(quando.minute).padStart(2, "0")}. O tablet não confirmou o toque: confira se ele está ligado e com internet.`, `timer-${t.id}`);
+        `Terminou às ${String(quando.hour).padStart(2, "0")}:${String(quando.minute).padStart(2, "0")}. O tablet não confirmou o toque: confira se ele está ligado e com internet.`, `timer-${t.id}`, "./#relogios");
       await service.from("timers").update({ encerrado_em: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", t.id);
     }
   }
@@ -354,7 +354,8 @@ Deno.serve(async (req) => {
     if (mode === "push_agora") {
       const title = String(body.title ?? "Luluco Reef").slice(0, 80);
       const texto = String(body.body ?? "").slice(0, 200);
-      const r = await pushAll(service, userId, title, texto, `agora-${Date.now()}`);
+      // abre direto em Alarmes e timers, onde fica o "parar o toque no tablet"
+      const r = await pushAll(service, userId, title, texto, `agora-${Date.now()}`, "./#relogios");
       return json({ ok: true, enviados: r.ok, falhas: r.falhas });
     }
     if (mode === "push_test") {

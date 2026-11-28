@@ -30,8 +30,11 @@ async function desenharRelogios(caixa) {
   relCaixa = caixa;
   if (relTique) { clearInterval(relTique); relTique = null; }
   caixa.innerHTML = '';
+  const parar = el('button', 'parar-toque', 'Parar o toque no tablet');
+  parar.onclick = () => pararToque();
+  caixa.appendChild(parar);
   const aviso = el('div', 'sub');
-  aviso.textContent = 'Tudo aqui toca no tablet. O tablet confere o que mudou a cada 20 segundos.';
+  aviso.textContent = 'Tudo aqui toca no tablet. O tablet confere o que mudou a cada 20 segundos (e a cada 3 enquanto toca).';
   caixa.appendChild(aviso);
 
   let timers = [];
@@ -50,8 +53,6 @@ async function desenharRelogios(caixa) {
   caixa.appendChild(el('h3', 'sec', 'Timers'));
   const ct = el('div', 'card');
   caixa.appendChild(ct);
-  let iphone = true;
-  try { iphone = localStorage.getItem('rel_timer_iphone') !== '0'; } catch (_) { /* sem storage */ }
   const nome = document.createElement('input');
   nome.type = 'text';
   nome.placeholder = 'Nome (opcional), ex.: religar a bomba';
@@ -60,7 +61,7 @@ async function desenharRelogios(caixa) {
   const iniciar = async (min) => {
     ocupado(true);
     try {
-      await inserir('timers', { label: nome.value.trim(), termina_em: new Date(Date.now() + min * 60000).toISOString(), iphone });
+      await inserir('timers', { label: nome.value.trim(), termina_em: new Date(Date.now() + min * 60000).toISOString(), iphone: true });
       toast(`Timer de ${min} min no tablet.`);
       await desenharRelogios(caixa);
     } catch (e) { toast(e.message, true); } finally { ocupado(false); }
@@ -73,14 +74,7 @@ async function desenharRelogios(caixa) {
   };
   pre.appendChild(outro);
   ct.appendChild(pre);
-  const li = el('label', 'linha-chave');
-  const ci = document.createElement('input');
-  ci.type = 'checkbox';
-  ci.checked = iphone;
-  ci.onchange = () => { iphone = ci.checked; try { localStorage.setItem('rel_timer_iphone', iphone ? '1' : '0'); } catch (_) { /* ok */ } };
-  li.appendChild(ci);
-  li.appendChild(el('span', null, 'Avisar também no iPhone quando acabar'));
-  ct.appendChild(li);
+  ct.appendChild(el('div', 'sub', 'Quando acabar, toca no tablet e aqui no iPhone ao mesmo tempo.'));
 
   const lt = el('div', 'lista');
   caixa.appendChild(lt);
@@ -92,7 +86,7 @@ async function desenharRelogios(caixa) {
     corpo.appendChild(el('div', 'titulo', t.label || 'Timer'));
     const sub = el('div', 'sub', '');
     corpo.appendChild(sub);
-    conta.push([sub, new Date(t.termina_em).getTime(), t.iphone]);
+    conta.push([sub, new Date(t.termina_em).getTime()]);
     it.appendChild(corpo);
     const x = el('button', 'mini', 'Cancelar');
     x.onclick = async () => {
@@ -105,8 +99,8 @@ async function desenharRelogios(caixa) {
   });
   const pinta = () => {
     const agora = Date.now();
-    conta.forEach(([sub, fim, ip]) => {
-      sub.textContent = fim > agora ? `faltam ${relRestante(fim - agora)} · acaba às ${hm(new Date(fim).getHours(), new Date(fim).getMinutes())}${ip ? ' · avisa no iPhone' : ''}` : 'tocando no tablet';
+    conta.forEach(([sub, fim]) => {
+      sub.textContent = fim > agora ? `faltam ${relRestante(fim - agora)} · acaba às ${hm(new Date(fim).getHours(), new Date(fim).getMinutes())}` : 'tocando no tablet';
     });
     if (!document.body.contains(lt) && relTique) { clearInterval(relTique); relTique = null; }
   };
@@ -225,5 +219,75 @@ function folhaAlarme(a) {
       };
       c.appendChild(apaga);
     }
+  });
+}
+
+/** Pede ao tablet para parar o que estiver tocando (ele confere a cada 3 s enquanto toca). */
+async function pararToque() {
+  relSilenciar();
+  if (!dados.tanque) { toast('Configuração do aquário não carregada.', true); return; }
+  ocupado(true);
+  try {
+    await atualizar('tank_config', dados.tanque.id, { parar_toque_em: new Date().toISOString() });
+    toast('Pedido enviado. O tablet para em alguns segundos.');
+  } catch (e) { toast(e.message, true); } finally { ocupado(false); }
+}
+
+// ---- toque aqui no iPhone com o app aberto (com o app fechado, quem toca e a notificacao)
+let relSom = null;
+function relTocar(titulo, texto) {
+  let tela = document.getElementById('tocando');
+  if (!tela) {
+    tela = el('div', null);
+    tela.id = 'tocando';
+    document.body.appendChild(tela);
+  }
+  tela.innerHTML = '';
+  tela.appendChild(el('div', 'tocando-titulo', titulo.replace(/^Luluco Reef: /, '')));
+  tela.appendChild(el('div', 'tocando-texto', texto));
+  const b = el('button', 'primary', 'Parar aqui e no tablet');
+  b.onclick = () => pararToque();
+  tela.appendChild(b);
+  const so = el('button', null, 'Parar só aqui');
+  so.onclick = () => relSilenciar();
+  tela.appendChild(so);
+  tela.classList.remove('hidden');
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!relSom && Ctx) {
+      const ctx = new Ctx();
+      const bipe = () => {
+        [0, 0.25, 0.5].forEach((t) => {
+          const o = ctx.createOscillator(); const g = ctx.createGain();
+          o.frequency.value = 880; g.gain.value = 0.25;
+          o.connect(g); g.connect(ctx.destination);
+          o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.15);
+        });
+      };
+      if (ctx.resume) ctx.resume();
+      bipe();
+      relSom = { ctx, timer: setInterval(bipe, 1500) };
+    }
+  } catch (_) { /* sem som: fica a tela */ }
+  if (navigator.vibrate) navigator.vibrate([400, 200, 400]);
+}
+
+function relSilenciar() {
+  if (relSom) { clearInterval(relSom.timer); try { relSom.ctx.close(); } catch (_) { /* ok */ } relSom = null; }
+  const tela = document.getElementById('tocando');
+  if (tela) tela.classList.add('hidden');
+}
+
+function abrirRelogios() {
+  abrirAba('mais');
+  mAba = 'relogios';
+  desenharMais();
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    const d = e.data || {};
+    if (d.tocar) relTocar(d.tocar, d.texto || '');
+    if (d.abrir === 'relogios') abrirRelogios();
   });
 }

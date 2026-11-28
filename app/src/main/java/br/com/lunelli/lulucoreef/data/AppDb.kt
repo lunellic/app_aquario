@@ -66,8 +66,8 @@ abstract class AppDb : RoomDatabase() {
         SyncTable("timers", timers(), TimerRow.serializer()),
     )
 
-    /** O que o iPhone controla e precisa chegar rapido: puxado a cada poucos segundos. */
-    fun syncRapido(): List<SyncTable<*>> = syncTables().filter { it.name == "alarms" || it.name == "timers" }
+    /** O que o iPhone controla e precisa chegar rapido (inclusive o "parar o toque", no tank_config). */
+    fun syncRapido(): List<SyncTable<*>> = syncTables().filter { it.name == "alarms" || it.name == "timers" || it.name == "tank_config" }
 
     companion object {
         fun build(context: Context): AppDb =
@@ -108,6 +108,7 @@ abstract class AppDb : RoomDatabase() {
         db.execSQL("ALTER TABLE alarms ADD COLUMN `pending` INTEGER NOT NULL DEFAULT 1")
         val agora = System.currentTimeMillis()
         db.execSQL("UPDATE alarms SET createdAt = $agora, updatedAt = $agora")
+        db.execSQL("ALTER TABLE tank_config ADD COLUMN `pararToqueEm` INTEGER")
         db.execSQL("CREATE TABLE IF NOT EXISTS `timers` (`label` TEXT NOT NULL, `terminaEm` INTEGER NOT NULL, `iphone` INTEGER NOT NULL, `encerradoEm` INTEGER, `id` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `pending` INTEGER NOT NULL, PRIMARY KEY(`id`))")
     } }
     val MIGRATION_6_7 = object : Migration(6, 7) { override fun migrate(db: SupportSQLiteDatabase) {

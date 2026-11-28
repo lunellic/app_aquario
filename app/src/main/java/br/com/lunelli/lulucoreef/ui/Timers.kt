@@ -65,11 +65,8 @@ fun TimerBlock(nav: Nav, compact: Boolean = true) {
                 Spacer(Modifier.width(10.dp))
                 Eyebrow("Timer")
                 Spacer(Modifier.weight(1f))
-                // avisa tambem no iPhone quando acabar (ele sai de perto do aquario e nao ouve o tablet)
-                var iphone by remember { mutableStateOf(Clocks.timerNoIphone(ctx)) }
-                Text("Avisar no iPhone", color = Luluco.TextSoft, fontSize = 13.sp)
-                Spacer(Modifier.width(6.dp))
-                Switch(iphone, { iphone = it; Clocks.timerNoIphone(ctx, it) }, Modifier.testTag("timer_iphone"))
+                // todo timer avisa no iPhone tambem: ele sai de perto do aquario e nao ouve o tablet
+                Text("toca no iPhone também", color = Luluco.TextSoft, fontSize = 13.sp)
             }
             // Tres tempos no Painel, cinco na tela propria. Com seis botoes na coluna estreita do
             // Painel cada um ficava com uns 50 px e o rotulo quebrava no meio: "5 mi", "1 0",

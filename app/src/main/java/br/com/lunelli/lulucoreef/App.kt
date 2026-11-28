@@ -42,7 +42,8 @@ class App : Application() {
         // (fica sempre aberto ao lado do aquario). A sincronizacao completa continua de 15 em 15 min.
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
             while (true) {
-                kotlinx.coroutines.delay(20_000)
+                // tocando: confere a cada 3 s, para o "parar" do iPhone valer na hora
+                kotlinx.coroutines.delay(if (br.com.lunelli.lulucoreef.reminders.Clocks.tocando) 3_000 else 20_000)
                 if (!Api.offlineForTests && graph.session.loggedIn.value) graph.sync.syncRapido()
             }
         }

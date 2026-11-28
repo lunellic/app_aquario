@@ -109,6 +109,7 @@ class SyncEngine(private val context: Context, private val db: AppDb, private va
             tables.forEach { push(it) }
             tables.forEach { pull(it) }
             br.com.lunelli.lulucoreef.reminders.Clocks.recarregar(context)
+            br.com.lunelli.lulucoreef.reminders.Clocks.conferirParada(context)
             true
         } catch (_: Exception) {
             false

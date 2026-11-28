@@ -36,6 +36,8 @@ data class TankConfig(
     val emailSemanalAtivo: Boolean = true,
     val noiteInicio: Int = 0,
     val noiteFim: Int = 7,
+    /** Pedido do iPhone para parar o que estiver tocando no tablet (o tablet para se tocou antes disso). */
+    @Serializable(with = TsSerializer::class) val pararToqueEm: Long? = null,
     @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
     @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
