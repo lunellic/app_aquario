@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import br.com.lunelli.lulucoreef.App
 import br.com.lunelli.lulucoreef.MainActivity
 import br.com.lunelli.lulucoreef.R
+import br.com.lunelli.lulucoreef.data.TimerRow
 import br.com.lunelli.lulucoreef.domain.nextRing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +44,9 @@ data class Ringing(val titulo: String, val alarmId: String?)
  * Os dois usam o AlarmManager, nao uma contagem na tela: o uso real e desligar a bomba ou o skimmer e
  * deixar o tablet de lado, muitas vezes com a tela apagada. Uma contagem em Compose morreria ali.
  *
- * Os timers ficam em SharedPreferences (sao de passagem) e os alarmes no Room, so neste aparelho.
+ * Timers e alarmes ficam no Room e sincronizam, para o iPhone ver, criar e cancelar; quem toca e
+ * sempre o tablet. O que vem do iPhone chega pela sincronizacao rapida (SyncEngine.syncRapido), que
+ * chama recarregar() aqui.
  */
 object Clocks {
     private const val CHANNEL = "timers"
@@ -67,9 +70,40 @@ object Clocks {
 
     // ---------------------------------------------------------------- timers
 
+    private fun db(context: Context) = (context.applicationContext as App).graph.db
+
     fun load(context: Context) {
-        _timers.value = readTimers(context).filter { it.endAt > System.currentTimeMillis() }
-        reschedule(context)
+        val app = context.applicationContext
+        scope.launch { recarregar(app) }
+    }
+
+    /** Le os timers do banco para a tela e reagenda o proximo toque. */
+    suspend fun recarregar(context: Context) {
+        val app = context.applicationContext
+        try {
+            migrarTimersAntigos(app)
+            val now = System.currentTimeMillis()
+            _timers.value = db(app).timers().ativos().filter { it.terminaEm > now }.map { Timer(it.id, it.label, it.terminaEm, it.iphone) }
+        } catch (e: Exception) {
+            android.util.Log.w("Clocks", "timers: ${e.message}")
+        }
+        reschedule(app)
+    }
+
+    /** Timers da versao antiga, guardados nas preferencias, passam para o banco uma vez. */
+    private suspend fun migrarTimersAntigos(app: Context) {
+        val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!prefs.contains(KEY_TIMERS)) return
+        val now = System.currentTimeMillis()
+        readTimers(app).filter { it.endAt > now }.forEach {
+            db(app).timers().upsert(TimerRow(label = it.label, terminaEm = it.endAt, iphone = it.iphone, id = it.id, pending = true))
+        }
+        prefs.edit().remove(KEY_TIMERS).apply()
+    }
+
+    /** Envia ja para o servidor (o iPhone ve em segundos), sem esperar o ciclo de 15 minutos. */
+    private fun enviar(app: Context) {
+        scope.launch { try { (app as App).graph.sync.syncRapido() } catch (_: Exception) { } }
     }
 
     /** Timer novo avisa no iPhone? Ligado por padrao; a escolha fica guardada para os proximos. */
@@ -77,14 +111,30 @@ object Clocks {
     fun timerNoIphone(context: Context, on: Boolean) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_TIMER_IPHONE, on).apply()
 
     fun startTimer(context: Context, minutes: Int, label: String = "") {
-        val t = Timer(java.util.UUID.randomUUID().toString(), label, System.currentTimeMillis() + minutes * 60_000L, timerNoIphone(context))
-        writeTimers(context, readTimers(context).filter { it.endAt > System.currentTimeMillis() } + t)
-        load(context)
+        val app = context.applicationContext
+        val t = TimerRow(label = label, terminaEm = System.currentTimeMillis() + minutes * 60_000L, iphone = timerNoIphone(app), pending = true)
+        // aparece na hora na tela; o banco e o envio vem logo atras
+        _timers.value = _timers.value + Timer(t.id, t.label, t.terminaEm, t.iphone)
+        scope.launch {
+            db(app).timers().upsert(t)
+            recarregar(app)
+            enviar(app)
+        }
     }
 
     fun cancelTimer(context: Context, id: String) {
-        writeTimers(context, readTimers(context).filter { it.id != id })
-        load(context)
+        val app = context.applicationContext
+        _timers.value = _timers.value.filter { it.id != id }
+        scope.launch {
+            encerrar(app, listOf(id))
+            recarregar(app)
+            enviar(app)
+        }
+    }
+
+    private suspend fun encerrar(app: Context, ids: List<String>) {
+        val now = System.currentTimeMillis()
+        ids.forEach { id -> db(app).timers().get(id)?.let { db(app).timers().upsert(it.copy(encerradoEm = now, updatedAt = now, pending = true)) } }
     }
 
     private fun readTimers(context: Context): List<Timer> {
@@ -100,12 +150,6 @@ object Clocks {
         }
     }
 
-    private fun writeTimers(context: Context, list: List<Timer>) {
-        val arr = JSONArray()
-        list.forEach { arr.put(JSONObject().put("id", it.id).put("label", it.label).put("endAt", it.endAt).put("iphone", it.iphone)) }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_TIMERS, arr.toString()).apply()
-    }
-
     // ---------------------------------------------------------------- agenda
 
     private fun pending(context: Context): PendingIntent {
@@ -119,7 +163,7 @@ object Clocks {
         scope.launch {
             val now = System.currentTimeMillis()
             val zone = ZoneId.systemDefault()
-            val doTimer = readTimers(app).filter { it.endAt > now }.minOfOrNull { it.endAt }
+            val doTimer = try { db(app).timers().ativos().filter { it.terminaEm > now }.minOfOrNull { it.terminaEm } } catch (_: Exception) { null }
             val doAlarme = try {
                 (app as App).graph.db.alarms().list().mapNotNull { nextRing(it, now, zone) }.minOrNull()
             } catch (_: Exception) {
@@ -151,10 +195,11 @@ object Clocks {
         val zone = ZoneId.systemDefault()
         try {
             // timers vencidos (1 min de folga para atraso do sistema)
-            val vencidos = readTimers(app).filter { it.endAt <= now + 60_000 }
+            val vencidos = db(app).timers().ativos().filter { it.terminaEm <= now + 60_000 }
             if (vencidos.isNotEmpty()) {
-                writeTimers(app, readTimers(app).filter { it.endAt > now + 60_000 })
-                _timers.value = readTimers(app)
+                encerrar(app, vencidos.map { it.id })
+                _timers.value = _timers.value.filter { t -> vencidos.none { it.id == t.id } }
+                enviar(app)
                 val nome = vencidos.firstOrNull { it.label.isNotBlank() }?.label
                 val titulo = if (nome != null) "Timer: $nome" else "Timer acabou"
                 ring(app, titulo, null, alto = true)
@@ -171,7 +216,7 @@ object Clocks {
                 if (a.avisarIphone) avisarIphone(app, a.titulo.ifBlank { "Alarme" }, "Alarme das ${"%02d:%02d".format(a.hora, a.minuto)}.")
                 // alarme de uma vez so nao volta: desliga depois de tocar
                 if (a.recorrencia == "unica") {
-                    try { (app as App).graph.db.alarms().put(a.copy(ativo = false)) } catch (_: Exception) { }
+                    try { db(app).alarms().upsert(a.copy(ativo = false, updatedAt = System.currentTimeMillis(), pending = true)); enviar(app) } catch (_: Exception) { }
                 }
             }
         } finally {

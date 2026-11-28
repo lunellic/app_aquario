@@ -191,7 +191,7 @@ class SmokeTest {
         val a = br.com.lunelli.lulucoreef.data.Alarm(titulo = "Comida", hora = 8, minuto = 20, recorrencia = "diaria")
         runBlocking {
             app.graph.db.tankConfig().upsert(TankConfig())
-            app.graph.db.alarms().put(a)
+            app.graph.db.alarms().upsert(a)
         }
         app.graph.session.save(JSONObject("""{"access_token":"x","refresh_token":"y","expires_in":999999,"user":{"id":"00000000-0000-0000-0000-000000000001","email":"teste@example.com"}}"""))
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -221,7 +221,7 @@ class SmokeTest {
             .addMigrations(
                 br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_1_2, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_2_3,
                 br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_3_4, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_4_5,
-                br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_5_6, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_6_7,
+                br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_5_6, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_6_7, br.com.lunelli.lulucoreef.data.AppDb.MIGRATION_7_8,
             ).build()
         open().apply { openHelper.writableDatabase; close() }
 
@@ -234,6 +234,7 @@ class SmokeTest {
         raw.execSQL("DROP TABLE finance_entries")
         raw.execSQL("DROP TABLE shopping_items")
         raw.execSQL("DROP TABLE IF EXISTS alarms")
+        raw.execSQL("DROP TABLE IF EXISTS timers")
         // routines volta sem a coluna da v6 (comHorario), que a migracao 5->6 acrescenta
         val rsql = raw.rawQuery("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'routines'", null).use { it.moveToFirst(); it.getString(0) }
         val rv5 = rsql.replace(", `comHorario` INTEGER NOT NULL", "").replace("`comHorario` INTEGER NOT NULL, ", "")
@@ -263,8 +264,12 @@ class SmokeTest {
             // v6: rotina antiga continua com horario
             assertTrue(db.routines().all().first().single { it.id == "r1" }.comHorario)
             val a = br.com.lunelli.lulucoreef.data.Alarm(titulo = "Religar a bomba", hora = 21, minuto = 30)
-            db.alarms().put(a)
+            db.alarms().upsert(a)
             assertEquals("Religar a bomba", db.alarms().get(a.id)!!.titulo)
+            // v8: timers no banco
+            val t8 = br.com.lunelli.lulucoreef.data.TimerRow(label = "Bomba", terminaEm = 5000, pending = true)
+            db.timers().upsert(t8)
+            assertEquals(1, db.timers().ativos().size)
         }
         db.close()
         app.deleteDatabase(name)

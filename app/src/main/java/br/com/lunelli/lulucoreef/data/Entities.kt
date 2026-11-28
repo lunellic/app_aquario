@@ -331,12 +331,13 @@ data class ShoppingItem(
 
 /**
  * Alarme do tablet: toca na hora marcada e nao e tarefa (nao entra no calendario, no "Hoje", na nota
- * de saude nem nos relatorios). Fica so neste aparelho: nao sincroniza e nao entra no backup, porque
- * um alarme que toca so serve no tablet que esta ao lado do aquario.
+ * de saude nem nos relatorios). Toca so no tablet, ao lado do aquario, mas sincroniza para poder ser
+ * visto, criado e editado pelo app do iPhone.
  */
+@Serializable
 @Entity(tableName = "alarms")
 data class Alarm(
-    @PrimaryKey val id: String = newId(),
+    @PrimaryKey override val id: String = newId(),
     val titulo: String = "",
     val hora: Int = 7,
     val minuto: Int = 0,
@@ -348,7 +349,30 @@ data class Alarm(
     val alto: Boolean = true,
     val ativo: Boolean = true,
     /** Para "unica": o dia em que deve tocar (epoch ms). Depois de tocar, o alarme se desliga. */
-    val diaUnico: Long? = null,
+    @Serializable(with = TsSerializer::class) val diaUnico: Long? = null,
     /** Avisa tambem no iPhone (Web Push do PWA) na hora em que tocar. Desligado por padrao. */
     val avisarIphone: Boolean = false,
-)
+    @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
+    @Transient override val pending: Boolean = false,
+) : Syncable
+
+/**
+ * Timer em contagem. Toca no tablet; sincroniza para o iPhone poder ver, criar e cancelar. Acabou
+ * (tocou) ou foi cancelado: `encerradoEm` preenchido, e sai da lista.
+ */
+@Serializable
+@Entity(tableName = "timers")
+data class TimerRow(
+    val label: String = "",
+    @Serializable(with = TsSerializer::class) val terminaEm: Long = System.currentTimeMillis(),
+    /** Avisa tambem no iPhone quando acabar. */
+    val iphone: Boolean = true,
+    @Serializable(with = TsSerializer::class) val encerradoEm: Long? = null,
+    @PrimaryKey override val id: String = newId(),
+    @Serializable(with = TsSerializer::class) val createdAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val updatedAt: Long = System.currentTimeMillis(),
+    @Serializable(with = TsSerializer::class) override val deletedAt: Long? = null,
+    @Transient override val pending: Boolean = false,
+) : Syncable

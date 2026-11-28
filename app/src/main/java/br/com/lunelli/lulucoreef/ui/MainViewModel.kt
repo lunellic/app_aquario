@@ -201,14 +201,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun delete(x: FinanceEntry) = save(x.copy(deletedAt = ts()))
 
     fun save(a: Alarm) = viewModelScope.launch {
-        db.alarms().put(a)
+        db.alarms().upsert(a.copy(updatedAt = ts(), pending = true))
         Clocks.reschedule(getApplication())
+        // vai ja para o servidor, para aparecer no iPhone
+        g.sync.syncRapido()
     }
 
-    fun delete(a: Alarm) = viewModelScope.launch {
-        db.alarms().remove(a.id)
-        Clocks.reschedule(getApplication())
-    }
+    fun delete(a: Alarm) = save(a.copy(deletedAt = ts()))
 
     /** Marca (ou desmarca) gastos no cartao como pagos. Nao muda valor nem data: so o "a pagar". */
     fun setFinancePago(items: List<FinanceEntry>, pago: Boolean) {

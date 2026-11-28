@@ -34,7 +34,7 @@ data class SyncStatus(
  * Offline primeiro: o Room e a fonte de verdade. Aqui: puxa o que mudou no servidor desde o cursor
  * (synced_at) e envia as linhas pendentes. Conflito: vence o updated_at mais recente.
  */
-class SyncEngine(context: Context, private val db: AppDb, private val api: Api, private val session: SessionStore, private val photos: Photos) {
+class SyncEngine(private val context: Context, private val db: AppDb, private val api: Api, private val session: SessionStore, private val photos: Photos) {
     private val prefs = context.getSharedPreferences("sync", Context.MODE_PRIVATE)
     private val mutex = Mutex()
     val status = MutableStateFlow(SyncStatus(lastOkAt = prefs.getLong("last_ok", 0).takeIf { it > 0 }))
@@ -91,6 +91,30 @@ class SyncEngine(context: Context, private val db: AppDb, private val api: Api, 
         if (refazer) prefs.edit().putInt("esquema", esquema).apply()
         tables.forEach { push(it) }
         photos.uploadPending()
+        // alarme ou timer que veio do iPhone precisa entrar no AlarmManager
+        br.com.lunelli.lulucoreef.reminders.Clocks.recarregar(context)
+    }
+
+    /**
+     * Sincronizacao curta, so de alarmes e timers, para o que o iPhone cria chegar ao tablet em
+     * segundos (e o do tablet aparecer no iPhone). Roda a cada poucos segundos com o app aberto;
+     * se a completa estiver rodando, pula a vez.
+     */
+    suspend fun syncRapido(): Boolean = withContext(Dispatchers.IO) {
+        if (!session.loggedIn.value || !mutex.tryLock()) return@withContext false
+        try {
+            val tables = db.syncRapido()
+            // so depois que a completa ja zerou os cursores numa versao nova do banco
+            if (prefs.getInt("esquema", 0) != db.openHelper.readableDatabase.version) return@withContext false
+            tables.forEach { push(it) }
+            tables.forEach { pull(it) }
+            br.com.lunelli.lulucoreef.reminders.Clocks.recarregar(context)
+            true
+        } catch (_: Exception) {
+            false
+        } finally {
+            mutex.unlock()
+        }
     }
 
     suspend fun countPending(): Int = db.syncTables().sumOf { it.dao.pendingCount() } + photos.pendingCount()

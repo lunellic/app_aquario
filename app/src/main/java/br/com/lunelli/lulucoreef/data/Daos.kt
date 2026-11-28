@@ -171,10 +171,20 @@ interface ShoppingItemDao : SyncDao<ShoppingItem> {
 }
 
 @Dao
-interface AlarmDao {
-    @Query("SELECT * FROM alarms ORDER BY hora, minuto") fun all(): Flow<List<Alarm>>
-    @Query("SELECT * FROM alarms") suspend fun list(): List<Alarm>
-    @Query("SELECT * FROM alarms WHERE id = :id") suspend fun get(id: String): Alarm?
-    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(a: Alarm)
-    @Query("DELETE FROM alarms WHERE id = :id") suspend fun remove(id: String)
+interface AlarmDao : SyncDao<Alarm> {
+    @Query("SELECT * FROM alarms WHERE deletedAt IS NULL ORDER BY hora, minuto") fun all(): Flow<List<Alarm>>
+    @Query("SELECT * FROM alarms WHERE deletedAt IS NULL") suspend fun list(): List<Alarm>
+    @Query("SELECT * FROM alarms WHERE id = :id") override suspend fun get(id: String): Alarm?
+    @Query("SELECT * FROM alarms WHERE pending = 1") override suspend fun pending(): List<Alarm>
+    @Query("UPDATE alarms SET pending = 0 WHERE id = :id AND updatedAt = :updatedAt") override suspend fun markSynced(id: String, updatedAt: Long)
+    @Query("SELECT COUNT(*) FROM alarms WHERE pending = 1") override suspend fun pendingCount(): Int
+}
+
+@Dao
+interface TimerDao : SyncDao<TimerRow> {
+    @Query("SELECT * FROM timers WHERE deletedAt IS NULL AND encerradoEm IS NULL ORDER BY terminaEm") suspend fun ativos(): List<TimerRow>
+    @Query("SELECT * FROM timers WHERE id = :id") override suspend fun get(id: String): TimerRow?
+    @Query("SELECT * FROM timers WHERE pending = 1") override suspend fun pending(): List<TimerRow>
+    @Query("UPDATE timers SET pending = 0 WHERE id = :id AND updatedAt = :updatedAt") override suspend fun markSynced(id: String, updatedAt: Long)
+    @Query("SELECT COUNT(*) FROM timers WHERE pending = 1") override suspend fun pendingCount(): Int
 }

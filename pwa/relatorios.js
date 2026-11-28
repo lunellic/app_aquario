@@ -18,11 +18,12 @@ const M_ITENS = [
   ['equipamentos', 'Equipamentos', 'manutencao', () => `${dados.equipamentos.filter((e) => e.ativo).length} em uso`],
   ['produtos', 'Produtos', 'dose', () => `${dados.produtos.length} na lista`],
   ['sal', 'Calculadora de sal', 'tpa', () => 'água nova e corrigir balde'],
+  ['relogios', 'Alarmes e timers', 'timer', () => 'tocam no tablet'],
   ['avisos', 'Avisos no iPhone', 'alerta', () => avisosTexto],
 ];
 // o estado da inscricao e assincrono; o menu mostra o ultimo lido e se atualiza quando chega
 let avisosTexto = '...';
-const M_CORES = { agenda: AREA.painel, aquario: AREA.animal, jornal: AREA.jornal, relatorio: AREA.relatorio, equipamentos: AREA.equip, produtos: AREA.dose, sal: AREA.calc, avisos: AREA.ajustes };
+const M_CORES = { agenda: AREA.painel, aquario: AREA.animal, jornal: AREA.jornal, relatorio: AREA.relatorio, equipamentos: AREA.equip, produtos: AREA.dose, sal: AREA.calc, avisos: AREA.ajustes, relogios: AREA.tpa };
 const SECOES = [
   ['resumo', 'Resumo'], ['testes', 'Testes'], ['consumo', 'Consumo'], ['tpas', 'TPAs'],
   ['produtos', 'Produtos usados'], ['rotinas', 'Rotinas e manutenção'], ['notas', 'Notas e saúde'],
@@ -63,6 +64,7 @@ function desenharMais() {
   else if (mAba === 'produtos') desenharProdutos(caixa);
   else if (mAba === 'sal') desenharSal(caixa);
   else if (mAba === 'avisos') desenharAvisos(caixa);
+  else if (mAba === 'relogios') desenharRelogios(caixa);
   else oRelatorio(caixa);
 }
 

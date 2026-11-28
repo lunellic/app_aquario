@@ -578,3 +578,14 @@ button.perigo { color: var(--critico); }
 /* avisos no iPhone: os dois botoes lado a lado */
 .botoes-avisos { display: flex; gap: 10px; }
 .botoes-avisos button { flex: 1; }
+
+/* alarmes e timers */
+h3.sec { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--suave); font-weight: 600; margin: 18px 2px 8px; }
+.linha-sec { display: flex; align-items: center; justify-content: space-between; }
+.linha-sec h3.sec { margin-bottom: 8px; }
+label.linha-chave { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--creme); }
+label.linha-chave input { width: 22px; height: 22px; accent-color: var(--pool); }
+input[type=time] {
+  background: var(--solido); border: 1px solid var(--borda); border-radius: 12px; color: var(--creme);
+  padding: 13px 14px; width: 100%; -webkit-appearance: none; appearance: none; min-height: 48px;
+}

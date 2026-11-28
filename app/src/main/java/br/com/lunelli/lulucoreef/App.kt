@@ -8,6 +8,7 @@ import br.com.lunelli.lulucoreef.data.SessionStore
 import br.com.lunelli.lulucoreef.data.Settings
 import br.com.lunelli.lulucoreef.data.SyncEngine
 import br.com.lunelli.lulucoreef.data.SyncWorker
+import kotlinx.coroutines.launch
 
 /** Dependencias do app (um modulo, sem framework de injecao). */
 class Graph(app: Application) {
@@ -37,6 +38,14 @@ class App : Application() {
             }
         }
         SyncWorker.schedulePeriodic(this)
+        // Alarmes e timers criados no iPhone: o tablet confere a cada 20 s enquanto o app esta vivo
+        // (fica sempre aberto ao lado do aquario). A sincronizacao completa continua de 15 em 15 min.
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+            while (true) {
+                kotlinx.coroutines.delay(20_000)
+                if (!Api.offlineForTests && graph.session.loggedIn.value) graph.sync.syncRapido()
+            }
+        }
         // Manda o diario guardado (queda da ultima vez, passos da ultima atualizacao) depois que o
         // app ja abriu, fora da linha principal.
         Thread {

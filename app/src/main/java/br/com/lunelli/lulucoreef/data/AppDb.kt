@@ -17,8 +17,8 @@ class Converters {
 }
 
 @Database(
-    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class, FinanceEntry::class, ShoppingItem::class, Alarm::class],
-    version = 7,
+    entities = [TankConfig::class, ParamRange::class, Product::class, Equipment::class, WaterTest::class, WaterChange::class, Dosing::class, Routine::class, RoutineLog::class, Livestock::class, HealthCase::class, HealthEntry::class, Event::class, SpeciesInfo::class, AiAnalysis::class, FinanceEntry::class, ShoppingItem::class, Alarm::class, TimerRow::class],
+    version = 8,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -41,6 +41,7 @@ abstract class AppDb : RoomDatabase() {
     abstract fun finance(): FinanceEntryDao
     abstract fun shopping(): ShoppingItemDao
     abstract fun alarms(): AlarmDao
+    abstract fun timers(): TimerDao
 
     /** Tabelas na ordem de envio (respeita chaves estrangeiras). */
     fun syncTables(): List<SyncTable<*>> = listOf(
@@ -61,11 +62,16 @@ abstract class AppDb : RoomDatabase() {
         SyncTable("ai_analyses", aiAnalyses(), AiAnalysis.serializer()),
         SyncTable("shopping_items", shopping(), ShoppingItem.serializer()),
         SyncTable("finance_entries", finance(), FinanceEntry.serializer()),
+        SyncTable("alarms", alarms(), Alarm.serializer()),
+        SyncTable("timers", timers(), TimerRow.serializer()),
     )
+
+    /** O que o iPhone controla e precisa chegar rapido: puxado a cada poucos segundos. */
+    fun syncRapido(): List<SyncTable<*>> = syncTables().filter { it.name == "alarms" || it.name == "timers" }
 
     companion object {
         fun build(context: Context): AppDb =
-            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
+            Room.databaseBuilder(context, AppDb::class.java, "luluco.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build()
 
         /** v2: water_tests.baixaConfianca. */
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -93,7 +99,18 @@ abstract class AppDb : RoomDatabase() {
         }
 
         /** v6: rotina sem horario. */
-        val MIGRATION_6_7 = object : Migration(6, 7) { override fun migrate(db: SupportSQLiteDatabase) {
+        /** v8: alarmes passam a sincronizar (iPhone) e timers saem das preferencias para o banco. */
+    val MIGRATION_7_8 = object : Migration(7, 8) { override fun migrate(db: SupportSQLiteDatabase) {
+        // alarmes que ja existiam vao para o servidor no primeiro envio (pending = 1)
+        db.execSQL("ALTER TABLE alarms ADD COLUMN `createdAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE alarms ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE alarms ADD COLUMN `deletedAt` INTEGER")
+        db.execSQL("ALTER TABLE alarms ADD COLUMN `pending` INTEGER NOT NULL DEFAULT 1")
+        val agora = System.currentTimeMillis()
+        db.execSQL("UPDATE alarms SET createdAt = $agora, updatedAt = $agora")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `timers` (`label` TEXT NOT NULL, `terminaEm` INTEGER NOT NULL, `iphone` INTEGER NOT NULL, `encerradoEm` INTEGER, `id` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `deletedAt` INTEGER, `pending` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+    } }
+    val MIGRATION_6_7 = object : Migration(6, 7) { override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE alarms ADD COLUMN `avisarIphone` INTEGER NOT NULL DEFAULT 0") } }
     val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {

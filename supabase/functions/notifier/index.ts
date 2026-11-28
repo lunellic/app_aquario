@@ -117,6 +117,20 @@ async function tick(service: SupabaseClient, userId: string, now: number): Promi
       }
     }
   }
+  // Timer com aviso no iPhone que ja acabou e o tablet nao encerrou (sem internet, desligado): o
+  // servidor avisa no lugar dele. O tablet tem 90 s para encerrar sozinho; depois de 1 h nao avisa mais.
+  if (pushOn) {
+    const { data: perdidos } = await service.from("timers").select("id, label, termina_em")
+      .eq("user_id", userId).eq("iphone", true).is("encerrado_em", null).is("deleted_at", null)
+      .lt("termina_em", new Date(now - 90_000).toISOString()).gt("termina_em", new Date(now - 3600_000).toISOString());
+    for (const t of perdidos ?? []) {
+      const quando = local(ms(t.termina_em));
+      await pushAll(service, userId, t.label ? `Luluco Reef: Timer: ${t.label}` : "Luluco Reef: Timer acabou",
+        `Terminou às ${String(quando.hour).padStart(2, "0")}:${String(quando.minute).padStart(2, "0")}. O tablet não confirmou o toque: confira se ele está ligado e com internet.`, `timer-${t.id}`);
+      await service.from("timers").update({ encerrado_em: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", t.id);
+    }
+  }
+
   // resumo das 23h30: o que ainda falta do dia, inclusive o que nao tem horario (sai mesmo no modo noite,
   // e o lembrete que o Lucas pediu para todo dia). O tick roda de 5 em 5 minutos; a chave do dia
   // garante um so. Depois da meia-noite nao manda mais: aquilo ja virou atrasado.
@@ -210,7 +224,7 @@ ${h.score == null ? `<p>Faltam dados: ${esc(h.missing.join(", "))}.</p>` : h.ite
 }
 
 const BACKUP_TABLES = ["tank_config", "param_ranges", "water_tests", "water_changes", "products", "dosings", "routines", "routine_logs", "events",
-  "livestock", "health_cases", "health_entries", "equipment", "finance_entries", "shopping_items", "species_info", "ai_analyses", "temperature_readings"];
+  "livestock", "health_cases", "health_entries", "equipment", "finance_entries", "shopping_items", "alarms", "species_info", "ai_analyses", "temperature_readings"];
 
 /** Copia de todos os dados do usuario em JSON, anexada num e-mail para a propria conta (backup diario e botao "Exportar meus dados"). */
 async function backupEmail(service: SupabaseClient, userId: string, email: string, auto: boolean): Promise<string> {
